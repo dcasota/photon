@@ -17,6 +17,10 @@ Distribution:   Photon
 
 Source0:       https://sourceforge.net/projects/e1000/files/iavf%20stable/%{src_ver}/iavf-%{src_ver}.tar.gz
 
+%if "%{src_ver}" == "4.13.16"
+Release:        1%{?kernelsubrelease}%{?dist}
+%endif
+
 %if "%{src_ver}" == "4.11.1"
 Release:        4%{?kernelsubrelease}%{?dist}
 
@@ -76,7 +80,11 @@ This Linux package contains the Linux kernel doc files including files that
 were left unpackaged from %{kern_pkg_name} in the %{_mandir}.
 
 %prep
+%if "%{src_ver}" == "4.13.16"
+%autosetup -p1 -n ethernet-linux-iavf-%{src_ver}
+%else
 %autosetup -p1 -n iavf-%{src_ver}
+%endif
 
 %build
 make -C src KSRC=%{_modulesdir}/build %{?_smp_mflags}
@@ -107,6 +115,11 @@ find %{buildroot}%{_modulesdir} -name *.ko -type f -print0 | xargs -0 chmod u+x
 %{_mandir}/*
 
 %changelog
+%if "%{src_ver}" == "4.13.16"
+* Wed Oct 08 2025 Ajay Kaher <ajay.kaher@broadcom.com> %{PKG_VERSION}-1
+- Initial addition of iavf v4.13.16
+%endif
+
 %if "%{src_ver}" == "4.11.1"
 * Thu Mar 20 2025 Ankit Jain <ankit-aj.jain@broadcom.com> %{PKG_VERSION}-4
 - Bump-up to build with kmod-34.1
