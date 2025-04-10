@@ -1,7 +1,7 @@
 Name:           kpatch
 Summary:        Dynamic kernel patching
 Version:        0.9.8
-Release:        6%{?dist}
+Release:        7%{?dist}
 URL:            http://github.com/dynup/kpatch
 Group:          System Environment/Kernel
 Vendor:         VMware, Inc.
@@ -30,6 +30,8 @@ Patch3:         kpatch-build-ignore-init-version-timestamp-o.patch
 Patch4:         0001-create-diff-object-support-x86-NOP-padded-functions.patch
 Patch5:         0002-kpatch-compatibility-with-Photon-gcc-RAP-patch.patch
 Patch6:         0003-patch-hook-fix-cast-errors.patch
+
+Patch7:         0001-Support-multiline-MODULE_DESCRIPTION.patch
 
 BuildRequires:  make
 BuildRequires:  gcc
@@ -121,6 +123,10 @@ cp %{SOURCE4} %{buildroot}%{_sysconfdir}/gen_livepatch/build-rpm.spec
 %{_sysconfdir}/gen_livepatch/build-rpm.spec
 
 %changelog
+* Wed Jun 04 2025 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 0.9.8-7
+- Limit auto generated livepatch kernel module name to 38 characters
+- Added support for multiline module descriptions
+- Removed redirection of stderr to /dev/null
 * Fri May 09 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 0.9.8-6
 - Require coreutils only
 * Mon Apr 28 2025 Tapas Kundu <tapas.kundu@broadcom.com> 0.9.8-5
