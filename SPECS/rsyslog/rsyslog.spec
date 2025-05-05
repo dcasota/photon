@@ -1,7 +1,7 @@
 Summary:        Rocket-fast system for log processing
 Name:           rsyslog
 Version:        8.2504.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://www.rsyslog.com
 Group:          System Environment/Base
 Vendor:         VMware, Inc.
@@ -73,6 +73,7 @@ install -p -m 644 %{SOURCE1} %{buildroot}%{_unitdir}
 install -p -m 644 %{SOURCE2} %{buildroot}%{_sysconfdir}/systemd/journald.conf.d
 install -p -m 644 %{SOURCE3} %{buildroot}%{_sysconfdir}/rsyslog.conf
 find %{buildroot} -name '*.la' -delete
+install -d -m 700 %{buildroot}%{_sharedstatedir}/rsyslog
 
 %if 0%{?with_check}
 %check
@@ -100,8 +101,11 @@ make %{?_smp_mflags} check
 %dir %{_sysconfdir}/rsyslog.d
 %{_sysconfdir}/systemd/journald.conf.d/*
 %config(noreplace) %{_sysconfdir}/rsyslog.conf
+%dir %{_sharedstatedir}/rsyslog
 
 %changelog
+* Wed Jun 04 2025 Tapas Kundu <tapas.kundu@broadcom.com> 8.2504.0-2
+- Add imjournal.state file in conf to store the position in the journal
 * Thu May 29 2025 Tapas Kundu <tapas.kundu@broadcom.com> 8.2504.0-1
 - Update to 8.2504.0
 * Mon Apr 28 2025 Tapas Kundu <tapas.kundu@broadcom.com> 8.2306.0-5
