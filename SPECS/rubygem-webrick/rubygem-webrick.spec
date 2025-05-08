@@ -3,8 +3,8 @@
 %global gem_name webrick
 
 Name:           rubygem-webrick
-Version:        1.7.0
-Release:        3%{?dist}
+Version:        1.9.1
+Release:        1%{?dist}
 Summary:        HTTP server toolkit
 Group:          Development/Languages
 Vendor:         VMware, Inc.
@@ -40,6 +40,8 @@ a proxy server, and a virtual-host server.
 %{gemdir}
 
 %changelog
+* Tue May 06 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 1.9.1-1
+- Upgrade to 1.9.1
 * Mon Mar 03 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.7.0-3
 - Build gems properly
 * Wed Dec 11 2024 Shivani Agarwal <shivani.agarwal@broadcom.com> 1.7.0-2

@@ -1,6 +1,6 @@
 sources:
-    - archive: ruby-3.1.4.tar.gz
-      archive_sha512sum: 41cf1561dd7eb249bb2c2f5ea958884880648cc1d11da9315f14158a2d0ff94b2c5c7d75291a67e57e1813d2ec7b618e5372a9f18ee93be6ed306f47b0d3199a
+    - archive: ruby-3.4.3.tar.gz
+      archive_sha512sum: 7019889939713c3e649003fed4d973dced36239fc354cfdee2d01dbdeb7e8512881a31b00efc3d5017f08cd492aed7914d15927bc8d076c0cae7534273e471e9
       skip_validation: true
       spdx:
           package:
@@ -79,15 +79,4 @@ sources:
                   AND CPOL-1.02 AND GFDL-1.1-invariants-or-later AND CC0-1.0 AND Python-2.0
                   AND NCGL-UK-2.0 AND AGPL-3.0-only
               short_summary: Ruby
-              supplier: "Organization: Broadcom, Inc."
-    - archive: rexml-3.3.9.tar.gz
-      archive_sha512sum: cc38609e5321f157b0a9ea793386017c8d4f743aabd66fc31a8f450f68c57e89825ec1d549efc4e2459ae952e57bbc87d47f9a0affa457639b89b9374e0bb137
-      skip_validation: true
-      spdx:
-          package:
-              detailed_description: REXML supports both tree and stream document parsing
-              home_page: https://github.com/ruby/rexml
-              license_concluded: BSD-2-Clause
-              license_declared: BSD-2-Clause
-              short_summary: REXML supports both tree and stream document parsing
               supplier: "Organization: Broadcom, Inc."

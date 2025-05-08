@@ -1,6 +1,6 @@
 sources:
-- archive: nokogiri-1.13.9.gem
-  archive_sha512sum: 207161fcf74aa1d1550841765268746e72d74b7516b34daf61cc5e7dc6af8fec4866f2734cd53afaf17fc546c92c3709a72f9e72da13071f65465855abf89bfa
+- archive: nokogiri-1.18.8.gem
+  archive_sha512sum: 972f5d3aba21a2e9baa373c19344dcc4fe6bc6190b1ae7b6eccd34af5d4be025df1172c57e25ae82b4b3e71d95fd418e5e7a8e981958da6ff34a240ea90a4040
   skip_validation: true
   spdx:
     package:

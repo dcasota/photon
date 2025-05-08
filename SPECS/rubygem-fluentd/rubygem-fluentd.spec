@@ -3,7 +3,7 @@
 %global gem_name fluentd
 
 Name:           rubygem-fluentd
-Version:        1.15.3
+Version:        1.18.0
 Release:        1%{?dist}
 Summary:        An open source data collector designed to scale and simplify log management
 Group:          Development/Languages
@@ -46,7 +46,7 @@ Requires: rubygem-tzinfo >= 1.0.0
 Requires: rubygem-tzinfo-data > 1.0.0
 Requires: rubygem-yajl-ruby >= 1.0
 Requires: rubygem-bundler >= 1.14.0
-Requires: rubygem-webrick >= 1.4.2, rubygem-webrick < 1.8.0
+Requires: rubygem-webrick >= 1.4.2, rubygem-webrick < 1.9.2
 Requires: rubygem-concurrent-ruby
 Requires: ruby
 
@@ -71,6 +71,8 @@ It can collect, process and ship many kinds of data in near real-time.
 %{gemdir}
 
 %changelog
+* Tue May 06 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 1.18.0-1
+- Upgrade to 1.18.0
 * Mon Apr 28 2025 Mukul Sikka <mukul.sikka@broadcom.com> 1.15.3-1
 - Upgrade to 1.15.3
 * Thu Apr 17 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.15.2-5

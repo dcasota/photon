@@ -3,7 +3,7 @@
 
 Name: rubygem-hpricot
 Version:        0.8.6
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        a swift, liberal HTML parser with a fantastic library
 Group:          Development/Library
 URL:            https://rubygems.org/gems/%{gem_name}/versions/%{version}
@@ -38,6 +38,8 @@ very accommodating and to have a very helpful library
 %{gem_base}
 
 %changelog
+* Tue May 06 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 0.8.6-6
+- Spec bump with ruby upgrade
 * Wed Dec 11 2024 Shivani Agarwal <shivani.agarwal@broadcom.com> 0.8.6-5
 - Release bump for SRP compliance
 * Tue Apr 30 2024 Shivani Agarwal <shivani.agarwal@broadcom.com> 0.8.6-4

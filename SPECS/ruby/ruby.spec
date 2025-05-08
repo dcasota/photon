@@ -1,30 +1,15 @@
-%define new_rexml_version   3.3.9
-%define old_rexml_version   3.2.5
-
 Summary:        Ruby
 Name:           ruby
-Version:        3.1.4
-Release:        12%{?dist}
+Version:        3.4.3
+Release:        1%{?dist}
 URL:            https://www.ruby-lang.org/en
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
 Distribution:   Photon
 
-Source0:        https://cache.ruby-lang.org/pub/ruby/3.1/%{name}-%{version}.tar.gz
-
-Patch1:         CVE-2024-27281.patch
-Patch2:         CVE-2024-27280.patch
-Patch3:         CVE-2023-36617-1.patch
-Patch4:         CVE-2023-36617-2.patch
-Patch5:         CVE-2024-27282.patch
-Patch6:         0001-Modify-code-to-upgrade-rexml-%{old_rexml_version}-to-rexml-%{new_rexml_version}.patch
-Patch7:         CVE-2025-27219.patch
-Patch8:         CVE-2025-27220.patch
-Patch9:         CVE-2025-27221-1.patch
-Patch10:        CVE-2025-27221-2.patch
+Source0:        https://cache.ruby-lang.org/pub/ruby/3.4/%{name}-%{version}.tar.gz
 
 Source1:        macros.ruby
-Source2:        rexml-%{new_rexml_version}.tar.gz
 
 Source3: license.txt
 %include %{SOURCE3}
@@ -34,10 +19,14 @@ BuildRequires:  ca-certificates
 BuildRequires:  readline-devel
 BuildRequires:  readline
 BuildRequires:  tzdata
+BuildRequires:  libffi-devel
+BuildRequires:  libyaml-devel
 
 Requires:       ca-certificates
 Requires:       openssl
 Requires:       gmp
+Requires:       libffi
+Requires:       libyaml
 
 # CVE-2025-0306 requires "rsa: add implicit rejection in PKCS#1 v1.5 patch in openssl".
 # This patch is present in openssl from 3.0.13-2 version
@@ -72,22 +61,6 @@ Header files for doing development with ruby.
 %autosetup -p1
 
 %build
-# Modification to upgrade rexml-3.2.5 to rexml-3.3.9
-rexml_dir=".bundle/gems/rexml-%{old_rexml_version}"
-[ -d "${rexml_dir}" ] && rm -rf "${rexml_dir}" || exit 1
-tar -xpf %{SOURCE2} -C .bundle/gems
-
-rm gems/rexml-%{old_rexml_version}.gem
-cp -p .bundle/gems/rexml-%{new_rexml_version}/rexml-%{new_rexml_version}.gem gems/
-
-# below loop fixes the files in libexec to point correct ruby
-# Only verfied and to be used with ruby version 2.7.1
-# Any future versions needs to be verified
-for f in $(grep -ril "\/usr\/local\/bin\/ruby" ./libexec/); do
-  sed -i "s|/usr/local/bin/ruby|/usr/bin/ruby|g" $f
-  head -1 $f
-done
-
 %configure \
   --enable-shared \
   --docdir=%{_docdir}/%{name}-%{version} \
@@ -133,6 +106,8 @@ rm -rf %{buildroot}/*
 %{_rpmmacrodir}/macros.ruby
 
 %changelog
+* Thu May 29 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 3.4.3-1
+- Upgrade to ruby 3.4.3
 * Fri May 09 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.1.4-12
 - Require coreutils only
 * Mon Mar 24 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.1.4-11
