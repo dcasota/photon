@@ -1,7 +1,7 @@
 Summary:        Utilities for internationalization and localization
 Name:           gettext
 Version:        0.22.5
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://www.gnu.org/software/gettext
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -23,6 +23,7 @@ Patch8:         libxml2-CVE-2024-25062.patch
 Patch9:         libxml2-CVE-2024-56171.patch
 Patch10:        libxml2-CVE-2025-24928.patch
 Patch11:        libxml2-CVE-2025-27113.patch
+Patch12:        libxml2-CVE-2025-32415.patch
 
 Requires: libgcc
 Requires: libstdc++
@@ -61,17 +62,17 @@ This package contains libraries used internationalization support.
 
 # Apply patches to gnulib-local/lib/libxml
 pushd gnulib-local/lib/libxml
-%autopatch -p1 -m0 -M11
+%autopatch -p1 -m0 -M12
 popd
 
 # Apply patches to gettext-tools/gnulib-lib/libxml
 pushd gettext-tools/gnulib-lib/libxml
-%autopatch -p1 -m0 -M11
+%autopatch -p1 -m0 -M12
 popd
 
 # Apply patches to libtextstyle/lib/libxml
 pushd libtextstyle/lib/libxml
-%autopatch -p1 -m0 -M11
+%autopatch -p1 -m0 -M12
 popd
 
 %build
@@ -127,6 +128,8 @@ make %{?_smp_mflags} check
 %{_docdir}/*
 
 %changelog
+* Wed Jun 04 2025 Mukul Sikka <mukul.sikka@broadcom.com> 0.22.5-2
+- Fix for CVE-2025-32415
 * Thu May 22 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 0.22.5-1
 - Introduce devel & libs sub packages
 * Tue Mar 04 2025 Mukul Sikka <mukul.sikka@broadcom.com> 0.21.1-5
