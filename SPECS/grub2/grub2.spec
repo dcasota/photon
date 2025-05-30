@@ -1,11 +1,11 @@
 %define debug_package %{nil}
 
-%define grub_photon_generation 2
+%define grub_photon_generation 3
 
 Summary:    GRand Unified Bootloader
 Name:       grub2
-Version:    2.06
-Release:    21%{?dist}
+Version:    2.12
+Release:    1%{?dist}
 URL:        http://www.gnu.org/software/grub
 Group:      Applications/System
 Vendor:     VMware, Inc.
@@ -217,6 +217,7 @@ diff -sr install-for-efi%{_datarootdir} install-for-pc%{_datarootdir}
 %config() %{_sysconfdir}/grub.d/00_header
 %config() %{_sysconfdir}/grub.d/10_linux
 %config() %{_sysconfdir}/grub.d/20_linux_xen
+%config() %{_sysconfdir}/grub.d/25_bli
 %config() %{_sysconfdir}/grub.d/30_os-prober
 %config() %{_sysconfdir}/grub.d/30_uefi-firmware
 %config(noreplace) %{_sysconfdir}/grub.d/40_custom
@@ -259,6 +260,9 @@ diff -sr install-for-efi%{_datarootdir} install-for-pc%{_datarootdir}
 %{_datarootdir}/locale/*
 
 %changelog
+* Wed May 28 2025 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.12-1
+- Update to grub 2.12
+- Sync fedora patches
 * Fri Feb 28 2025 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.06-21
 - Include a fix to fs/ext2 code to address initramfs unpack failure caused by previous commit
 - https: //bugzilla.redhat.com/show_bug.cgi?id=2346804
