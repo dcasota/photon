@@ -1,7 +1,7 @@
 Summary:        Intrusion detection environment
 Name:           aide
-Version:        0.17.4
-Release:        7%{?dist}
+Version:        0.19
+Release:        1%{?dist}
 URL:            https://github.com/aide/aide
 Group:          System Environment/Base
 Vendor:         VMware, Inc.
@@ -51,7 +51,6 @@ checker and intrusion detection program.
 
 %build
 export HAVE_CHECK=1
-autoreconf -ivf
 %configure  \
   --disable-static \
   --with-config_file=%{_sysconfdir}/%{name}.conf \
@@ -97,6 +96,8 @@ rm -rf %{buildroot}/*
 %{_var}/log/%{name}
 
 %changelog
+* Mon Jun 02 2025 Harinadh Dommaraju <harinadh.dommaraju@broadcom.com> 0.19-1
+- Version upgrade
 * Wed Mar 19 2025 Vamsi Krishna Brahmajosuyula <vamsi-krishna.brahmajosyula@vmware.com> 0.17.4-7
 - Introduce license.txt
 * Thu Aug 24 2023 Shreenidhi Shedi <sshedi@vmware.com> 0.17.4-6
