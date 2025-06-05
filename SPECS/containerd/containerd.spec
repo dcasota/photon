@@ -4,8 +4,8 @@
 
 Summary:        Containerd
 Name:           containerd
-Version:        1.6.21
-Release:        13%{?dist}
+Version:        2.1.1
+Release:        1%{?dist}
 URL:            https://containerd.io/docs
 Group:          Applications/File
 Vendor:         VMware, Inc.
@@ -14,7 +14,7 @@ Distribution:   Photon
 Source0: https://github.com/containerd/containerd/archive/%{name}-%{version}.tar.gz
 
 # Must be in sync with package version
-%define CONTAINERD_GITCOMMIT 3dce8eb055cbb6872793272b4f20ed16117344f8
+%define CONTAINERD_GITCOMMIT cb1076646aa3740577fafbf3d914198b7fe8e3f7
 
 Source1: %{name}-config.toml
 Source2: disable-%{name}-by-default.preset
@@ -23,16 +23,16 @@ Source3: license.txt
 %include %{SOURCE3}
 
 Patch0: %{name}-service.patch
-Patch1: build-bin-gen-manpages-instead-of-using-go-run.patch
 
 BuildRequires: btrfs-progs
 BuildRequires: btrfs-progs-devel
 BuildRequires: libseccomp
 BuildRequires: libseccomp-devel
 # Upstream is unhappy with 1.14. 1.13 or 1.15+ is OK
-BuildRequires: go >= 1.16
+BuildRequires: go >= 1.23
 BuildRequires: go-md2man
 BuildRequires: systemd-devel
+BuildRequires:  procps-ng
 
 Requires: libseccomp
 Requires: systemd
@@ -117,7 +117,6 @@ make %{?_smp_mflags} integration
 %defattr(-,root,root)
 %{_bindir}/ctr
 %{_bindir}/%{name}
-%{_bindir}/%{name}-shim
 %{_datadir}/licenses/%{name}
 %{_unitdir}/%{name}.service
 %{_presetdir}/50-%{name}.preset
@@ -125,7 +124,6 @@ make %{?_smp_mflags} integration
 
 %files extras
 %defattr(-,root,root)
-%{_bindir}/%{name}-shim-runc-v1
 %{_bindir}/%{name}-shim-runc-v2
 %{_bindir}/%{name}-stress
 
@@ -136,6 +134,8 @@ make %{?_smp_mflags} integration
 %{_mandir}/man8/*
 
 %changelog
+* Wed Jun 04 2025 Mukul Sikka <mukul.sikka@broadcom.com> 2.1.1-1
+- Upgrade to v2.1.1.
 * Thu Dec 12 2024 HarinadhD <harinadh.dommaraju@broadcom.com> 1.6.21-13
 - Release bump for SRP compliance
 * Thu Sep 19 2024 Mukul Sikka <mukul.sikka@broadcom.com> 1.6.21-12

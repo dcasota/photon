@@ -1,7 +1,15 @@
 sources:
-- archive: containerd-1.6.21.tar.gz
-  archive_sha512sum: a94ed8b8b9e153c9dc370228b659fcba1b03b3c47c8b5fcb001bb1b4b158ea048159f5d8d8c5294e7da3444edd76fbd903d7b7faa84e3382807a583d757325e1
-  skip_validation: true
+- archive: containerd-2.1.1.tar.gz
+  archive_type: upstream
+  version: 2.1.1
+  name: containerd-2.1.1
+  url: https://github.com/containerd/containerd/archive/refs/tags/v2.1.1.tar.gz
+  repo_url: https://github.com/containerd/containerd.git
+  commit_id: cb1076646aa3740577fafbf3d914198b7fe8e3f7
+  skip_list: []
+  missing: []
+  archive_sha512sum: 542f7cae61e1ef2e1b529b0bea66d7ad9016d4605de73de9c9c8a738e50ec6f470b939d1546482320515b77424bffe1cf24b721173ac0c0ecd0100c92817cfb1
+  skip_validation: false
   spdx:
     package:
       detailed_description: 'Containerd is an open source project. It is available
