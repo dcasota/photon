@@ -1,19 +1,199 @@
 sources:
-- archive: libfmt-8.0.1.zip
-  archive_sha512sum: 53f781e33ffb3bc38d743b81c5755a7d71dce95dcf5cdf23d5b4cf880a8f29189ca1b790272ee8586cbcd552648bae040247e572b2a97cd8b3631c284873f57d
-  skip_validation: true
-  spdx:
-    package:
-      detailed_description: The fmt package is an open-source formatting library providing
-        a fast and safe alternative to C stdio and C++ iostreams.
-      home_page: https://github.com/fmtlib/fmt
-      license_concluded: MIT AND (MIT OR CC0-1.0) AND BSD-3-Clause AND Python-2.0
-      license_declared: MIT AND (MIT OR CC0-1.0) AND BSD-3-Clause AND Python-2.0
-      short_summary: fmt is an open-source formatting library.
-      supplier: 'Organization: Broadcom, Inc.'
-- archive: mariadb-10.9.4.tar.gz
-  archive_sha512sum: 9fc5d71c08cb07efc777ef3ebd97dc4953de8aa46750f52c2dabea5af63b52938ca4b54221184f1b4fbb71b94dade27c90756123ddef51959a7b5d43c3b8d986
-  skip_validation: true
+- archive: mariadb-11.4.7.tar.gz
+  archive_sha512sum: dba29199afcda7a974116f64bf7765444d8239455266f4a226396d228c2feaa03ba6551e1ef53e75efce833c109fac34a05a70c74a1c3e2cd06e4a7b2326b5c9
+  archive_type: upstream
+  commit_id: 118cfcf82107188f2295631193658b2ef94f4f3f
+  skip_validation: false
+  name: mariadb-11.4.7
+  version: 11.4.7
+  repo_url: https://github.com/MariaDB/server
+  url: https://archive.mariadb.org/mariadb-11.4.7/source/mariadb-11.4.7.tar.gz
+  skip_list: []
+  missing:
+  - wolfssl.vcproj
+  - .cyignore
+  - third-party
+  - WINDOWS_PORT.md
+  - build_tools
+  - SCRIPTS-LIST
+  - primitives
+  - version.h.in
+  - .gitattributes
+  - m4
+  - env
+  - .travis.yml
+  - DEVELOPING.md
+  - .editorconfig
+  - .circleci
+  - setup-repo.sh
+  - memtable
+  - rpm
+  - LICENSE.Apache
+  - utilities
+  - LICENSE.md
+  - HISTORY.md
+  - TARGETS
+  - GNUmakefile
+  - hdfs
+  - CONTRIBUTORS.txt
+  - libmarias3
+  - dbsim
+  - db_stress_tool
+  - fuzz
+  - stamp-h.in
+  - ChangeLog.md
+  - fips-hash.sh
+  - datatypes
+  - coverage
+  - java
+  - oamapps
+  - unittest
+  - extra
+  - configure.ac
+  - Makefile
+  - table
+  - Docker
+  - CONTRIBUTOR_AGREEMENT.txt
+  - COPYING
+  - core_dumps
+  - mysql-test
+  - microbench
+  - BUILD.md
+  - ddlproc
+  - utils
+  - wolfssl
+  - input
+  - .clang-tidy
+  - LPCExpresso.project
+  - support
+  - tests
+  - storage-manager
+  - db
+  - thirdparty.inc
+  - oam
+  - LICENSE.leveldb
+  - valgrind-error.sh
+  - CODE_OF_CONDUCT.md
+  - INFO_SRC
+  - mplabx
+  - appveyor-download.bat
+  - mcsconfig.h.in
+  - plugin
+  - AUTHORS
+  - CodeTree
+  - memory
+  - quit
+  - include
+  - Dockerfile.patch
+  - tools
+  - gencertbuf.pl
+  - port
+  - zephyr
+  - testsuite
+  - yy_mariadb.cc
+  - commit-tests.sh
+  - dbcon
+  - CONTRIBUTING.md
+  - monitoring
+  - src.mk
+  - cache
+  - LPCExpresso.cproject
+  - .clang-format
+  - .watchmanconfig
+  - mariadb_config
+  - options
+  - wolfssl-VS2022.vcxproj
+  - PLUGINS.md
+  - debian
+  - doc
+  - VERSION
+  - ci-scripts
+  - DUMP_FORMAT.md
+  - .gitignore
+  - async-check.sh
+  - wolfssl.vcxproj
+  - wolfssl64.sln
+  - .codespellexcludelines
+  - plugins
+  - pull_to_vagrant.sh
+  - valgrind-bash.supp
+  - examples
+  - travis.sh
+  - fips-check.sh
+  - issue_template.md
+  - README.rst
+  - Makefile.am
+  - mqx
+  - ROCKSDB_LITE.md
+  - IDE
+  - wrapper
+  - test_util
+  - LANGUAGE-BINDINGS.md
+  - versioning
+  - install-deps.sh
+  - buckifier
+  - autogen.sh
+  - tirtos
+  - win-iconv
+  - VERSION.txt
+  - .gitmodules
+  - docs
+  - util
+  - Vagrantfile
+  - mcapi
+  - src
+  - yy_oracle.cc
+  - INSTALL.md
+  - libmarias3.pc.in
+  - man
+  - gitversionEngine.in
+  - README.md
+  - certs
+  - logging
+  - DEFAULT_OPTIONS_HISTORY.md
+  - wnr-example.conf
+  - cmapi
+  - yy_mariadb.hh
+  - INSTALL
+  - win
+  - file
+  - build
+  - .lgtm.yml
+  - linuxkm
+  - trace_replay
+  - sslSniffer
+  - cmake
+  - scripts
+  - RTOS
+  - appveyor.yml
+  - rdb_source_revision.h
+  - wolfcrypt
+  - wolfssl.rc
+  - benchmark
+  - CMakeLists.txt
+  - libmariadb
+  - COPYING.LIB
+  - yy_oracle.hh
+  - README
+  - external
+  - resource.h
+  - writeengine
+  - yatl
+  - columnstoreversion.h.in
+  - benchmarks
+  - USERS.md
+  - .wolfssl_known_macro_extras
+  - wsrep-API
+  - .vscode
+  - test
+  - source_revision.h
+  - LICENSING
+  - .drone.jsonnet
+  - dmlproc
+  - LICENSE
+  - .github
+  - defs.bzl
+  - client
   spdx:
     package:
       detailed_description: 'MariaDB is a community developed fork from MySQL - a
@@ -22,31 +202,35 @@ sources:
         and libraries. The base package contains the standard MariaDB/MySQL client
         programs and utilities. '
       home_page: https://mariadb.org
-      license_concluded: GPL-3.0-or-later WITH Autoconf-exception-macro AND GPL-3.0-only
-        AND OpenSSL AND ISC-Veillard AND (MIT OR BSD-3-Clause OR GPL-1.0-or-later)
-        AND SSLeay-standalone AND dtoa AND blessing AND (GPL-2.0-only OR Apache-2.0)
-        AND (MIT OR BSD-3-Clause OR GPL-2.0-only) AND GPL-2.0-only AND MIT AND OFL-1.1
-        AND (MIT OR GPL-2.0-only) AND FSFAP AND BSD-2-Clause-first-lines AND X11-distribute-modifications-variant
-        AND Apache-2.0 AND LGPL-2.0-only AND RSA-MD AND BSD-4-Clause-UC AND GPL-2.0-or-later
-        WITH Libtool-exception AND (GPL-2.0-only OR Apache-2.0) AND Zlib AND GPL-1.0-or-later
-        AND ISC AND GPL-2.0-or-later AND BSL-1.0 AND LPD-document AND LGPL-2.1-only
-        AND CC-BY-SA-4.0 AND BSD-2-Clause-Views AND LGPL-2.1-or-later AND GPL-3.0-or-later
-        WITH Autoconf-exception-2.0 AND PostgreSQL AND BSD-Source-Code AND CC-BY-4.0
-        AND Artistic-2.0 AND BSD-3-Clause AND FSFULLR AND GPL-2.0-only WITH Universal-FOSS-exception-1.0
-        AND NGPL AND OpenSSL-standalone AND BSD-2-Clause AND GPL-1.0-only AND LGPL-2.0-or-later
-        AND CC0-1.0
-      license_declared: GPL-3.0-or-later WITH Autoconf-exception-macro AND GPL-3.0-only
-        AND OpenSSL AND ISC-Veillard AND (MIT OR BSD-3-Clause OR GPL-1.0-or-later)
-        AND SSLeay-standalone AND dtoa AND blessing AND (GPL-2.0-only OR Apache-2.0)
-        AND (MIT OR BSD-3-Clause OR GPL-2.0-only) AND GPL-2.0-only AND MIT AND OFL-1.1
-        AND (MIT OR GPL-2.0-only) AND FSFAP AND BSD-2-Clause-first-lines AND X11-distribute-modifications-variant
-        AND Apache-2.0 AND LGPL-2.0-only AND RSA-MD AND BSD-4-Clause-UC AND GPL-2.0-or-later
-        WITH Libtool-exception AND (GPL-2.0-only OR Apache-2.0) AND Zlib AND GPL-1.0-or-later
-        AND ISC AND GPL-2.0-or-later AND BSL-1.0 AND LPD-document AND LGPL-2.1-only
-        AND CC-BY-SA-4.0 AND BSD-2-Clause-Views AND LGPL-2.1-or-later AND GPL-3.0-or-later
-        WITH Autoconf-exception-2.0 AND PostgreSQL AND BSD-Source-Code AND CC-BY-4.0
-        AND Artistic-2.0 AND BSD-3-Clause AND FSFULLR AND GPL-2.0-only WITH Universal-FOSS-exception-1.0
-        AND NGPL AND OpenSSL-standalone AND BSD-2-Clause AND GPL-1.0-only AND LGPL-2.0-or-later
-        AND CC0-1.0
+      license_concluded: (BSD-3-Clause OR GPL-2.0-only) AND (Artistic-1.0-Perl OR
+        GPL-1.0-or-later) AND (GPL-2.0-only OR Apache-2.0) AND (GPL-2.0-only OR Artistic-1.0-Perl)
+        AND RSA-MD AND ISC-Veillard AND CC-BY-SA-4.0 AND MIT AND PHP-3.01 AND AGPL-3.0-only
+        AND GPL-3.0-or-later WITH GCC-exception-3.1 AND LPD-document AND Apache-2.0
+        AND Unicode-TOU AND GPL-3.0-or-later AND CC-BY-4.0 AND GPL-2.0-only WITH Universal-FOSS-exception-1.0
+        AND LGPL-2.0-only AND BSD-3-Clause AND SSLeay-standalone AND GPL-3.0-only
+        AND ISC AND GPL-2.0-or-later WITH Libtool-exception AND blessing AND Artistic-1.0
+        AND OpenSSL AND FSFULLR AND X11-distribute-modifications-variant AND PHP-3.0
+        AND BSD-2-Clause-Views AND LGPL-2.1-or-later AND OpenSSL-standalone AND BSD-Source-Code
+        AND LGPL-2.0-or-later AND GPL-2.0-only AND GPL-3.0-or-later WITH Autoconf-exception-macro
+        AND Artistic-2.0 AND OFL-1.1 AND Zlib AND GPL-3.0-or-later WITH Autoconf-exception-2.0
+        AND HPND-sell-variant-MIT-disclaimer AND BSL-1.0 AND FSFAP AND LGPL-2.1-only
+        AND GPL-1.0-or-later AND GPL-1.0-only AND BSD-2-Clause AND NGPL AND curl AND
+        GPL-3.0-or-later WITH Bison-exception-2.2 AND dtoa AND BSD-4-Clause-UC AND
+        BSD-2-Clause-first-lines AND GPL-2.0-or-later AND CC0-1.0
+      license_declared: (BSD-3-Clause OR GPL-2.0-only) AND (Artistic-1.0-Perl OR GPL-1.0-or-later)
+        AND (GPL-2.0-only OR Apache-2.0) AND (GPL-2.0-only OR Artistic-1.0-Perl) AND
+        RSA-MD AND ISC-Veillard AND CC-BY-SA-4.0 AND MIT AND PHP-3.01 AND AGPL-3.0-only
+        AND GPL-3.0-or-later WITH GCC-exception-3.1 AND LPD-document AND Apache-2.0
+        AND Unicode-TOU AND GPL-3.0-or-later AND CC-BY-4.0 AND GPL-2.0-only WITH Universal-FOSS-exception-1.0
+        AND LGPL-2.0-only AND BSD-3-Clause AND SSLeay-standalone AND GPL-3.0-only
+        AND ISC AND GPL-2.0-or-later WITH Libtool-exception AND blessing AND Artistic-1.0
+        AND OpenSSL AND FSFULLR AND X11-distribute-modifications-variant AND PHP-3.0
+        AND BSD-2-Clause-Views AND LGPL-2.1-or-later AND OpenSSL-standalone AND BSD-Source-Code
+        AND LGPL-2.0-or-later AND GPL-2.0-only AND GPL-3.0-or-later WITH Autoconf-exception-macro
+        AND Artistic-2.0 AND OFL-1.1 AND Zlib AND GPL-3.0-or-later WITH Autoconf-exception-2.0
+        AND HPND-sell-variant-MIT-disclaimer AND BSL-1.0 AND FSFAP AND LGPL-2.1-only
+        AND GPL-1.0-or-later AND GPL-1.0-only AND BSD-2-Clause AND NGPL AND curl AND
+        GPL-3.0-or-later WITH Bison-exception-2.2 AND dtoa AND BSD-4-Clause-UC AND
+        BSD-2-Clause-first-lines AND GPL-2.0-or-later AND CC0-1.0
       short_summary: Database servers made by the original developers of MySQL.
       supplier: 'Organization: Broadcom, Inc.'
