@@ -4,8 +4,8 @@
 
 Summary:        Standalone, extensible Perl module installer
 Name:           perl-Module-Install
-Version:        1.19
-Release:        4%{?dist}
+Version:        1.21
+Release:        1%{?dist}
 Group:          Development/Libraries
 URL:            http://search.cpan.org/dist/Module-Install/
 Source0:        https://cpan.metacpan.org/authors/id/E/ET/ETHER/Module-Install-%{version}.tar.gz
@@ -50,6 +50,8 @@ make %{?_smp_mflags} test AUTOMATED_TESTING=1
 %{_mandir}/man3/*
 
 %changelog
+*   Wed Jun 11 2025 Dweep Advani <dweep.advani@broadcom.com> 1.21-1
+-   Upgrade to 1.21
 *   Thu Dec 12 2024 Dweep Advani <dweep.advani@broadcom.com> 1.19-4
 -   Release bump for SRP compliance
 *   Thu Dec 08 2022 Dweep Advani <dadvani@vmware.com> 1.19-3

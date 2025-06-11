@@ -1,7 +1,7 @@
 Summary:        Handle Common Gateway Interface requests and responses
 Name:           perl-CGI
-Version:        4.54
-Release:        4%{?dist}
+Version:        4.69
+Release:        1%{?dist}
 Group:          Development/Libraries
 URL:            http://search.cpan.org/dist/CGI
 Vendor:         VMware, Inc.
@@ -73,6 +73,8 @@ make %{?_smp_mflags} test
 %{_mandir}/man3/*.3*
 
 %changelog
+* Wed Jun 11 2025 Dweep Advani <dweep.advani@broadcom.com> 4.69-1
+- Upgrade to 4.69
 * Fri May 09 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 4.54-4
 - Require coreutils only
 * Thu Dec 12 2024 Dweep Advani <dweep.advani@broadcom.com> 4.54-3

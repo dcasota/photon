@@ -2,7 +2,7 @@
 Summary:       Simple data types for common serialization formats
 Name:          perl-Types-Serialiser
 Version:       1.01
-Release:       2%{?dist}
+Release:       3%{?dist}
 Group:         Development/Libraries
 URL:           http://search.cpan.org/dist/Types-Serialiser/
 Source0:       http://search.cpan.org/CPAN/authors/id/M/ML/MLEHMANN/Types-Serialiser-%{version}.tar.gz
@@ -54,6 +54,8 @@ rm -rf %{buildroot}
 %{_mandir}/man3/*
 
 %changelog
+* Wed Jun 11 2025 Dweep Advani <dweep.advani@broadcom.com> 1.01-3
+- Release bump for perl 5.40.2
 * Thu Dec 12 2024 Dweep Advani <dweep.advani@broadcom.com> 1.01-2
 - Release bump for SRP compliance
 * Thu Dec 08 2022 Gerrit Photon <photon-checkins@vmware.com> 1.01-1

@@ -1,7 +1,7 @@
 Summary:        Perl extension for generating and using LALR parsers
 Name:           perl-Parse-Yapp
 Version:        1.21
-Release:        5%{?dist}
+Release:        6%{?dist}
 URL:            https://metacpan.org/release/Parse-Yapp
 Group:          Development/Libraries/Perl
 Vendor:         VMware, Inc.
@@ -50,6 +50,8 @@ make test %{?_smp_mflags}
 %{_mandir}/man3/*.3*
 
 %changelog
+* Wed Jun 11 2025  Dweep Advani <dweep.advani@broadcom.net> 1.21-6
+- Release bump for perl 5.40.2
 * Fri May 09 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.21-5
 - Require coreutils only
 * Thu Dec 12 2024 Dweep Advani <dweep.advani@broadcom.com> 1.21-4
