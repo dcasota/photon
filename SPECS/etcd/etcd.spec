@@ -2,7 +2,7 @@
 Summary:        Distributed reliable key-value store
 Name:           etcd
 Version:        3.5.12
-Release:        8%{?dist}
+Release:        9%{?dist}
 URL:            https://github.com/etcd-io/etcd
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -87,6 +87,8 @@ rm -rf %{buildroot}/*
 %endif
 
 %changelog
+* Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 3.5.12-9
+- Bump version as a part of go upgrade
 * Fri Jan 10 2025 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.5.12-8
 - Fix go input dependencies which have Capital letters in name.
 * Wed Jan 08 2025 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.5.12-7

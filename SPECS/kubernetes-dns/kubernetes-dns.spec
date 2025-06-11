@@ -3,7 +3,7 @@
 Summary:        Kubernetes DNS
 Name:           kubernetes-dns
 Version:        1.22.20
-Release:        13%{?dist}
+Release:        14%{?dist}
 URL:            https://github.com/kubernetes/dns/archive/%{version}.tar.gz
 Source0:        https://github.com/kubernetes/dns/archive/refs/tags/%{name}-%{version}.tar.gz
 
@@ -61,6 +61,8 @@ rm -rf %{buildroot}/*
 %{_bindir}/sidecar-e2e
 
 %changelog
+* Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 1.22.20-14
+- Bump version as a part of go upgrade
 * Wed Dec 11 2024 Mukul Sikka <mukul.sikka@broadcom.com> 1.22.20-13
 - Release bump for SRP compliance
 * Thu Sep 19 2024 Mukul Sikka <mukul.sikka@broadcom.com> 1.22.20-12

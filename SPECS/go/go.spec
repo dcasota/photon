@@ -13,8 +13,8 @@
 
 Summary:        Go
 Name:           go
-Version:        1.21.13
-Release:        2%{?dist}
+Version:        1.23.10
+Release:        1%{?dist}
 URL:            https://golang.org
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -27,9 +27,6 @@ Source1: license.txt
 
 Requires:       glibc
 Requires:       gcc
-
-Patch1: CVE-2024-34156.patch
-Patch2: CVE-2024-34158.patch
 
 %define ExtraBuildRequires go
 
@@ -121,6 +118,8 @@ rm -rf %{buildroot}/*
 %{_bindir}/*
 
 %changelog
+* Fri Jun 06 2025 Mukul Sikka <msikka@vmware.com> 1.23.10-1
+- Upgrade to 1.23.10
 * Wed Dec 11 2024 Tapas Kundu <tapas.kundu@broadcom.com> 1.21.13-2
 - Release bump for SRP compliance
 * Thu Sep 19 2024 Mukul Sikka <msikka@vmware.com> 1.21.13-1

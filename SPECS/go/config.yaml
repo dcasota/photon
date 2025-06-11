@@ -1,6 +1,6 @@
 sources:
-- archive: go1.21.13.src.tar.gz
-  archive_sha512sum: f316984154ead8256d9ec0613e3cfef5699553387d87c24bb2a96265f986bf4450838e6451841def3713d65ebaa9bf55e36ff39c5690d79522e1c1ba7655be2f
+- archive: go1.23.10.src.tar.gz
+  archive_sha512sum: 20639185b05720aa8bb295c54e3eaa7cf56739763544d28ce14a6f0323bf890900d5fad13086032291fbefad4482f1442772875bbdf16a94e2286eb405c8f327
   skip_validation: true
   spdx:
     package:

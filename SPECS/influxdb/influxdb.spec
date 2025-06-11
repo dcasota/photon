@@ -3,7 +3,7 @@
 
 Name:           influxdb
 Version:        1.8.10
-Release:        15%{?dist}
+Release:        16%{?dist}
 Summary:        InfluxDB is an open source time series database
 URL:            https://influxdata.com
 Source0:        https://github.com/influxdata/influxdb/archive/%{name}-%{version}.tar.gz
@@ -112,6 +112,8 @@ chown -R %{name}:%{name} /var/log/%{name}
 %{_sysusersdir}/%{name}.sysusers
 
 %changelog
+* Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 1.8.10-16
+- Bump version as a part of go upgrade
 * Fri Jan 10 2025 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 1.8.10-15
 - Fix srp input declaration when package names have Capital letters
 * Wed Jan 08 2025 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 1.8.10-14

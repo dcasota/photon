@@ -1,7 +1,7 @@
 Summary:        Kubernetes Dashboard UI
 Name:           kubernetes-dashboard
 Version:        2.7.0
-Release:        21%{?dist}
+Release:        22%{?dist}
 URL:            https://github.com/kubernetes/dashboard
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -71,6 +71,8 @@ cp -pr ./dist/amd64/locale_conf.json ./dist/amd64/public \
 /opt/k8dashboard/public/*
 
 %changelog
+* Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 2.7.0-22
+- Bump version as a part of go upgrade
 * Wed Dec 11 2024 Mukul Sikka <mukul.sikka@broadcom.com> 2.7.0-21
 - Release bump for SRP compliance
 * Wed Dec 04 2024 Shivani Agarwal <shivani.agarwal@broadcom.com> 2.7.0-20

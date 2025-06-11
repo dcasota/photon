@@ -9,7 +9,7 @@
 Summary:        A sidecar process for managing HAProxy.
 Name:           haproxy-dataplaneapi
 Version:        2.7.1
-Release:        18%{?dist}
+Release:        19%{?dist}
 URL:            %{repo}
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -54,6 +54,8 @@ rm -rf %{buildroot}/*
 %{_libexecdir}/haproxy/%{srcname}
 
 %changelog
+* Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 2.7.1-19
+- Bump version as a part of go upgrade
 * Wed Mar 05 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.7.1-18
 - Spec cleanups
 * Fri Jan 10 2025 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.7.1-17

@@ -1,7 +1,7 @@
 Summary:        Container Network Interface (CNI) plugins
 Name:           cni
 Version:        1.1.1
-Release:        13%{?dist}
+Release:        14%{?dist}
 URL:            https://github.com/containernetworking/plugins
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -41,6 +41,8 @@ make -k check %{?_smp_mflags}
 %{_default_cni_plugins_dir}/*
 
 %changelog
+* Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 1.1.1-14
+- Bump version as a part of go upgrade
 * Thu Dec 12 2024 HarinadhD <harinadh.dommaraju@broadcom.com> 1.1.1-13
 - Release bump for SRP compliance
 * Thu Sep 19 2024 Mukul Sikka <mukul.sikka@broadcom.com> 1.1.1-12
