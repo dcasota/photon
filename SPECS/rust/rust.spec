@@ -1,10 +1,10 @@
-%define toolchain_prefix        2023-06-01
-%define bootstrap_toolchain_ver 1.70.0
+%define toolchain_prefix 2025-04-03
+%define bootstrap_toolchain_ver 1.86.0
 
 Summary:        Rust Programming Language
 Name:           rust
-Version:        1.71.1
-Release:        5%{?dist}
+Version:        1.87.0
+Release:        1%{?dist}
 URL:            https://github.com/rust-lang/rust
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -33,8 +33,6 @@ Source3: https://static.rust-lang.org/dist/%{toolchain_prefix}/rust-std-%{bootst
 Source4: license.txt
 %include %{SOURCE4}
 
-Patch0: 0001-Convert-valid-feature-name-warning-to-an-error.patch
-
 BuildRequires: cmake
 BuildRequires: glibc-devel
 BuildRequires: binutils-devel
@@ -44,10 +42,12 @@ BuildRequires: openssl-devel
 BuildRequires: libssh2-devel
 BuildRequires: zlib-devel
 BuildRequires: clang
-BuildRequires: llvm-devel
 BuildRequires: xz-devel
 BuildRequires: libxml2-devel
 BuildRequires: ncurses-devel
+# Use bundled llvm instead of system provided,
+# because it requires to update llvm
+#BuildRequires: llvm-devel
 
 Requires: glibc
 Requires: gcc
@@ -68,8 +68,11 @@ pushd src/tools/cargo
 %autopatch -p1 -M0
 popd
 
-# Remove other unused vendored libraries
-rm -rf src/llvm-project/
+# Remove other unused vendored libraries except 'llvm' and 'cmake'
+%define libraries libunwind clang clang-tools-extra lldb lld compiler-rt runtimes llvm-libgcc
+for library in %{libraries}; do
+  rm -rf src/llvm-project/$library
+done
 
 mkdir -p src/llvm-project/libunwind/ \
          build/cache/%{toolchain_prefix}/
@@ -81,7 +84,13 @@ sh ./configure \
     --prefix=%{_prefix} \
     --enable-extended \
     --tools="cargo" \
-    --llvm-root=%{_prefix} \
+    --disable-llvm-static-stdcpp \
+    --disable-llvm-bitcode-linker \
+    --disable-lld \
+    --disable-rpath \
+    --disable-ninja \
+    --set build.optimized-compiler-builtins=false \
+    --set rust.llvm-tools=false \
     --disable-codegen-tests \
     --enable-vendor
 
@@ -90,7 +99,6 @@ sh ./configure \
 %install
 %make_install %{?_smp_mflags}
 find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' -exec chmod -v +x '{}' '+'
-rm %{buildroot}%{_docdir}/%{name}/html/.lock %{buildroot}%{_docdir}/%{name}/*.old
 
 %clean
 rm -rf %{buildroot}/*
@@ -107,23 +115,18 @@ rm -rf %{buildroot}/*
 %{_mandir}/man1/*
 %{_libdir}/lib*.so
 %{_libdir}/rustlib/*
-%{_libexecdir}/cargo-credential-1password
 %{_bindir}/rust-gdb
 %{_bindir}/rust-gdbgui
-%doc %{_docdir}/%{name}/html/*
-%exclude %{_docdir}/%{name}/html/.stamp
-%doc %{_docdir}/%{name}/README.md
-%doc %{_docdir}/%{name}/COPYRIGHT
-%doc %{_docdir}/%{name}/LICENSE-APACHE
-%doc %{_docdir}/%{name}/LICENSE-MIT
-%doc src/tools/rustfmt/{README,CHANGELOG,Configurations}.md
-%doc src/tools/clippy/{README.md,CHANGELOG.md}
 %{_bindir}/cargo
 %{_datadir}/zsh/*
-%doc %{_docdir}/%{name}/LICENSE-THIRD-PARTY
 %{_sysconfdir}/bash_completion.d/cargo
+%doc %{_docdir}
+%doc src/tools/rustfmt/{README,CHANGELOG,Configurations}.md
+%doc src/tools/clippy/{README.md,CHANGELOG.md}
 
 %changelog
+* Wed Jun 18 2025 Ankit Jain <ankit-aj.jain@vbroadcom.com> 1.87.0-1
+- Update to v1.87.0
 * Wed Dec 11 2024 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.71.1-5
 - Release bump for SRP compliance
 * Thu Jul 18 2024 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.71.1-4

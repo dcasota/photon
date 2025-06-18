@@ -1,6 +1,6 @@
 sources:
-- archive: cargo-1.70.0-x86_64-unknown-linux-gnu.tar.xz
-  archive_sha512sum: 9e7a61ff6bb5a67a0ea4138259e0289c285ef7a5b3fbcad5ddcf780d2d5ec36000a5a3757b9a182b020abf646a25de3509789cf7df0fd4236231d5b92157c4e5
+- archive: cargo-1.86.0-x86_64-unknown-linux-gnu.tar.xz
+  archive_sha512sum: 19ef3de97fc0a21bde800c5a10bfda835d9cc48399d473b65e245d2b16d42e172454579eca4c4acd72107e0a5796d82ea185b834a2d9a23cf27e74c02232bc3e
   skip_validation: true
   spdx:
     package:
@@ -16,8 +16,8 @@ sources:
         GPL-2.0-only WITH GCC-exception-2.0
       short_summary: cargo bootstrap toolchain to build rust-lang
       supplier: 'Organization: Broadcom, Inc.'
-- archive: rust-std-1.70.0-x86_64-unknown-linux-gnu.tar.xz
-  archive_sha512sum: 81ff6c73da530a5a0397ad777de2a33f7773eb58c38ba04410a3751a744c68631b0b02840170f5507c44cb4e9d2be882860e2ce663a406333ab6c57d73596956
+- archive: rust-std-1.86.0-x86_64-unknown-linux-gnu.tar.xz
+  archive_sha512sum: 4e6c73db6eb9235d0656eaa04d968d7e0ee0b1beb132e59affcfcb9141e3da0861fdf900109c66221a20bc70d4150f19955419ff865b34aa5b883d7b4fc0ab0b
   skip_validation: true
   spdx:
     package:
@@ -29,8 +29,8 @@ sources:
         AND MIT AND Apache-2.0 AND BSD-2-Clause AND Apache-2.0 WITH LLVM-exception
       short_summary: std toolchain requried to build rust-lang
       supplier: 'Organization: Broadcom, Inc.'
-- archive: rustc-1.70.0-x86_64-unknown-linux-gnu.tar.xz
-  archive_sha512sum: 790ff039749654fa3ff2f481e5fe8012e3b5fe75d075c2210e49cd4093d3d3ddcdb6690e4d9b3012e7d6361a9629ab909723f1dee8171de1f87b6b418c99aaf9
+- archive: rustc-1.86.0-x86_64-unknown-linux-gnu.tar.xz
+  archive_sha512sum: 849d324b79918a1796288425b5121e6ca1d55a7588dfa1d284c07c2f6c39ee94775b4e74dbd7e99cf9b471b3744d403310455b33e898378d09ecad853d1f0c88
   skip_validation: true
   spdx:
     package:
@@ -44,8 +44,8 @@ sources:
         OR Apache-2.0)
       short_summary: Bootstrap toolchain requried to build rust-lang
       supplier: 'Organization: Broadcom, Inc.'
-- archive: rustc-1.71.1-src.tar.xz
-  archive_sha512sum: fd0e5a16bdbeb539184513583089e55f681cb772810df357b6b1464853f7022ac02edab3dd155b2262ed0047e2a25dea3808dd078dcdfce9d399384465009db4
+- archive: rustc-1.87.0-src.tar.xz
+  archive_sha512sum: 2ef08c9be45434401f916d54b3739f52d255f8a3a4ce05a717499250c2333eeaf601f1d18085b878c027c609f44da74d0151f5bfc2c9ae1e01166919a91a1d2b
   skip_validation: true
   spdx:
     package:

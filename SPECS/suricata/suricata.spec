@@ -1,7 +1,7 @@
 Summary:        Intrusion Detection System
 Name:           suricata
 Version:        7.0.6
-Release:        2%{?dist}
+Release:        3%{?dist}
 Vendor:         VMware, Inc.
 Distribution:   Photon
 URL:            https://suricata.io
@@ -170,6 +170,8 @@ make %{?_smp_mflags} check
 %{_datadir}/%{name}/rules
 
 %changelog
+* Tue Jun 17 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 7.0.6-3
+- Bump to build with updated rust
 * Thu Dec 12 2024 Dweep Advani <dweep.advani@broadcom.com> 7.0.6-2
 - Release bump for SRP compliance
 * Mon Jul 15 2024 Mukul Sikka <mukul.sikka@broadcom.com> 7.0.6-1
