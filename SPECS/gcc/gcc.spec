@@ -4,7 +4,7 @@
 Summary:        Contains the GNU compiler collection
 Name:           gcc
 Version:        12.2.0
-Release:        6%{?dist}
+Release:        7%{?dist}
 URL:            http://gcc.gnu.org
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -244,6 +244,9 @@ GFORTRAN_SUM_FILE=host-%{_host}/gcc/testsuite/gfortran/gfortran.sum
 %{_lib64dir}/libgomp.spec
 
 %changelog
+* Wed Jun 18 2025 Brennan Lamoreaux <brennan.lamoreaux@broadcom.com> 12.2.0-7
+- Move new enum value for PLUGIN_BEFORE_STRUCT_LAYOUT to the end,
+- to maintain compatibility.
 * Tue Mar 25 2025 Brennan Lamoreaux <brennan.lamoreaux@broadcom.com> 12.2.0-6
 - Add plugin callback before struct layout
 * Wed Dec 11 2024 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 12.2.0-5
