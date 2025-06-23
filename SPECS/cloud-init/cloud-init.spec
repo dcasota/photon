@@ -1,8 +1,8 @@
 %define cl_services cloud-config.service cloud-config.target cloud-final.service %{name}.service %{name}.target %{name}-local.service
 
 Name:           cloud-init
-Version:        25.1
-Release:        2%{?dist}
+Version:        25.1.3
+Release:        1%{?dist}
 Summary:        Cloud instance init scripts
 Group:          System Environment/Base
 URL:            http://launchpad.net/cloud-init
@@ -150,6 +150,8 @@ rm -rf %{buildroot}
 %{_datadir}/bash-completion/completions/%{name}
 
 %changelog
+* Thu Jun 26 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 25.1.3-1
+- Upgrade to v25.1.3
 * Mon Apr 28 2025 Tapas Kundu <tapas.kundu@broadcom.com> 25.1-2
 - cloud init does not need ipaddr any more and its deprecated and superceded by ipaddress
 * Thu Feb 27 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 25.1-1
