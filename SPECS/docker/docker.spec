@@ -3,8 +3,8 @@
 %define __os_install_post %{nil}
 
 # Must be in sync with package version
-%define DOCKER_ENGINE_GITCOMMIT 3ab5c7d
-%define DOCKER_CLI_GITCOMMIT 3ab4256
+%define DOCKER_ENGINE_GITCOMMIT e6534b4
+%define DOCKER_CLI_GITCOMMIT e6534b4
 
 %define gopath_comp_engine github.com/docker/docker
 %define gopath_comp_cli github.com/docker/cli
@@ -12,8 +12,8 @@
 
 Summary:        Docker
 Name:           docker
-Version:        27.3.1
-Release:        6%{?dist}
+Version:        28.2.2
+Release:        1%{?dist}
 URL:            http://docs.docker.com
 Group:          Applications/File
 Vendor:         VMware, Inc.
@@ -32,8 +32,6 @@ Source5:       default-disable.preset
 Source6: license.txt
 %include %{SOURCE6}
 
-Patch0:        bridge-networking.patch
-
 BuildRequires:  systemd-devel
 BuildRequires:  device-mapper-devel
 BuildRequires:  btrfs-progs-devel
@@ -41,7 +39,7 @@ BuildRequires:  libseccomp-devel
 BuildRequires:  libltdl-devel
 BuildRequires:  libgcc-devel
 BuildRequires:  glibc-devel
-BuildRequires:  go
+BuildRequires:  go >= 1.23
 BuildRequires:  go-md2man
 BuildRequires:  cmake
 BuildRequires:  sed
@@ -107,7 +105,7 @@ Use dockerd-rootless-setuptool.sh to setup systemd for dockerd-rootless.sh.
 # Using autosetup is not feasible
 %setup -q -c -n moby-%{version}
 pushd moby-%{version}
-%autopatch -p1 0
+%autopatch -p1
 popd
 
 mkdir -p "$(dirname "src/%{gopath_comp_engine}")" \
@@ -117,10 +115,19 @@ mkdir -p "$(dirname "src/%{gopath_comp_engine}")" \
 
 mv moby-%{version} src/%{gopath_comp_engine}
 
+pushd src/%{gopath_comp_engine}
+rm -f man/go.mod
+popd
+
 tar -xf %{SOURCE2}
 mv cli-%{version} src/%{gopath_comp_cli}
 
 tar -C src/%{gopath_comp_libnetwork} -xf %{SOURCE1}
+
+pushd "src/%{gopath_comp_cli}"
+cp vendor.mod go.mod
+cp vendor.sum go.sum
+popd
 
 %build
 export GOPATH="${PWD}"
@@ -208,7 +215,6 @@ install -p -m 644 src/%{gopath_comp_cli}/contrib/completion/bash/docker %{buildr
 # install manpages
 install -p -m 644 src/%{gopath_comp_cli}/man/man1/*.1 %{buildroot}%{_mandir}/man1
 install -p -m 644 src/%{gopath_comp_cli}/man/man5/*.5 %{buildroot}%{_mandir}/man5
-install -p -m 644 src/%{gopath_comp_cli}/man/man8/*.8 %{buildroot}%{_mandir}/man8
 
 # vimfiles are now upstream, no vim files installed
 
@@ -295,13 +301,14 @@ rm -rf %{buildroot}/*
 %doc
 %{_mandir}/man1/*
 %{_mandir}/man5/*
-%{_mandir}/man8/*
 
 %files rootless
 %{_bindir}/dockerd-rootless.sh
 %{_bindir}/dockerd-rootless-setuptool.sh
 
 %changelog
+* Wed Jun 25 2025 Mukul Sikka <mukul.sikka@broadcom.com> 28.2.2-1
+- Upgrade to v28.2.2
 * Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 27.3.1-6
 - Bump version as a part of go upgrade
 * Mon Apr 21 2025 Harinadh Dommaraju <Harinadh.Dommaraju@broadcom.com> 27.3.1-5
