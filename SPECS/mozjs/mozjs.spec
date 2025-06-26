@@ -3,7 +3,7 @@
 Summary:       SpiderMonkey JavaScript library
 Name:          mozjs
 Version:       102.12.0
-Release:       7%{?dist}
+Release:       8%{?dist}
 Group:         Applications/System
 Vendor:        VMware, Inc.
 URL:           https://spidermonkey.dev
@@ -142,6 +142,8 @@ find %{buildroot} -name '*.la' -delete
 %{_includedir}/%{name}-%{major}
 
 %changelog
+* Mon Jun 23 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 102.12.0-8
+- Bump to build with updated clang
 * Tue Jun 17 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 102.12.0-7
 - Bump for building with updated rust
 * Fri Apr 11 2025 Mukul Sikka <mukul.sikka@broadcom.com> 102.12.0-6

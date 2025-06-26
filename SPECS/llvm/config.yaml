@@ -1,6 +1,6 @@
 sources:
-- archive: cmake-15.0.7.src.tar.xz
-  archive_sha512sum: a87c3c0976c7295e5d51f7a3dbd4129c4b5ff0dc95bac494a5011641743a5950a0aa7d9c44fae570284573b9f673a395fc3160b45b6b4ba54ced9ed5f21dd717
+- archive: cmake-18.1.8.src.tar.xz
+  archive_sha512sum: e02243b491f9e688db28d7b53270fcf87debf09d3c95b136a7c7b96e26890de68712c60a1e85f5a448a95ad8c81f2d8ae77047780822443bbe39f1a9e6211007
   skip_validation: true
   spdx:
     package:
@@ -12,8 +12,8 @@ sources:
       short_summary: These are CMake modules to be shared between LLVM projects strictly
         at build time.
       supplier: 'Organization: Broadcom, Inc.'
-- archive: llvm-15.0.7.src.tar.xz
-  archive_sha512sum: ed8d565515b1bc6164e4ff06d3388ba92e332850305496fd65db9adf1ec87bd9dd1bfde49dd41be5d5216289efc72bfd287cd7392f2bba80b740d4c314c749e5
+- archive: llvm-18.1.8.src.tar.xz
+  archive_sha512sum: 930814730bb2d80cf7f7b2968f0f1f1442009ca62a7ca29992b69d63823270584b059d16aa845bb381411da566e7e4f255fcfbc38acbdf865eb0419b4dfd7459
   skip_validation: true
   spdx:
     package:

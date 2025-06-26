@@ -6,7 +6,7 @@
 
 Name:           bpftrace
 Version:        0.21.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-level tracing language for Linux eBPF
 Vendor:         VMware, Inc.
 Distribution:   Photon
@@ -93,6 +93,8 @@ rm -rf %{buildroot}/*
 %{_datadir}/%{name}/tools/doc/*.txt
 
 %changelog
+* Mon Jun 23 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 0.21.2-2
+- Bump to build with updated llvm
 * Mon Dec 23 2024 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 0.21.2-1
 - Upgrade to v0.21.2, fixes CVE-2024-2313
 * Thu Dec 12 2024 HarinadhD <harinadh.dommaraju@broadcom.com> 0.18.0-2
