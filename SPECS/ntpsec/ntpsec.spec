@@ -1,7 +1,7 @@
 Summary:        Improved implementation of Network Time Protocol
 Name:           ntpsec
 Version:        1.2.3
-Release:        3%{?dist}
+Release:        4%{?dist}
 Group:          System Environment/NetworkingPrograms
 Vendor:         VMware, Inc.
 Distribution:   Photon
@@ -127,6 +127,8 @@ rm -rf %{buildroot}/*
 %{python3_sitearch}/ntp*
 
 %changelog
+* Tue Jul 01 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 1.2.3-4
+- Rebuild with shared clang libraries
 * Mon Jun 23 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 1.2.3-3
 - Bump to build with updated clang
 * Wed Dec 11 2024 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.2.3-2

@@ -4,7 +4,7 @@
 Summary:        Rust Programming Language
 Name:           rust
 Version:        1.87.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            https://github.com/rust-lang/rust
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -54,6 +54,7 @@ Requires: openssl
 Requires: ncurses-libs
 Requires: libgcc
 Requires: zlib
+Requires: libllvm
 
 %description
 Rust Programming Language
@@ -78,6 +79,7 @@ mkdir -p src/llvm-project/libunwind/ \
 cp %{SOURCE1} %{SOURCE2} %{SOURCE3} build/cache/%{toolchain_prefix}/
 
 %build
+export LLVM_LINK_SHARED=1
 sh ./configure \
     --prefix=%{_prefix} \
     --enable-extended \
@@ -92,6 +94,9 @@ sh ./configure \
     --set rust.llvm-tools=false \
     --disable-codegen-tests \
     --enable-vendor
+
+# Enable linking against shared LLVM libraries in Rust bootstrap configuration
+sed -i '/^\[llvm\]/a link-shared = true' bootstrap.toml
 
 %make_build
 
@@ -124,6 +129,8 @@ rm -rf %{buildroot}/*
 %doc src/tools/clippy/{README.md,CHANGELOG.md}
 
 %changelog
+* Tue Jul 01 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 1.87.0-3
+- Rebuild with shared llvm libraries
 * Thu Jun 26 2025 Ankit Jain <ankit-aj.jain@vbroadcom.com> 1.87.0-2
 - Consume system provided llvm
 * Wed Jun 18 2025 Ankit Jain <ankit-aj.jain@vbroadcom.com> 1.87.0-1

@@ -5,7 +5,7 @@
 Summary:        A collection of modular and reusable compiler and toolchain technologies.
 Name:           llvm
 Version:        18.1.8
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            https://llvm.org
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -25,7 +25,6 @@ BuildRequires:  python3-devel
 BuildRequires:  ninja-build
 BuildRequires:  glibc-devel
 
-Requires:       libxml2
 Requires:       libllvm = %{version}-%{release}
 
 Patch0: 0001-llvm-CodeGen-Fix-build-failure-for-MI-dump.patch
@@ -46,6 +45,8 @@ for developing applications that use llvm.
 %package -n     libllvm
 Summary:        llvm shared library
 Group:          System Environment/Libraries
+Requires:       libxml2
+
 %description -n libllvm
 The libllvm package contains shared libraries for llvm
 
@@ -68,7 +69,7 @@ link_jobs="$(( (build_jobs + 1) / 2 ))"
 
 %{cmake} -G Ninja \
   -DCMAKE_INSTALL_PREFIX=%{_usr} \
-  -DBUILD_SHARED_LIBS:BOOL=OFF \
+  -DBUILD_SHARED_LIBS:BOOL=ON \
   -DLLVM_PARALLEL_LINK_JOBS=${link_jobs} \
   -DLLVM_PARALLEL_COMPILE_JOBS=${build_jobs} \
   -DLLVM_ENABLE_FFI:BOOL=ON \
@@ -112,11 +113,6 @@ rm -rf %{buildroot}/*
 %files
 %defattr(-,root,root)
 %{_bindir}/*
-%{_libdir}/*.so
-%{_libdir}/*.so.*
-%exclude %{_libdir}/libLLVM-%{version}.so
-%exclude %{_libdir}/libLLVM-%{llvm_maj_ver}.so
-%exclude %{_libdir}/libLLVM.so
 %dir %{_datadir}/opt-viewer
 %{_datadir}/opt-viewer/opt-diff.py
 %{_datadir}/opt-viewer/opt-stats.py
@@ -127,15 +123,17 @@ rm -rf %{buildroot}/*
 
 %files devel
 %defattr(-,root,root)
-%{_libdir}/*.a
 %{_libdir}/cmake/*
 %{_includedir}/*
+%{_libdir}/*.so
 
 %files -n libllvm
 %defattr(-,root,root)
-%{_libdir}/libLLVM*.so
+%{_libdir}/*.so.*
 
 %changelog
+* Tue Jul 01 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 18.1.8-2
+- Enable BUILD_SHARED_LIBS=ON to avoid duplicate LLVM command-line option registration errors
 * Thu Jun 26 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 18.1.8-1
 - Update llvm to 18.1.8 to build latest version of rust-1.87.0
 * Tue Jan 28 2025 Alexey Makhalov <alexey.makhalov@broadcom.com> 15.0.7-5

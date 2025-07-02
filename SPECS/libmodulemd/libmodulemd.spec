@@ -1,7 +1,7 @@
 Summary:        Module manipulating metadata files
 Name:           libmodulemd
 Version:        2.14.0
-Release:        7%{?dist}
+Release:        8%{?dist}
 URL:            https://github.com/fedora-modularity/libmodulemd
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -80,6 +80,8 @@ rm -rf %{buildroot}/*
 %{_includedir}/modulemd-2.0/*.h
 
 %changelog
+* Tue Jul 01 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 2.14.0-8
+- Rebuild with shared clang libraries
 * Mon Jun 23 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 2.14.0-7
 - Bump to build with updated clang
 * Wed Jan 22 2025 Tapas Kundu <tapas.kundu@broadcom.com> 2.14.0-6

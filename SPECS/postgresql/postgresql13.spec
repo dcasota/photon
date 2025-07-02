@@ -13,7 +13,7 @@
 Summary:        PostgreSQL database engine
 Name:           postgresql13
 Version:        13.21
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            www.postgresql.org
 Group:          Applications/Databases
 Vendor:         VMware, Inc.
@@ -683,6 +683,8 @@ rm -rf %{buildroot}/*
 %{_pglibdir}/plpython3.so
 
 %changelog
+* Tue Jul 01 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 13.21-3
+- Rebuild with shared llvm libraries
 * Mon Jun 23 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 13.21-2
 - Bump to build with updated llvm
 * Thu Jun 19 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 13.21-1

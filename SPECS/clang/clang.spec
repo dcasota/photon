@@ -3,7 +3,7 @@
 Summary:        C, C++, Objective C and Objective C++ front-end for the LLVM compiler.
 Name:           clang
 Version:        18.1.8
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://clang.llvm.org
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -66,7 +66,7 @@ link_jobs="$(( (build_jobs + 1) / 2 ))"
   -DLLVM_INCLUDE_DIRS=%{_includedir} \
   -DLLVM_PARALLEL_LINK_JOBS=${link_jobs} \
   -DLLVM_PARALLEL_COMPILE_JOBS=${build_jobs} \
-  -DBUILD_SHARED_LIBS=OFF \
+  -DBUILD_SHARED_LIBS=ON \
   -Wno-dev
 
 # Build libclang-cpp.so separately to avoid OOM errors.
@@ -102,7 +102,6 @@ rm -rf %{buildroot}/*
 %files devel
 %defattr(-,root,root)
 %{_libdir}/*.so
-%{_libdir}/*.a
 %{_libdir}/cmake/*
 %{_libdir}/clang/*
 %{_includedir}/*
@@ -110,6 +109,8 @@ rm -rf %{buildroot}/*
 %{python3_sitelib}/libscanbuild
 
 %changelog
+* Tue Jul 01 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 18.1.8-2
+- Rebuild with shared llvm libraries
 * Mon Jun 23 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 18.1.8-1
 - Update to version 18.1.8 for llvm and rust upgrade
 - corresponding cmake is required to build

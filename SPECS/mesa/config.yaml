@@ -1,6 +1,6 @@
 sources:
-- archive: mesa-mesa-23.3.6.tar.gz
-  archive_sha512sum: 52ab15c9fbf40e98a50f8d30e848d7b30caa5296c5897e64325f4776a4d2eb812fa6c5ce42e597755418a8d2ee53eede69eb4be4f21691caf090d8a3ac3715b4
+- archive: mesa-25.1.4.tar.xz
+  archive_sha512sum: b97a0fa185181e86ea39bf71a6031edf9e9477378aba2c1ff6dbe88399cc9f7dc728591b49918c0dccb170dce11335b2b8fa015c7b7495f2e166b295d47fd343
   skip_validation: true
   spdx:
     package:

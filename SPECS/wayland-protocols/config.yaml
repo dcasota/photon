@@ -1,6 +1,6 @@
 sources:
-- archive: wayland-protocols-1.31.tar.xz
-  archive_sha512sum: 402ce1915300e29afe554d77965ee0a28a5f22fdb5b901c4c640e59b9f3a9c11094e1edae87eea1e76eea557f6faf0c34a0c28ee7f6babb4dc3719329c4e25bf
+- archive: wayland-protocols-1.44.tar.xz
+  archive_sha512sum: 8714e0bedb394c01164b9f4d839daf014f130c79782e2695a304efbe1c8ea7b1e8ef01663fec340df485b179d2bfdb3bad5fba6474d6cb24b90a622d921b419b
   skip_validation: true
   spdx:
     package:
