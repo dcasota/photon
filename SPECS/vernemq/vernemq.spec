@@ -1,7 +1,7 @@
 Summary:          VerneMQ is a high-performance, distributed MQTT message broker
 Name:             vernemq
-Version:          2.0.1
-Release:          6%{?dist}
+Version:          2.1.0
+Release:          1%{?dist}
 URL:              https://github.com/vernemq/vernemq
 Group:            Applications/System
 Vendor:           VMware, Inc.
@@ -37,17 +37,14 @@ Source0: https://github.com/%{name}/%{name}/archive/%{name}-%{version}.tar.gz
 # Once all done, create vendor tarball
 #
 # XZ_OPT=-9 tar cJf vernemq_vendor-version>.tar.xz
-Source1: %{name}_vendor-%{version}-rev1.tar.xz
-
+Source1: %{name}_vendor-%{version}.tar.xz
 Source2: vars.config
 Source3: %{name}.service
 Source4: %{name}.sysusers
-
 Source5: license.txt
 %include %{SOURCE5}
 
-Patch0: 0001-local_version.patch
-
+Patch0:  0001-local_version.patch
 # leveldb(core dependency) build on aarch64 is currently not supported
 # hence vernemq is restricted to x86_64
 BuildArch:        x86_64
@@ -59,7 +56,7 @@ BuildRequires:    libstdc++-devel
 BuildRequires:    snappy-devel
 BuildRequires:    systemd-devel
 
-Requires:         erlang = 26.2.5.11
+Requires:         erlang = 27.3.4
 Requires:         snappy
 Requires:         libstdc++
 Requires:         systemd
@@ -77,7 +74,6 @@ A high-performance, distributed MQTT message broker.
 %build
 export LANG="en_US.UTF-8" LC_ALL="en_US.UTF-8"
 mv ../%{name}_vendor-%{version}/_checkouts _checkouts
-
 cp %{SOURCE2} ./vars.config
 
 find . \( -name "*.so" -or -name "*.so.*" -or -name "*.o" -or -name "*.a" -or -name "*.beam" \) -delete
@@ -169,6 +165,8 @@ rm -rf %{buildroot}
 %{_sysusersdir}/%{name}.sysusers
 
 %changelog
+* Mon Jun 16 2025 Tapas Kundu <tapas.kundu@broadcom.com> 2.1.0-1
+- Update to 2.1.0
 * Tue Apr 22 2025 Tapas Kundu <tapas.kundu@broadcom.com> 2.0.1-6
 - Bump release for updating erlang
 * Thu Apr 10 2025 Tapas Kundu <tapas.kundu@broadcom.com> 2.0.1-5
