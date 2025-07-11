@@ -1,7 +1,7 @@
 Summary:          Database servers made by the original developers of MySQL.
 Name:             mariadb
 Version:          11.4.7
-Release:          1%{?dist}
+Release:          2%{?dist}
 Group:            Applications/Databases
 Vendor:           VMware, Inc.
 Distribution:     Photon
@@ -52,6 +52,7 @@ utilities.
 
 %package server
 Summary:    MariaDB server
+Requires:   %{name} = %{version}-%{release}
 Requires:   %{name}-errmsg = %{version}-%{release}
 Requires:   shadow
 Requires:   libaio
@@ -449,6 +450,8 @@ rm -rf %{buildroot}
 %{_datadir}/mysql/*/errmsg.sys
 
 %changelog
+* Fri Jul 11 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 11.4.7-2
+- Fix server requires
 * Wed Jun 04 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 11.4.7-1
 - Upgrade to v11.4.7, newer LTS release
 * Thu Dec 12 2024 Ajay Kaher <ajay.kaher@broadcom.com> 10.9.4-9
