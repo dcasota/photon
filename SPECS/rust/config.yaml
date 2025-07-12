@@ -49,7 +49,7 @@ sources:
   skip_validation: true
   spdx:
     package:
-      detailed_description: 'Rust Programming Language '
+      detailed_description: 'Rust Programming Language'
       home_page: https://github.com/rust-lang/rust
       license_concluded: GPL-2.0-or-later AND (MIT OR Apache-2.0) AND BSD-4-Clause-UC
         AND (NCSA OR MIT) AND CC-BY-SA-4.0 AND GPL-2.0-or-later WITH GNAT-exception
@@ -101,3 +101,54 @@ sources:
         OR MPL-1.1 OR BSD-3-Clause) AND Python-2.0 AND (MIT OR Apache-2.0)
       short_summary: Rust Programming Language
       supplier: 'Organization: Broadcom, Inc.'
+- archive: cargo-1.86.0-aarch64-unknown-linux-gnu.tar.xz
+  archive_sha512sum: d8fd6cc891a9639670731b06098b5ea1729f8b9a78ee6f64cd1fece0557020533d401bb4a3edc7870d2c801cd2748af70eab105581df7bbff831f151194cc230
+  skip_validation: true
+  spdx:
+      package:
+          detailed_description: cargo bootstrap toolchain to build rust-lang
+          home_page: https://static.rust-lang.org
+          license_concluded:
+              (Apache-2.0 OR MIT) AND GPL-2.0-only AND OpenSSL-standalone
+              AND LGPL-2.1-only AND Apache-2.0 AND Zlib AND SSLeay-standalone AND LGPL-2.0-or-later
+              AND curl AND (MIT OR Apache-2.0) AND BSD-3-Clause AND MIT AND Unlicense AND
+              GPL-2.0-only WITH GCC-exception-2.0
+          license_declared:
+              (Apache-2.0 OR MIT) AND GPL-2.0-only AND OpenSSL-standalone
+              AND LGPL-2.1-only AND Apache-2.0 AND Zlib AND SSLeay-standalone AND LGPL-2.0-or-later
+              AND curl AND (MIT OR Apache-2.0) AND BSD-3-Clause AND MIT AND Unlicense AND
+              GPL-2.0-only WITH GCC-exception-2.0
+          short_summary: cargo bootstrap toolchain to build rust-lang
+          supplier: "Organization: Broadcom, Inc."
+- archive: rust-std-1.86.0-aarch64-unknown-linux-gnu.tar.xz
+  archive_sha512sum: 25be69a030f013bf431376b5e9e0d7c03e703b4e1780f9644b66f789da3d5bf4b38cee1b36c204423e5454cd08cb42c7e98a8cfc0cad8946ae70832b012c8f2e
+  skip_validation: true
+  spdx:
+      package:
+          detailed_description: std toolchain requried to build rust-lang
+          home_page: https://static.rust-lang.org
+          license_concluded:
+              (Apache-2.0 OR MIT) AND NCSA AND (MIT OR Apache-2.0) AND
+              Unicode-3.0 AND MIT AND Apache-2.0 AND BSD-2-Clause AND Apache-2.0 WITH LLVM-exception
+          license_declared:
+              (Apache-2.0 OR MIT) AND NCSA AND (MIT OR Apache-2.0) AND Unicode-3.0
+              AND MIT AND Apache-2.0 AND BSD-2-Clause AND Apache-2.0 WITH LLVM-exception
+          short_summary: std toolchain requried to build rust-lang
+          supplier: "Organization: Broadcom, Inc."
+- archive: rustc-1.86.0-aarch64-unknown-linux-gnu.tar.xz
+  archive_sha512sum: e17ab6f2d54fb24f2bffbe584e2cab88da776c0a67ee464f63c132ef58ee4070467705c07cbda1de7920a94ae048a6973f2ad2f9f7437132000b033a4c041102
+  skip_validation: true
+  spdx:
+      package:
+          detailed_description: Bootstrap toolchain requried to build rust-lang
+          home_page: https://static.rust-lang.org
+          license_concluded:
+              NCSA AND Apache-2.0 AND MIT AND Apache-2.0 WITH LLVM-exception
+              AND (Apache-2.0 OR MIT) AND OFL-1.1 AND BSD-2-Clause AND Unicode-3.0 AND (MIT
+              OR Apache-2.0)
+          license_declared:
+              NCSA AND Apache-2.0 AND MIT AND Apache-2.0 WITH LLVM-exception
+              AND (Apache-2.0 OR MIT) AND OFL-1.1 AND BSD-2-Clause AND Unicode-3.0 AND (MIT
+              OR Apache-2.0)
+          short_summary: Bootstrap toolchain requried to build rust-lang
+          supplier: "Organization: Broadcom, Inc."

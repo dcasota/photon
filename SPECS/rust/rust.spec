@@ -4,7 +4,7 @@
 Summary:        Rust Programming Language
 Name:           rust
 Version:        1.87.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            https://github.com/rust-lang/rust
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -13,69 +13,39 @@ Distribution:   Photon
 Source0: https://static.rust-lang.org/dist/%{name}c-%{version}-src.tar.xz
 
 Source1: https://static.rust-lang.org/dist/%{toolchain_prefix}/cargo-%{bootstrap_toolchain_ver}-%{_arch}-unknown-linux-gnu.tar.xz
-%ifarch x86_64
-%endif
-%ifarch aarch64
-%endif
 
 Source2: https://static.rust-lang.org/dist/%{toolchain_prefix}/rustc-%{bootstrap_toolchain_ver}-%{_arch}-unknown-linux-gnu.tar.xz
-%ifarch x86_64
-%endif
-%ifarch aarch64
-%endif
 
 Source3: https://static.rust-lang.org/dist/%{toolchain_prefix}/rust-std-%{bootstrap_toolchain_ver}-%{_arch}-unknown-linux-gnu.tar.xz
-%ifarch x86_64
-%endif
-%ifarch aarch64
-%endif
 
 Source4: license.txt
 %include %{SOURCE4}
 
 BuildRequires: cmake
+BuildRequires: ninja-build
 BuildRequires: glibc-devel
-BuildRequires: binutils-devel
-BuildRequires: curl-devel
-BuildRequires: python3-devel
-BuildRequires: openssl-devel
-BuildRequires: libssh2-devel
 BuildRequires: zlib-devel
 BuildRequires: clang
-BuildRequires: xz-devel
 BuildRequires: libxml2-devel
-BuildRequires: ncurses-devel
 BuildRequires: llvm-devel
 
 Requires: glibc
 Requires: gcc
 Requires: libstdc++
-Requires: openssl
-Requires: ncurses-libs
 Requires: libgcc
-Requires: zlib
 Requires: libllvm
 
 %description
 Rust Programming Language
 
 %prep
-# Using autosetup is not feasible
-%setup -q -n %{name}c-%{version}-src
+%autosetup -p1 -n %{name}c-%{version}-src
 
-pushd src/tools/cargo
-%autopatch -p1 -M0
-popd
+mv src/llvm-project/cmake cmake.bak
+rm -rf src/llvm-project/
+mv cmake.bak src/llvm-project/
 
-# Remove other unused vendored libraries except 'cmake'
-%define libraries libunwind clang clang-tools-extra lldb lld compiler-rt runtimes llvm-libgcc llvm
-for library in %{libraries}; do
-  rm -rf src/llvm-project/$library
-done
-
-mkdir -p src/llvm-project/libunwind/ \
-         build/cache/%{toolchain_prefix}/
-
+mkdir -p build/cache/%{toolchain_prefix}/
 cp %{SOURCE1} %{SOURCE2} %{SOURCE3} build/cache/%{toolchain_prefix}/
 
 %build
@@ -89,7 +59,7 @@ sh ./configure \
     --disable-llvm-bitcode-linker \
     --disable-lld \
     --disable-rpath \
-    --disable-ninja \
+    --enable-ninja \
     --set build.optimized-compiler-builtins=false \
     --set rust.llvm-tools=false \
     --disable-codegen-tests \
@@ -98,11 +68,18 @@ sh ./configure \
 # Enable linking against shared LLVM libraries in Rust bootstrap configuration
 sed -i '/^\[llvm\]/a link-shared = true' bootstrap.toml
 
-%make_build
+# Output sync option (-O) in make results in buffered logging.
+# For a long time we don't say any logs during build, hence disabling it
+%define _make_output_sync %{nil}
+%make_build BOOTSTRAP_ARGS=-vv
 
 %install
 %make_install %{?_smp_mflags}
+
 find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' -exec chmod -v +x '{}' '+'
+
+rm -rf %{buildroot}%{_docdir} \
+       %{buildroot}%{_datadir}/zsh*
 
 %clean
 rm -rf %{buildroot}/*
@@ -122,13 +99,11 @@ rm -rf %{buildroot}/*
 %{_bindir}/rust-gdb
 %{_bindir}/rust-gdbgui
 %{_bindir}/cargo
-%{_datadir}/zsh/*
 %{_sysconfdir}/bash_completion.d/cargo
-%doc %{_docdir}
-%doc src/tools/rustfmt/{README,CHANGELOG,Configurations}.md
-%doc src/tools/clippy/{README.md,CHANGELOG.md}
 
 %changelog
+* Fri Jul 18 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.87.0-4
+- Do verbose build
 * Tue Jul 01 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 1.87.0-3
 - Rebuild with shared llvm libraries
 * Thu Jun 26 2025 Ankit Jain <ankit-aj.jain@vbroadcom.com> 1.87.0-2
