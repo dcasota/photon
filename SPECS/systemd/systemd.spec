@@ -3,7 +3,7 @@
 Name:           systemd
 URL:            http://www.freedesktop.org/wiki/Software/systemd
 Version:        253.19
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        System and Service Manager
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -352,6 +352,10 @@ install -m 0755 -D -t %{buildroot}%{_rpmconfigdir}/ %{SOURCE14}
 %find_lang %{name} ../%{name}.lang
 
 %post
+if command -v sysctl &> /dev/null; then
+  sysctl --system > /dev/null
+fi
+
 %{name}-machine-id-setup &>/dev/null || :
 
 systemctl daemon-reexec &>/dev/null || {
@@ -394,10 +398,10 @@ udevadm hwdb --update &>/dev/null || :
 %dir %{_sysconfdir}/binfmt.d
 
 %{_sysconfdir}/X11/xinit/xinitrc.d/50-%{name}-user.sh
-%{_sysconfdir}/sysctl.d/50-security-hardening.conf
 %{_sysconfdir}/xdg/%{name}
 %{_sysconfdir}/rc.d/init.d/README
 
+%config(noreplace) %{_sysconfdir}/sysctl.d/50-security-hardening.conf
 %config(noreplace) %{_sysconfdir}/%{name}/sleep.conf
 %config(noreplace) %{_sysconfdir}/%{name}/system.conf
 %config(noreplace) %{_sysconfdir}/%{name}/user.conf
@@ -701,6 +705,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
+* Mon Jul 14 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-12
+- Update sysctl hardening entries
 * Fri May 09 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-11
 - Require coreutils only
 * Thu Mar 20 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 253.19-10
