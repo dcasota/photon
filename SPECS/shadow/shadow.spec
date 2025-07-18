@@ -1,7 +1,7 @@
 Summary:        Programs for handling passwords in a secure way
 Name:           shadow
 Version:        4.13
-Release:        10%{?dist}
+Release:        11%{?dist}
 URL:            https://github.com/shadow-maint/shadow
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -109,18 +109,23 @@ install -vm644 %{SOURCE9} %{buildroot}%{_sysconfdir}/pam.d/
 install -vm644 %{SOURCE10} %{buildroot}%{_sysconfdir}/pam.d/
 install -vm644 %{SOURCE11} %{buildroot}%{_sysconfdir}/pam.d/
 
+pushd %{buildroot}%{_sysconfdir}/pam.d
+sed -e "s/chpasswd/newusers/" chpasswd > newusers
+
 for PROGRAM in chfn chgpasswd chsh groupadd groupdel \
-               groupmems groupmod newusers useradd userdel usermod; do
-  install -v -m644 %{buildroot}%{_sysconfdir}/pam.d/chage %{buildroot}%{_sysconfdir}/pam.d/${PROGRAM}
-  sed -i "s/chage/$PROGRAM/" %{buildroot}%{_sysconfdir}/pam.d/${PROGRAM}
+               groupmems groupmod useradd userdel usermod; do
+  sed -e "s/chage/${PROGRAM}/" chage > ${PROGRAM}
 done
+popd
 
 find %{buildroot}%{_libdir} -name '*.la' -delete
 
 %find_lang %{name}
 
+%if 0%{?with_check}
 %check
 %make_build check
+%endif
 
 %post
 /sbin/ldconfig
@@ -144,23 +149,7 @@ rm -rf %{buildroot}/*
 %exclude %{_bindir}/su
 %exclude %{_bindir}/login
 %exclude %{_bindir}/passwd
-%exclude %{_datadir}/locale/cs
-%exclude %{_datadir}/locale/da
-%exclude %{_datadir}/locale/de
-%exclude %{_datadir}/locale/fi
-%exclude %{_datadir}/locale/fr
-%exclude %{_datadir}/locale/hu
-%exclude %{_datadir}/locale/id
-%exclude %{_datadir}/locale/it
-%exclude %{_datadir}/locale/ja
-%exclude %{_datadir}/locale/ko
-%exclude %{_datadir}/locale/pl
-%exclude %{_datadir}/locale/pt_BR
-%exclude %{_datadir}/locale/ru
-%exclude %{_datadir}/locale/sv
-%exclude %{_datadir}/locale/tr
-%exclude %{_datadir}/locale/zh_CN
-%exclude %{_datadir}/locale/zh_TW
+%exclude %{_datadir}/locale/*
 %config(noreplace) %{_sysconfdir}/pam.d/*
 
 %files libs
@@ -183,6 +172,9 @@ rm -rf %{buildroot}/*
 %defattr(-,root,root)
 
 %changelog
+* Fri Jul 18 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 4.13-11
+- Fix newusers pam config
+- Harden the pam settings by default
 * Thu May 22 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 4.13-10
 - Use yescrypt as default password encryption backend
 * Wed Dec 11 2024 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 4.13-9
