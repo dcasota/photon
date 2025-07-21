@@ -4,7 +4,7 @@
 
 Summary:        Containerd
 Name:           containerd
-Version:        2.1.1
+Version:        2.1.3
 Release:        1%{?dist}
 URL:            https://containerd.io/docs
 Group:          Applications/File
@@ -14,7 +14,7 @@ Distribution:   Photon
 Source0: https://github.com/containerd/containerd/archive/%{name}-%{version}.tar.gz
 
 # Must be in sync with package version
-%define CONTAINERD_GITCOMMIT cb1076646aa3740577fafbf3d914198b7fe8e3f7
+%define CONTAINERD_GITCOMMIT c787fb98911740dd3ff2d0e45ce88cdf01410486
 
 Source1: %{name}-config.toml
 Source2: disable-%{name}-by-default.preset
@@ -134,6 +134,9 @@ make %{?_smp_mflags} integration
 %{_mandir}/man8/*
 
 %changelog
+* Fri Jul 25 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.1.3-1
+- Upgrade to v2.1.3
+- This addresses https://github.com/containerd/containerd/pull/11998
 * Wed Jun 04 2025 Mukul Sikka <mukul.sikka@broadcom.com> 2.1.1-1
 - Upgrade to v2.1.1.
 * Thu Dec 12 2024 HarinadhD <harinadh.dommaraju@broadcom.com> 1.6.21-13

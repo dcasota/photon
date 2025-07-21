@@ -8,20 +8,17 @@
 
 %define gopath_comp_engine github.com/docker/docker
 %define gopath_comp_cli github.com/docker/cli
-%define gopath_comp_libnetwork github.com/docker/libnetwork
 
 Summary:        Docker
 Name:           docker
 Version:        28.2.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://docs.docker.com
 Group:          Applications/File
 Vendor:         VMware, Inc.
 Distribution:   Photon
 
 Source0: https://github.com/moby/moby/archive/moby-%{version}.tar.gz
-
-Source1: https://github.com/docker/libnetwork/archive/libnetwork-64b7a45.tar.gz
 
 Source2: https://github.com/docker/cli/archive/refs/tags/docker-cli-%{version}.tar.gz
 
@@ -110,7 +107,6 @@ popd
 
 mkdir -p "$(dirname "src/%{gopath_comp_engine}")" \
          "$(dirname "src/%{gopath_comp_cli}")" \
-         "src/%{gopath_comp_libnetwork}" \
          bin
 
 mv moby-%{version} src/%{gopath_comp_engine}
@@ -121,8 +117,6 @@ popd
 
 tar -xf %{SOURCE2}
 mv cli-%{version} src/%{gopath_comp_cli}
-
-tar -C src/%{gopath_comp_libnetwork} -xf %{SOURCE1}
 
 pushd "src/%{gopath_comp_cli}"
 cp vendor.mod go.mod
@@ -166,11 +160,6 @@ pushd "src/%{gopath_comp_engine}"
   ./hack/make.sh dynbinary
 popd
 
-# proxy
-pushd "src/%{gopath_comp_libnetwork}"
-  go build -buildmode=pie -ldflags=-linkmode=external -o "$GOPATH/bin/docker-proxy" %{gopath_comp_libnetwork}/cmd/proxy
-popd
-
 jq -n \
   --arg platform "$PLATFORM" \
   --arg engine_image "$ENGINE_IMGE" \
@@ -192,9 +181,7 @@ install -d -m755 %{buildroot}%{_datadir}/bash-completion/completions
 # install binary
 install -p -m 755 src/%{gopath_comp_cli}/build/docker %{buildroot}%{_bindir}/docker
 install -p -m 755 src/%{gopath_comp_engine}/bundles/dynbinary-daemon/dockerd %{buildroot}%{_bindir}/dockerd
-
-# install proxy
-install -p -m 755 bin/docker-proxy %{buildroot}%{_bindir}/docker-proxy
+install -p -m 755 src/%{gopath_comp_engine}/bundles/dynbinary-daemon/docker-proxy %{buildroot}%{_bindir}/docker-proxy
 
 # install tini
 ln -srv %{buildroot}%{_bindir}/tini %{buildroot}%{_bindir}/docker-init
@@ -307,6 +294,10 @@ rm -rf %{buildroot}/*
 %{_bindir}/dockerd-rootless-setuptool.sh
 
 %changelog
+* Fri Jul 25 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 28.2.2-2
+- Bump version as a part of go upgrade
+- Remove libnetwork dependency, it is used for docker-proxy only
+- docker-proxy is a part of moby already
 * Wed Jun 25 2025 Mukul Sikka <mukul.sikka@broadcom.com> 28.2.2-1
 - Upgrade to v28.2.2
 * Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 27.3.1-6

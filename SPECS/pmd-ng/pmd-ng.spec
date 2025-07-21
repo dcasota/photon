@@ -9,7 +9,7 @@
 Summary:        pmd-ng (photon management daemon next gen) is an open source, super light weight remote management API Gateway
 Name:           pmd-ng
 Version:        0.1
-Release:        14%{?dist}
+Release:        15%{?dist}
 URL:            https://github.com/vmware/pmd-next-gen/archive/refs/tags/v%{version}.tar.gz
 Group:          Networking
 Vendor:         VMware, Inc.
@@ -87,6 +87,8 @@ rm -rf %{buildroot}/*
 %systemd_postun_with_restart photon-mgmtd.service
 
 %changelog
+* Sat Jul 12 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 0.1-15
+- Bump version as a part of go upgrade
 * Tue Jun 10 2025 Mukul Sikka <mukul.sikka@broadcom.com> 0.1-14
 - Bump version as a part of go upgrade
 * Wed Apr 09 2025 Tapas Kundu <tapas.kundu@broadcom.com> 0.1-13

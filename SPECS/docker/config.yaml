@@ -20,20 +20,6 @@ sources:
         AND MIT
       short_summary: Docker CLI
       supplier: 'Organization: Broadcom, Inc.'
-- archive: libnetwork-64b7a45.tar.gz
-  archive_sha512sum: e4102a20d2ff681de7bc52381d473c6f6b13d1d59fb14a749e8e3ceda439a74dd7cf2046a2042019c646269173b55d4e78140fe5e8c59d913895a35d4a5f40a4
-  skip_validation: true
-  spdx:
-    package:
-      detailed_description: Libnetwork provides a native Go implementation for connecting
-        containers
-      home_page: https://github.com/docker/libnetwork
-      license_concluded: MIT AND CC-BY-SA-4.0 AND Apache-2.0 AND BSD-2-Clause AND
-        BSD-3-Clause AND MPL-2.0
-      license_declared: MIT AND CC-BY-SA-4.0 AND Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause
-        AND MPL-2.0
-      short_summary: networking for containers
-      supplier: 'Organization: Broadcom, Inc.'
 - archive: moby-28.2.2.tar.gz
   archive_type: upstream
   version: 28.2.2
