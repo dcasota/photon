@@ -6,3 +6,7 @@ Patch1502: 0002-grub2-emu-fix-if-boot-as-partition.patch
 
 # Skip font file check in sb until we ship them in memdisk
 Patch1503: Revert-kern-efi-sb-Enforce-verification-of-font-file.patch
+
+# grub.cfg tweaks, author: sshedi
+Patch1504: 0001-lib-envblk-Ignore-empty-new-lines-while-parsing-env-.patch
+Patch1505: 0002-cmdline-fix-command-line-parsing-in-grub.patch
