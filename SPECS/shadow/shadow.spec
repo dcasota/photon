@@ -1,7 +1,7 @@
 Summary:        Programs for handling passwords in a secure way
 Name:           shadow
 Version:        4.13
-Release:        11%{?dist}
+Release:        12%{?dist}
 URL:            https://github.com/shadow-maint/shadow
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -21,14 +21,16 @@ Source9: system-auth
 Source10: system-password
 Source11: system-session
 Source12: useradd
-Source13: license.txt
-%include %{SOURCE13}
+Source13: tmout.sh
+Source14: license.txt
+%include %{SOURCE14}
 
 Patch0: 0001-remove-group-from-deliverables.patch
 Patch1: 0002-login.defs-config-changes.patch
 Patch2: CVE-2023-29383.patch
 Patch3: CVE-2023-29383.1.patch
 Patch4: CVE-2023-4641.patch
+Patch5: 0003-shadow-set-login.defs-hardening-rules.patch
 
 BuildRequires: cracklib-devel
 BuildRequires: Linux-PAM-devel
@@ -97,6 +99,8 @@ cp %{SOURCE12} %{buildroot}%{_sysconfdir}/default
 
 cp etc/{limits,login.access} %{buildroot}%{_sysconfdir}
 
+install -vdm 755 %{buildroot}%{_sysconfdir}/profile.d
+
 install -vm644 %{SOURCE1} %{buildroot}%{_sysconfdir}/pam.d/
 install -vm644 %{SOURCE2} %{buildroot}%{_sysconfdir}/pam.d/
 install -vm644 %{SOURCE3} %{buildroot}%{_sysconfdir}/pam.d/
@@ -108,6 +112,7 @@ install -vm644 %{SOURCE8} %{buildroot}%{_sysconfdir}/pam.d/
 install -vm644 %{SOURCE9} %{buildroot}%{_sysconfdir}/pam.d/
 install -vm644 %{SOURCE10} %{buildroot}%{_sysconfdir}/pam.d/
 install -vm644 %{SOURCE11} %{buildroot}%{_sysconfdir}/pam.d/
+install -Dm644 %{SOURCE13} %{buildroot}%{_sysconfdir}/profile.d/tmout.sh
 
 pushd %{buildroot}%{_sysconfdir}/pam.d
 sed -e "s/chpasswd/newusers/" chpasswd > newusers
@@ -144,6 +149,7 @@ rm -rf %{buildroot}/*
 %config(noreplace) %{_sysconfdir}/login.access
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/default/useradd
 %config(noreplace) %{_sysconfdir}/limits
+%{_sysconfdir}/profile.d/tmout.sh
 %{_bindir}/*
 %{_sbindir}/*
 %exclude %{_bindir}/su
@@ -172,6 +178,8 @@ rm -rf %{buildroot}/*
 %defattr(-,root,root)
 
 %changelog
+* Fri Jul 25 2025 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 4.13-12
+- Load hardening rules in login.defs by default, add tmout.sh
 * Fri Jul 18 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 4.13-11
 - Fix newusers pam config
 - Harden the pam settings by default
