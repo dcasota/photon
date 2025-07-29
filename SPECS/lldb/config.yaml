@@ -1,3 +1,6 @@
+shared_sources:
+  - shared-cfg-yml/cmake.yaml
+
 sources:
 - archive: lldb-18.1.8.src.tar.xz
   archive_sha512sum: f356a657d1aec860aeaaeb3aa3190652735160dd1e86dfbbae0441ace0a21cc774621198b0fc26c37d3e7c34d68d8a5f56806097f0c8d94718f5fc03495b1a3e
@@ -7,7 +10,7 @@ sources:
       detailed_description: 'LLDB is a next generation, high-performance debugger.
         It is built as a set of reusable components which highly leverage existing
         libraries in the larger LLVM Project, such as the Clang expression parser
-        and LLVM disassembler. '
+        and LLVM disassembler.'
       home_page: http://lldb.llvm.org
       license_concluded: APSL-2.0 AND Apache-2.0 AND Apache-2.0 WITH LLVM-exception
         AND MIT AND ISC AND Apache-1.0 AND FSFAP-no-warranty-disclaimer AND NCSA AND
@@ -16,17 +19,4 @@ sources:
         AND MIT AND ISC AND Apache-1.0 AND FSFAP-no-warranty-disclaimer AND NCSA AND
         Python-2.0
       short_summary: A next generation, high-performance debugger.
-      supplier: 'Organization: Broadcom, Inc.'
-- archive: cmake-18.1.8.src.tar.xz
-  archive_sha512sum: e02243b491f9e688db28d7b53270fcf87debf09d3c95b136a7c7b96e26890de68712c60a1e85f5a448a95ad8c81f2d8ae77047780822443bbe39f1a9e6211007
-  skip_validation: true
-  spdx:
-    package:
-      detailed_description: These are CMake modules to be shared between LLVM projects
-        strictly at build time.
-      home_page: https://github.com/llvm/llvm-project/releases/
-      license_concluded: Apache-2.0 WITH LLVM-exception
-      license_declared: Apache-2.0 WITH LLVM-exception"
-      short_summary: These are CMake modules to be shared between LLVM projects strictly
-        at build time.
       supplier: 'Organization: Broadcom, Inc.'

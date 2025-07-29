@@ -7,6 +7,7 @@
       "ph-docker-img-url": "https://github.com/vmware/photon-docker-image/raw/ARCH/5.0-20250330/docker/photon-rootfs-5.0-afdc5be10.ARCH.tar.gz",
       "ph-builder-tag": "photon_builder:5.0"
   },
+  "photon-branch": "6.0",
   "stage-path": "./stage",
   "spec-path": "",
   "common-branch-path": "../common",
