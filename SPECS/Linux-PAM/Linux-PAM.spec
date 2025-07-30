@@ -1,7 +1,7 @@
 Summary:        Linux Pluggable Authentication Modules
 Name:           Linux-PAM
 Version:        1.5.3
-Release:        8%{?dist}
+Release:        9%{?dist}
 URL:            https://github.com/linux-pam/linux-pam
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -150,6 +150,8 @@ rm -rf %{buildroot}/*
 %{_libdir}/pkgconfig/*.pc
 
 %changelog
+* Wed Jul 30 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.5.3-9
+- Harden pwhistory
 * Sat Jul 19 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.5.3-8
 - Harden pwquality, pwhistory, faillock by default
 * Thu Mar 27 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.5.3-7
