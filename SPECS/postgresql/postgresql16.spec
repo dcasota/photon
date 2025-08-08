@@ -13,7 +13,7 @@
 Summary:        PostgreSQL database engine
 Name:           postgresql16
 Version:        16.9
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            www.postgresql.org
 Group:          Applications/Databases
 Vendor:         VMware, Inc.
@@ -31,6 +31,8 @@ Source7: systemd-unit-instructions
 
 Source8: license-postgresql16.txt
 %include %{SOURCE8}
+
+Source9: pgsql-gen-i18n.sh
 
 BuildRequires: clang-devel
 BuildRequires: gettext-devel
@@ -248,62 +250,11 @@ sh ./configure \
 
 %include %{SOURCE7}
 
-# Remove anything related to Python 2.  These have no need to be
-# around as only Python 3 is supported.
-rm -f %{buildroot}%{_pgdatadir}/extension/*plpython2u* \
-      %{buildroot}%{_pgdatadir}/extension/*plpythonu-* \
-      %{buildroot}%{_pgdatadir}/extension/*_plpythonu.control
-
 echo "%{_pglibdir}" > %{buildroot}%{_pgbaseinstdir}/%{srcname}.conf
 
-# Create file lists, for --enable-nls and i18n
-%find_lang ecpg-%{pgmajorversion}
-%find_lang ecpglib6-%{pgmajorversion}
-%find_lang initdb-%{pgmajorversion}
-%find_lang libpq5-%{pgmajorversion}
-%find_lang pg_amcheck-%{pgmajorversion}
-%find_lang pg_archivecleanup-%{pgmajorversion}
-%find_lang pg_basebackup-%{pgmajorversion}
-%find_lang pg_checksums-%{pgmajorversion}
-%find_lang pg_config-%{pgmajorversion}
-%find_lang pg_controldata-%{pgmajorversion}
-%find_lang pg_ctl-%{pgmajorversion}
-%find_lang pg_dump-%{pgmajorversion}
-%find_lang pg_resetwal-%{pgmajorversion}
-%find_lang pg_rewind-%{pgmajorversion}
-%find_lang pg_test_fsync-%{pgmajorversion}
-%find_lang pg_test_timing-%{pgmajorversion}
-%find_lang pg_upgrade-%{pgmajorversion}
-%find_lang pg_verifybackup-%{pgmajorversion}
-%find_lang pg_waldump-%{pgmajorversion}
-%find_lang pgscripts-%{pgmajorversion}
-%find_lang plperl-%{pgmajorversion}
-cat plperl-%{pgmajorversion}.lang >> pg_i18n.lst
-%find_lang plpgsql-%{pgmajorversion}
-# plpython3 shares message files with plpython
-%find_lang plpython-%{pgmajorversion}
-cat plpython-%{pgmajorversion}.lang >> pg_i18n.lst
-%find_lang pltcl-%{pgmajorversion}
-cat pltcl-%{pgmajorversion}.lang >> pg_i18n.lst
-%find_lang postgres-%{pgmajorversion}
-%find_lang psql-%{pgmajorversion}
+%include %{SOURCE9}
 
-cat libpq5-%{pgmajorversion}.lang >> pg_i18n.lst
-
-cat pg_config-%{pgmajorversion}.lang ecpg-%{pgmajorversion}.lang ecpglib6-%{pgmajorversion}.lang >> pg_i18n.lst
-
-cat initdb-%{pgmajorversion}.lang pg_amcheck-%{pgmajorversion}.lang \
-    pg_ctl-%{pgmajorversion}.lang psql-%{pgmajorversion}.lang \
-    pg_dump-%{pgmajorversion}.lang pg_basebackup-%{pgmajorversion}.lang \
-    pgscripts-%{pgmajorversion}.lang >> pg_i18n.lst
-
-cat postgres-%{pgmajorversion}.lang pg_resetwal-%{pgmajorversion}.lang \
-    pg_checksums-%{pgmajorversion}.lang pg_verifybackup-%{pgmajorversion}.lang \
-    pg_controldata-%{pgmajorversion}.lang plpgsql-%{pgmajorversion}.lang \
-    pg_test_timing-%{pgmajorversion}.lang pg_test_fsync-%{pgmajorversion}.lang \
-    pg_archivecleanup-%{pgmajorversion}.lang pg_waldump-%{pgmajorversion}.lang \
-    pg_rewind-%{pgmajorversion}.lang pg_upgrade-%{pgmajorversion}.lang >> pg_i18n.lst
-
+%if 0%{?with_check}
 %check
 # Run the main regression test suites in the source tree.
 run_test_path() {
@@ -322,6 +273,7 @@ run_test_path "src/test/authentication"
 run_test_path "src/test/recovery"
 run_test_path "src/test/ssl"
 run_test_path "src/test/subscription"
+%endif
 
 %post
 /sbin/ldconfig
@@ -355,7 +307,9 @@ alternatives --remove clusterdb %{_pgbindir}/clusterdb
 /sbin/ldconfig
 
 %posttrans libs
-alternatives --install %{_sysconfdir}/ld.so.conf.d/%{srcname}.conf %{srcname}.conf %{_pgbaseinstdir}/%{srcname}.conf %{alter_weight}
+alternatives --install %{_sysconfdir}/ld.so.conf.d/%{srcname}.conf \
+                 %{srcname}.conf %{_pgbaseinstdir}/%{srcname}.conf \
+                 %{alter_weight}
 /sbin/ldconfig
 
 %postun libs
@@ -423,6 +377,16 @@ rm -rf %{buildroot}/*
 
 %files client
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbindir}
+%dir %{_pgdatadir}
+%dir %{_pgdatadir}/man
+%dir %{_pgmandir}
+%dir %{_pgmandir}/man1
+%dir %{_pgmandir}/man3
+%dir %{_pgmandir}/man7
+%dir %{_pgbaseinstdir}/share
 %{_pgbindir}/clusterdb
 %{_pgbindir}/createdb
 %{_pgbindir}/createuser
@@ -461,6 +425,10 @@ rm -rf %{buildroot}/*
 
 %files libs
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
 %{_pgbaseinstdir}/%{srcname}.conf
 %{_pglibdir}/libpq.so.*
 %{_pglibdir}/libecpg.so*
@@ -470,6 +438,19 @@ rm -rf %{buildroot}/*
 
 %files server
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbindir}
+%dir %{_pgdatadir}/man
+%dir %{_pgmandir}
+%dir %{_pgmandir}/man1
+%dir %{_pgbaseinstdir}/share
+%dir %{_pgdatadir}
+%dir %{_pgdatadir}/timezonesets
+%dir %{_pgdatadir}/tsearch_data
+%dir %{_pgdatadir}/extension
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
 %{_pgbindir}/initdb
 %{_pgbindir}/pg_amcheck
 %{_pgbindir}/pg_archivecleanup
@@ -506,7 +487,6 @@ rm -rf %{buildroot}/*
 %{_pgdatadir}/system_constraints.sql
 %{_pgdatadir}/system_functions.sql
 %{_pgdatadir}/system_views.sql
-%dir %{_pgdatadir}/extension
 %{_pgdatadir}/extension/plpgsql*
 %{_pgdatadir}/timezonesets/*
 %{_pgdatadir}/tsearch_data/*.affix
@@ -533,14 +513,37 @@ rm -rf %{buildroot}/*
 %{_libexecdir}/%{name}-check-db-dir
 %{_sysusersdir}/%{name}.sysusers
 
-%files i18n -f pg_i18n.lst
+%files i18n -f %{name}.lst
+%defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbaseinstdir}/share
 
 %files docs
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbaseinstdir}/share
+%dir %{_pgbaseinstdir}/share/doc
+%dir %{_pgdocdir}
 %{_pgdocdir}/*
 
 %files contrib
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbindir}
+%dir %{_pgdatadir}
+%dir %{_pgdatadir}/extension
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
+%dir %{_pgdatadir}/man
+%dir %{_pgmandir}
+%dir %{_pgmandir}/man1
+%dir %{_pgbaseinstdir}/share/doc
+%dir %{_pgbaseinstdir}/share
+%dir %{_pgdocdir}
+%dir %{_pgdocdir}/extension
 %{_pgbindir}/oid2name
 %{_pgbindir}/vacuumlo
 %{_pgbindir}/pg_recvlogical
@@ -647,12 +650,29 @@ rm -rf %{buildroot}/*
 
 %files llvmjit
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
+%dir %{_pglibdir}/bitcode
 %{_pglibdir}/bitcode/*
 %{_pglibdir}/llvmjit.so
 %{_pglibdir}/llvmjit_types.bc
 
 %files devel
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbindir}
+%dir %{_pgbaseinstdir}/include
+%dir %{_pgincludedir}
+%dir %{_pgdatadir}/man
+%dir %{_pgmandir}
+%dir %{_pgmandir}/man1
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}/pkgconfig
+%dir %{_pglibdir}/pgxs
+%dir %{_pglibdir}
 %{_pgbindir}/ecpg
 %{_pgincludedir}/*
 %{_pglibdir}/libpq.so
@@ -674,6 +694,13 @@ rm -rf %{buildroot}/*
 
 %files plperl
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbaseinstdir}/share
+%dir %{_pgdatadir}
+%dir %{_pgdatadir}/extension
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
 %{_pgdatadir}/extension/bool_plperl*
 %{_pgdatadir}/extension/hstore_plperl*
 %{_pgdatadir}/extension/jsonb_plperl*
@@ -685,11 +712,22 @@ rm -rf %{buildroot}/*
 
 %files pltcl
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
+%dir %{_pgbaseinstdir}/share
+%dir %{_pgdatadir}
 %{_pgdatadir}/extension/pltcl*
 %{_pglibdir}/pltcl.so
 
 %files plpython3
 %defattr(-,root,root)
+%dir %{_pgbaseinstdir}/share
+%dir %{_pgdatadir}
+%dir %{_pgdatadir}/extension
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
 %{_pgdatadir}/extension/hstore_plpython3*
 %{_pgdatadir}/extension/ltree_plpython3*
 %{_pgdatadir}/extension/jsonb_plpython3*
@@ -700,6 +738,8 @@ rm -rf %{buildroot}/*
 %{_pglibdir}/plpython3.so
 
 %changelog
+* Fri Aug 08 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 16.9-4
+- Fix directory ownership during file packaging
 * Tue Jul 01 2025 Shivani Agarwal <shivani.agarwal@broadcom.com> 16.9-3
 - Rebuild with shared llvm libraries
 * Mon Jun 23 2025 Ankit Jain <ankit-aj.jain@broadcom.com> 16.9-2

@@ -11,7 +11,7 @@
 Summary:        PostgreSQL database engine
 Name:           postgresql10
 Version:        10.23
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            www.postgresql.org
 Group:          Applications/Databases
 Vendor:         VMware, Inc.
@@ -187,10 +187,16 @@ rm -rf %{buildroot}/*
 
 %files
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
 %dir %{_pgbindir}
-%dir %{_pglibdir}
 %dir %{_pgdatadir}
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
+%dir %{_pgbaseinstdir}/share
+%dir %{_pgbaseinstdir}/share/doc
 %dir %{_pgdocdir}
+%dir %{_pgdocdir}/extension
 %{_pgbindir}/initdb
 %{_pgbindir}/oid2name
 %{_pgbindir}/pg_archivecleanup
@@ -219,7 +225,10 @@ rm -rf %{buildroot}/*
 
 %files libs
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
 %dir %{_pgbindir}
+%dir %{_pgbaseinstdir}/lib
 %dir %{_pglibdir}
 %{_pgbaseinstdir}/%{srcname}.conf
 %{_pgbindir}/clusterdb
@@ -242,7 +251,14 @@ rm -rf %{buildroot}/*
 
 %files devel
 %defattr(-,root,root)
+%dir %{_usr}/pgsql
+%dir %{_pgbaseinstdir}
+%dir %{_pgbindir}
+%dir %{_pgbaseinstdir}/include
 %dir %{_pgincludedir}
+%dir %{_pgbaseinstdir}/lib
+%dir %{_pglibdir}
+%dir %{_pglibdir}/pkgconfig
 %{_pgincludedir}/*
 %{_pglibdir}/pkgconfig/*
 %{_pglibdir}/libecpg*.so
@@ -257,6 +273,8 @@ rm -rf %{buildroot}/*
 %{_pglibdir}/libpgtypes.a
 
 %changelog
+* Fri Aug 08 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 10.23-3
+- Fix directory ownership during file packaging
 * Wed Dec 11 2024 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 10.23-2
 - Release bump for SRP compliance
 * Fri Dec 15 2023 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 10.23-1
