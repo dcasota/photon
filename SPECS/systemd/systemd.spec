@@ -3,7 +3,7 @@
 Name:           systemd
 URL:            http://www.freedesktop.org/wiki/Software/systemd
 Version:        253.19
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        System and Service Manager
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -701,6 +701,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
+* Wed Aug 20 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-14
+- Fix sysuser creation warnings
 * Wed Jul 30 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-13
 - Backport sd-netlink: make the default timeout configurable
 - Remove dangling symlink creation under /var/log
