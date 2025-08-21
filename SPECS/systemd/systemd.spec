@@ -3,7 +3,7 @@
 Name:           systemd
 URL:            http://www.freedesktop.org/wiki/Software/systemd
 Version:        253.19
-Release:        14%{?dist}
+Release:        15%{?dist}
 Summary:        System and Service Manager
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -315,6 +315,7 @@ sed -i '/srv/d' %{buildroot}%{_tmpfilesdir}/home.conf
 sed -i "s:0775 root lock:0755 root root:g" %{buildroot}%{_tmpfilesdir}/legacy.conf
 sed -i "s:NamePolicy=kernel database onboard slot path:NamePolicy=kernel database:g" %{buildroot}%{_systemd_util_dir}/network/99-default.link
 
+sed -i "s:#ShowStatus=yes:ShowStatus=yes:g" %{buildroot}%{_sysconfdir}/%{name}/system.conf
 sed -i "s:#LLMNR=yes:LLMNR=no:g" %{buildroot}%{_sysconfdir}/%{name}/resolved.conf
 sed -i "s:#DNSSEC=no:DNSSEC=no:g" %{buildroot}%{_sysconfdir}/%{name}/resolved.conf
 sed -i "s:#DNSOverTLS=opportunistic:DNSOverTLS=no:g" %{buildroot}%{_sysconfdir}/%{name}/resolved.conf
@@ -701,6 +702,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
+* Fri Aug 22 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-15
+- Enable ShowStatus config
 * Wed Aug 20 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-14
 - Fix sysuser creation warnings
 * Wed Jul 30 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-13
