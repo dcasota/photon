@@ -3,7 +3,7 @@
 Name:           systemd
 URL:            http://www.freedesktop.org/wiki/Software/systemd
 Version:        253.19
-Release:        15%{?dist}
+Release:        16%{?dist}
 Summary:        System and Service Manager
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -51,11 +51,9 @@ Requires:       %{name}-rpm-macros = %{version}-%{release}
 Requires:       %{name}-libs = %{version}-%{release}
 Requires:       libacl
 Requires:       libcap
-Requires:       libgcrypt
 Requires:       libmicrohttpd
 Requires:       libseccomp
 Requires:       libselinux
-Requires:       lz4
 Requires:       pcre
 Requires:       xz
 Requires:       libgpg-error
@@ -124,6 +122,8 @@ Provides:       nss-myhostname = 0.4
 Requires(post): (coreutils or toybox)
 Requires(post): sed
 Requires(post): grep
+Requires:       libgcrypt
+Requires:       lz4
 
 %description libs
 Libraries for systemd and udev.
@@ -702,6 +702,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
+* Tue Sep 02 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-16
+- Fix systemd-libs requires
 * Fri Aug 22 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-15
 - Enable ShowStatus config
 * Wed Aug 20 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-14
