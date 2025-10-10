@@ -3,7 +3,7 @@
 Name:           systemd
 URL:            http://www.freedesktop.org/wiki/Software/systemd
 Version:        253.19
-Release:        17%{?dist}
+Release:        18%{?dist}
 Summary:        System and Service Manager
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -703,6 +703,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
+* Sat Oct 11 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-18
+- Move sysctl confs from iptables
 * Fri Sep 26 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-17
 - Harden tmpfs mount options
 * Tue Sep 02 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-16
