@@ -1,0 +1,24 @@
+From bbe3fa0a462efaa95e4ec34dd5f3a7c8788e9c6a Mon Sep 17 00:00:00 2001
+From: Oliver Kurth <oliver.kurth@broadcom.com>
+Date: Thu, 6 Nov 2025 00:59:01 +0000
+Subject: [PATCH] set clean_requirements_on_remove=1 in shipped tdnf.conf
+
+---
+ etc/tdnf/tdnf.conf | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/etc/tdnf/tdnf.conf b/etc/tdnf/tdnf.conf
+index a10bcbe..7b5df18 100644
+--- a/etc/tdnf/tdnf.conf
++++ b/etc/tdnf/tdnf.conf
+@@ -1,6 +1,6 @@
+ [main]
+ gpgcheck=1
+ installonly_limit=3
+-clean_requirements_on_remove=0
++clean_requirements_on_remove=1
+ repodir=/etc/yum.repos.d
+ cachedir=/var/cache/tdnf
+-- 
+2.43.0
+

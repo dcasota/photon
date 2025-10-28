@@ -1,0 +1,81 @@
+From 61cf15cb67f8c0a45d12bb69aaa2b8ebeb308176 Mon Sep 17 00:00:00 2001
+From: Shreenidhi Shedi <shreenidhi.shedi@broadcom.com>
+Date: Tue, 4 Nov 2025 10:29:19 +0530
+Subject: [PATCH] Use 'command -v' instead of which
+
+Remove the incorrect 'Group' key from sub packages, this is not a
+mandatory header key.
+
+Signed-off-by: Shreenidhi Shedi <shreenidhi.shedi@broadcom.com>
+---
+ bin/tdnf-automatic.in | 2 +-
+ tdnf.spec.in          | 6 ------
+ 2 files changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/bin/tdnf-automatic.in b/bin/tdnf-automatic.in
+index a9a46c7..8b212a4 100755
+--- a/bin/tdnf-automatic.in
++++ b/bin/tdnf-automatic.in
+@@ -589,7 +589,7 @@ if [ ${EUID} -ne 0 ]; then
+   exit 13
+ fi
+ 
+-if ! which tdnf &> /dev/null; then
++if ! command -v tdnf &> /dev/null; then
+   EchoErr "tdnf command not found..."
+   exit 65
+ fi
+diff --git a/tdnf.spec.in b/tdnf.spec.in
+index 45ec516..cca491d 100644
+--- a/tdnf.spec.in
++++ b/tdnf.spec.in
+@@ -70,7 +70,6 @@ Provides:       yum
+ 
+ %package    devel
+ Summary:    A Library providing a C API for %{name}
+-Group:      Development/Libraries
+ Requires:   %{name} = %{version}-%{release}
+ Requires:   libsolv-devel
+ 
+@@ -79,7 +78,6 @@ Development files for %{name}
+ 
+ %package    pytests
+ Summary:    Test suite for %{name}
+-Group:      Development/Libraries
+ Requires:   %{name} = %{version}-%{release}
+ Requires:   %{name}-automatic = %{version}-%{release}
+ Requires:   %{name}-plugin-repogpgcheck = %{version}-%{release}
+@@ -100,14 +98,12 @@ Test suite for %{name}
+ 
+ %package    cli-libs
+ Summary:    Library providing cli libs for %{name} like clients
+-Group:      Development/Libraries
+ 
+ %description cli-libs
+ Library providing cli libs for %{name} like clients.
+ 
+ %package    plugin-metalink
+ Summary:    tdnf plugin providing metalink functionality for repo configurations
+-Group:      Development/Libraries
+ Requires:   gpgme
+ 
+ %description plugin-metalink
+@@ -115,7 +111,6 @@ tdnf plugin providing metalink functionality for repo configurations
+ 
+ %package    plugin-repogpgcheck
+ Summary:    %{name} plugin providing gpg verification for repository metadata
+-Group:      Development/Libraries
+ Requires:   gpgme
+ 
+ %description plugin-repogpgcheck
+@@ -123,7 +118,6 @@ Requires:   gpgme
+ 
+ %package automatic
+ Summary:   %{name} - automated upgrades
+-Group:     Development/Libraries
+ Requires:  %{name} = %{version}-%{release}
+ %{?systemd_requires}
+ 
+-- 
+2.43.0
+
