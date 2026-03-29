@@ -2,7 +2,7 @@ Summary:        VMware Photon OS 5.0 STIG Readiness Guide Ansible Playbook
 Name:           stig-hardening
 #Version x.y.z corresponds v<x>r<y>-z tag in the repo. Eg 1.1.1 = v1r1-1
 Version:        2.1
-Release:        4%{?dist}
+Release:        5%{?dist}
 URL:            https://github.com/vmware/dod-compliance-and-automation/tree/master/photon/5.0/ansible/vmware-photon-5.0-stig-ansible-hardening
 Group:          Productivity/Security
 Vendor:         VMware, Inc.
@@ -19,6 +19,7 @@ Source1: license.txt
 %include %{SOURCE1}
 
 Patch0: fix-some-value-checks.patch
+Patch1: fix-ansible-220-compat.patch
 
 Requires: ansible >= 2.14.2
 Requires: ansible-community-general
@@ -40,6 +41,9 @@ cp -a %{_builddir}/%{name}-ph5-%{version}/ %{buildroot}%{_datadir}/ansible/%{nam
 %{_datadir}/ansible/
 
 %changelog
+* Sun Mar 29 2026 Factory AI Bot <factory-droid[bot]@users.noreply.github.com> 2.1-5
+- Fix telnet regex_search conditional for Ansible 2.20 compatibility
+- Remove autrace from audit tools list (removed in audit 4.x)
 * Mon Feb 09 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.1-4
 - Update URL to packages.broadcom.com
 * Tue Nov 18 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.1-3

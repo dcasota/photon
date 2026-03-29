@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Factory AI Bot <factory-droid[bot]@users.noreply.github.com>
+Date: Sun, 29 Mar 2026 23:30:00 +0200
+Subject: [PATCH] Fix STIG playbook for Ansible 2.20 and audit 4.x compat
+
+1) Ansible 2.20 enforces strict boolean conditionals. Using
+   regex_search() directly in a when: clause returns None when there
+   is no match, which is rejected as a non-boolean value. Replace
+   with 'is search()' test which returns proper True/False.
+
+2) Remove /usr/sbin/autrace from the audit tools permission list.
+   autrace was removed in audit 4.x and no longer ships in the
+   audit package, causing the task to fail with 'file is absent'.
+
+Signed-off-by: Factory AI Bot <factory-droid[bot]@users.noreply.github.com>
+---
+ tasks/photon.yml | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/tasks/photon.yml b/tasks/photon.yml
+index 1234567..abcdefg 100644
+--- a/tasks/photon.yml
++++ b/tasks/photon.yml
+@@ -628,14 +628,14 @@
+       register: output
+       changed_when: output.rc == 0
+       when:
+-        - telnetinstalled.stdout | regex_search("netkit-telnet-0")
++        - telnetinstalled.stdout is search("netkit-telnet-0")
+ 
+     - name: PHTN-50-000040 - Remove telnet server
+       ansible.builtin.command: tdnf -y remove netkit-telnet-server
+       register: output
+       changed_when: output.rc == 0
+       when:
+-        - telnetinstalled.stdout | regex_search("netkit-telnet-server")
++        - telnetinstalled.stdout is search("netkit-telnet-server")
+ 
+ ###################################################################################################################################
+ - name: PHTN-50-000041 - Configure login.defs PASS_MIN_DAYS
+@@ -915,7 +915,6 @@
+         - {file: '/usr/sbin/auditd'}
+         - {file: '/usr/sbin/aureport'}
+         - {file: '/usr/sbin/ausearch'}
+-        - {file: '/usr/sbin/autrace'}
+       when:
+         - auditdinstalled.stdout != ""
+ 
