@@ -1,6 +1,6 @@
 sources:
 - archive: photon-os-installer-2.7.tar.gz
-  archive_sha512sum: 9c2b6df1e9136e94db1451064b51a286b2894849b309dde9539cb9df4fc82e807c74ccb0f7795d7d1d5b2c1ea856dfb38623e1c08e94c567696a637ca6f75fe8
+  archive_sha512sum: f73110ea9bb3154759fe2de091eb25e0963903ed469f952097d48c12a4dc10a11edf7a08bf3e506de7a14b40919cee1c135d36626485db392f9b0a74f0a95129
   skip_validation: true
   spdx:
     package:

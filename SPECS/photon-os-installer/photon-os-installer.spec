@@ -5,7 +5,7 @@
 Summary:       Photon OS Installer
 Name:          photon-os-installer
 Version:       2.7
-Release:       5%{?dist}
+Release:       6%{?dist}
 Group:         System Environment/Base
 Vendor:        VMware, Inc.
 Distribution:  Photon
@@ -70,6 +70,8 @@ rm -rf %{buildroot}
 %{_bindir}/photon-iso-builder
 
 %changelog
+* Sun Mar 29 2026 Factory AI Bot <factory-droid[bot]@users.noreply.github.com> 2.7-6
+- Add btrfs-progs to install list when btrfs filesystem is selected
 * Tue Mar 24 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.7-5
 - Use mkpasswd to generate password
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 2.7-4

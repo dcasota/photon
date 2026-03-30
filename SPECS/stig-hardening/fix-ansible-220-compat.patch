@@ -1,0 +1,160 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Factory AI Bot <factory-droid[bot]@users.noreply.github.com>
+Date: Sun, 29 Mar 2026 23:30:00 +0200
+Subject: [PATCH] Fix STIG playbook for Ansible 2.20 and audit 4.x compat
+
+1) Ansible 2.20 enforces strict boolean conditionals. Using
+   regex_search() directly in a when: clause returns None when there
+   is no match, which is rejected as a non-boolean value. Replace
+   with 'is search()' test which returns proper True/False.
+
+2) Remove /usr/sbin/autrace from the audit tools permission list.
+   autrace was removed in audit 4.x and no longer ships in the
+   audit package, causing the task to fail with 'file is absent'.
+
+3) Fix PHTN-50-000192 pam_faillock.so setup: regex_search() in
+   set_fact returns None under Ansible 2.20, causing the cleanup
+   step to be skipped while add steps still run, corrupting the
+   PAM auth stack with duplicate entries. Use '| default("")' in
+   the when: comparisons so None is treated as empty string.
+
+4) Generate /etc/ssl/fipsmodule.cnf via 'openssl fipsinstall' when
+   the FIPS provider module is present but fipsmodule.cnf is missing.
+   Without it, booting with fips=1 causes OpenSSL to fail to
+   initialize FIPS mode and pam_unix.so cannot verify passwords.
+
+5) Install a oneshot systemd service (selinux-relabel.service) that
+   runs 'restorecon -R /' on first boot when SELinux enforcing is
+   configured. The build host has no SELinux kernel support so
+   restorecon in chroot cannot set xattrs. The service runs before
+   getty-pre.target, relabels the filesystem, removes its trigger
+   file, and becomes a no-op on subsequent boots.
+
+Signed-off-by: Factory AI Bot <factory-droid[bot]@users.noreply.github.com>
+---
+ files/selinux-relabel.service | 15 +++++++++++++++
+ tasks/photon.yml              | 42 +++++++++++++++++++++++++++++++++++------
+ 2 files changed, 51 insertions(+), 6 deletions(-)
+ create mode 100644 files/selinux-relabel.service
+
+diff --git a/files/selinux-relabel.service b/files/selinux-relabel.service
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/files/selinux-relabel.service
+@@ -0,0 +1,15 @@
++[Unit]
++Description=SELinux Relabel Filesystem (first boot)
++DefaultDependencies=no
++After=local-fs.target
++Before=getty-pre.target sysinit.target
++ConditionPathExists=/.selinux-relabel
++
++[Service]
++Type=oneshot
++ExecStart=/usr/sbin/restorecon -R /
++ExecStartPost=/usr/bin/rm -f /.selinux-relabel
++TimeoutSec=0
++
++[Install]
++WantedBy=sysinit.target
+diff --git a/tasks/photon.yml b/tasks/photon.yml
+index 1234567..abcdefg 100644
+--- a/tasks/photon.yml
++++ b/tasks/photon.yml
+@@ -305,6 +305,17 @@
+         - run_openssl_fips_install | bool
+         - opensslfipsinstalled.stdout == ""
+ 
++    - name: PHTN-50-000013 - Check if FIPS module is present
++      ansible.builtin.stat:
++        path: /usr/lib/ossl-modules/fips.so
++      register: fips_module_file
++
++    - name: PHTN-50-000013 - Generate FIPS module config if missing
++      ansible.builtin.command: openssl fipsinstall -out /etc/ssl/fipsmodule.cnf -module /usr/lib/ossl-modules/fips.so
++      args:
++        creates: /etc/ssl/fipsmodule.cnf
++      when: fips_module_file.stat.exists
++
+ ###################################################################################################################################
+ - name: PHTN-50-000014 - Configure auditd.conf write_logs
+   tags: [PHTN-50-000014, auditd]
+@@ -628,14 +639,14 @@
+       register: output
+       changed_when: output.rc == 0
+       when:
+-        - telnetinstalled.stdout | regex_search("netkit-telnet-0")
++        - telnetinstalled.stdout is search("netkit-telnet-0")
+ 
+     - name: PHTN-50-000040 - Remove telnet server
+       ansible.builtin.command: tdnf -y remove netkit-telnet-server
+       register: output
+       changed_when: output.rc == 0
+       when:
+-        - telnetinstalled.stdout | regex_search("netkit-telnet-server")
++        - telnetinstalled.stdout is search("netkit-telnet-server")
+ 
+ ###################################################################################################################################
+ - name: PHTN-50-000041 - Configure login.defs PASS_MIN_DAYS
+@@ -915,7 +926,6 @@
+         - {file: '/usr/sbin/auditd'}
+         - {file: '/usr/sbin/aureport'}
+         - {file: '/usr/sbin/ausearch'}
+-        - {file: '/usr/sbin/autrace'}
+       when:
+         - auditdinstalled.stdout != ""
+ 
+@@ -1318,7 +1328,7 @@
+         state: absent
+         regexp: '^auth\s+(required|requisite|\[default=die\])\s+pam_faillock\.so.*$'
+       when:
+-        - preauthsearch == "" or authfailsearch == ""
++        - preauthsearch | default('') == "" or authfailsearch | default('') == ""
+ 
+     - name: PHTN-50-000192 - Add pam_faillock.so preauth to system-auth if it doesn't exist
+       community.general.pamd:
+@@ -1365,7 +1375,7 @@
+         module_path: pam_faillock.so
+         state: absent
+       when:
+-        - sysaccountsearch == ""
++        - sysaccountsearch | default('') == ""
+ 
+     - name: PHTN-50-000192 - Add pam_faillock.so to system-account if it doesn't exist
+       community.general.pamd:
+@@ -2356,3 +2366,34 @@
+         - aidecheckoutput.rc is defined
+         - aidecheckoutput.rc != 0
+         - aideinstalled.stdout != ""
++
++###################################################################################################################################
++# SELinux relabel - must be the very last task so all file changes are included
++- name: Relabel filesystem for SELinux on first boot
++  tags: [selinux_relabel]
++  block:
++    - name: Check if SELinux enforcing is configured
++      ansible.builtin.command: grep -q '^SELINUX=enforcing' /etc/selinux/config
++      register: selinux_enforcing
++      failed_when: false
++      changed_when: false
++
++    - name: Install SELinux relabel service
++      ansible.builtin.copy:
++        src: selinux-relabel.service
++        dest: /usr/lib/systemd/system/selinux-relabel.service
++        owner: root
++        group: root
++        mode: "0644"
++      when: selinux_enforcing.rc == 0
++
++    - name: Enable SELinux relabel service
++      ansible.builtin.command: systemctl enable selinux-relabel.service
++      when: selinux_enforcing.rc == 0
++
++    - name: Create SELinux relabel trigger file
++      ansible.builtin.file:
++        path: /.selinux-relabel
++        state: touch
++        mode: "0644"
++      when: selinux_enforcing.rc == 0
