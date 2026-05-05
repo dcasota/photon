@@ -77,7 +77,7 @@
 Summary:        Kernel
 Name:           linux
 Version:        6.12.78
-Release:        4%{?acvp_build:.acvp}%{?kat_build:.kat}%{?dist}
+Release:        5%{?acvp_build:.acvp}%{?kat_build:.kat}%{?dist}
 URL:            http://www.kernel.org/
 Group:          System Environment/Kernel
 Vendor:         VMware, Inc.
@@ -690,6 +690,18 @@ sed -i "/# CONFIG_GCC_PLUGIN_MATCH_CANISTER_STRUCTS is not set/d" .config
 sed -i "s/# CONFIG_GCC_PLUGIN_MATCH_CANISTER_STRUCTS is not set/CONFIG_GCC_PLUGIN_MATCH_CANISTER_STRUCTS=y/" .config
 %endif
 
+# When fips=0 (e.g. aarch64 default, or x86_64 fips override), neither
+# the canister_build nor canister_usage branch above runs, so the patch
+# that adds the GCC_PLUGIN_{MATCH,PAD}_CANISTER_STRUCTS Kconfig symbols
+# is never applied. The shipped .config still contains their "is not
+# set" comments, `make olddefconfig` (run by
+# check_for_config_applicability.inc) silently drops them, and the
+# inc's `diff -u .config.old .config` returns non-zero -- killing
+# %prep. Strip them up-front so the diff stays clean.
+%if 0%{?fips} == 0
+sed -i '/CONFIG_GCC_PLUGIN_MATCH_CANISTER_STRUCTS/d;/CONFIG_GCC_PLUGIN_PAD_CANISTER_STRUCTS/d' .config
+%endif
+
 %ifarch x86_64
 sed -e "s,@@NAME@@,%{name},g" \
     -e "s,@@VERSION_RELEASE@@,%{version}-%{release},g" \
@@ -971,6 +983,10 @@ ln -sf linux-%{uname_r}.cfg /boot/photon.cfg
 %endif
 
 %changelog
+* Tue May 05 2026 David Casota <dcasota@gmail.com> 6.12.78-5
+- %prep: when fips=0, strip CONFIG_GCC_PLUGIN_{MATCH,PAD}_CANISTER_STRUCTS
+  comments from .config before olddefconfig so the
+  check_for_config_applicability.inc diff guard does not fail.
 * Mon Apr 27 2026 Ajay Kaher <ajay.kaher@broadcom.com> 6.12.78-4
 - Disable CONFIG_PER_VMA_LOCK
 * Fri Apr 10 2026 Keerthana K <keerthana.kalyanasundaram@broadcom.com> 6.12.78-3
