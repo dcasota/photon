@@ -1,4 +1,4 @@
-%define njs_ver     0.8.4
+%define njs_ver     0.9.8
 %define nginx_user  %{name}
 %define headers_more_nginx_module_ver 0.37
 %define dyn_modules_dir     %{_sysconfdir}/%{name}/modules
@@ -6,8 +6,8 @@
 Summary:        High-performance HTTP server and reverse proxy
 Name:           nginx
 Epoch:          1
-Version:        1.26.3
-Release:        2%{?dist}
+Version:        1.30.1
+Release:        1%{?dist}
 URL:            http://nginx.org
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -26,7 +26,6 @@ Source5: license.txt
 %include %{SOURCE5}
 
 Patch0: convert-to-dynamic.patch
-Patch1: CVE-2025-53859.patch
 
 BuildRequires:  openssl-devel
 BuildRequires:  pcre-devel
@@ -204,6 +203,12 @@ rm -rf %{buildroot}
 %{dyn_modules_dir}/ngx_stream_ssl_preread_module.so
 
 %changelog
+* Thu May 14 2026 Daniel Casota <dcasota@gmail.com> 1.30.1-1
+- Upgrade to v1.30.1; fixes CVE-2026-42945, CVE-2026-42926, CVE-2026-42946,
+- CVE-2026-42934, CVE-2026-40460, CVE-2026-40701 — all fixed upstream in 1.30.1
+- Drop CVE-2025-53859 backport patch (fixed upstream since 1.28.1)
+- Upgrade njs to v0.9.8
+
 * Wed Oct 22 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.26.3-2
 - Enable stream ssl module
 * Thu Jun 19 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.26.3-1
