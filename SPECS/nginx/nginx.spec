@@ -1,22 +1,22 @@
-%define njs_ver     0.8.4
+%define njs_ver     0.9.8
 %define nginx_user  %{name}
 %define headers_more_nginx_module_ver 0.37
 %define dyn_modules_dir     %{_sysconfdir}/%{name}/modules
 
 Summary:        High-performance HTTP server and reverse proxy
 Name:           nginx
-Version:        1.27.1
-Release:        3%{?dist}
+Version:        1.30.1
+Release:        1%{?dist}
 URL:            http://nginx.org
 Group:          Applications/System
 Vendor:         VMware, Inc.
 Distribution:   Photon
 
 Source0: http://nginx.org/download/nginx-%{version}.tar.gz
-%define sha512 %{name}=9bbdfcd7b9524f48e96b2ce6cc74bab20242885f208d1ad4117336a24642f3355d1c379e6041a4c341e31fb15faea39fc4410b6523164e3179594bbfb5fc35f5
+%define sha512 %{name}=a081ed49692948ea61bada05a9bade88f9899f843c8d5a72c0d5362e812c14e1ea12de729bcdfe93016323fb014681ddfa472f3352b5e83455991be715293211
 
 Source1: https://github.com/nginx/njs/archive/refs/tags/%{name}-njs-%{njs_ver}.tar.gz
-%define sha512 %{name}-njs=450f6866141f6f370767149c8749e84c4373f401d6d2237ca85365a851ebe7bdbd8a3c25e85a55747673e8bef2238a979dd237d5fc5c641b2f3f2cf7f26dffc8
+%define sha512 %{name}-njs=b42002e61569a9e850862f63c7f02f5061d34c8dcb35bedd69279af6bf76266ee93fce2d853c25588fe54119df5f2cfe1fb20b5351f60337650aa860b7b5c4ee
 
 Source2: https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/headers-more-nginx-module-%{headers_more_nginx_module_ver}.tar.gz
 %define sha512 headers-more-nginx-module=0cc2fffe506194d439e3669644d41b7943e2c3cffa3483eb70b92067930b358d506a14646eff8362b191a11c624db29f6b53d830876929dcb4ce1c9d7b2bc40d
@@ -56,7 +56,7 @@ enabling the creation of custom server-side logic and more.
 %package mod-headers-more
 Summary: Set, add, and clear arbitrary output headers in NGINX http servers
 Requires: %{name} = %{version}-%{release}
-Conflicts: %{name} < 1.27.1-3%{?dist}
+Conflicts: %{name} < 1.30.1-1%{?dist}
 
 %description mod-headers-more
 %{summary}.
@@ -204,6 +204,11 @@ rm -rf %{buildroot}
 %{dyn_modules_dir}/ngx_stream_ssl_preread_module.so
 
 %changelog
+* Thu May 14 2026 Daniel Casota <dcasota@gmail.com> 1.30.1-1
+- Version upgrade to v1.30.1 to fix CVE-2026-42945
+- Fixes heap buffer overflow in ngx_http_rewrite_module (CVSS 9.2)
+- Upgrade njs to v0.9.8
+
 * Wed Jan 29 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.27.1-3
 - Convert modulee like http-dav and stream-ssl-preread to dynamic
 - Package dynamic modules as a sub package
