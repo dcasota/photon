@@ -1,11 +1,11 @@
-%define njs_ver     0.8.3
+%define njs_ver     0.9.8
 %define nginx_user  %{name}
 %define headers_more_nginx_module_ver 0.37
 
 Summary:        High-performance HTTP server and reverse proxy
 Name:           nginx
-Version:        1.26.3
-Release:        2%{?dist}
+Version:        1.30.1
+Release:        1%{?dist}
 License:        BSD-2-Clause
 URL:            http://nginx.org
 Group:          Applications/System
@@ -13,22 +13,16 @@ Vendor:         VMware, Inc.
 Distribution:   Photon
 
 Source0: http://nginx.org/download/nginx-%{version}.tar.gz
-%define sha512 %{name}=cd780e495796bf7413e54a6730d11d55127b0ca6563acf5c75eb2698f62cddbbf5ba61820c57b2316c0bb789fcfd17f98a27a84b525ed50f304d1b1043ffa05d
+%define sha512 %{name}=a081ed49692948ea61bada05a9bade88f9899f843c8d5a72c0d5362e812c14e1ea12de729bcdfe93016323fb014681ddfa472f3352b5e83455991be715293211
 
 Source1: https://github.com/nginx/njs/archive/refs/tags/%{name}-njs-%{njs_ver}.tar.gz
-%define sha512 %{name}-njs=c6d70167ba91305ff859fcbb389662eb7654074845349599d00586d87aa8b086308d154fe3be2ea773ddd015ae5b04e4fba40ec82d1c461d1a3a10c23a2fb7b4
+%define sha512 %{name}-njs=b42002e61569a9e850862f63c7f02f5061d34c8dcb35bedd69279af6bf76266ee93fce2d853c25588fe54119df5f2cfe1fb20b5351f60337650aa860b7b5c4ee
 
 Source2: https://github.com/openresty/headers-more-nginx-module/archive/refs/tags/headers-more-nginx-module-%{headers_more_nginx_module_ver}.tar.gz
 %define sha512 headers-more-nginx-module=0cc2fffe506194d439e3669644d41b7943e2c3cffa3483eb70b92067930b358d506a14646eff8362b191a11c624db29f6b53d830876929dcb4ce1c9d7b2bc40d
 
 Source3: %{name}.service
 
-Patch0: CVE-2025-53859.patch
-Patch1: CVE-2026-27654.patch
-Patch2: CVE-2026-32647.patch
-Patch3: CVE-2026-27651.patch
-Patch4: CVE-2026-27784.patch
-Patch5: CVE-2026-1642.patch
 
 BuildRequires:  openssl-devel
 BuildRequires:  pcre-devel
@@ -65,7 +59,6 @@ sh ./configure \
     --add-dynamic-module=./headers-more-nginx-module-%{headers_more_nginx_module_ver} \
     --with-http_ssl_module \
     --with-pcre \
-    --with-ipv6 \
     --with-stream \
     --with-http_auth_request_module \
     --with-http_sub_module \
@@ -130,6 +123,13 @@ getent passwd %{nginx_user} > /dev/null || \
 %{_var}/log/%{name}
 
 %changelog
+* Thu May 14 2026 Daniel Casota <dcasota@gmail.com> 1.30.1-1
+- Upgrade to v1.30.1; fixes CVE-2026-42945, CVE-2026-42926, CVE-2026-42946,
+- CVE-2026-42934, CVE-2026-40460, CVE-2026-40701 — all fixed upstream in 1.30.1
+- Drop accumulated CVE backport patches (all fixes included in 1.30.1)
+- Remove deprecated --with-ipv6 configure flag (removed upstream in 1.25.x)
+- Upgrade njs to v0.9.8
+
 * Wed Apr 08 2026 Mukul Sikka <mukul.sikka@broadcom.com> 1.26.3-2
 - Fix CVE-2026-27654, CVE-2026-32647, CVE-2026-27651,
 - CVE-2026-27784, CVE-2026-1642
