@@ -8,7 +8,7 @@ Summary:        High-performance HTTP server and reverse proxy
 Name:           nginx
 Epoch:          1
 Version:        1.26.3
-Release:        2.2.1%{?dist}
+Release:        2.2.2%{?dist}
 URL:            http://nginx.org
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -33,6 +33,7 @@ Patch3: CVE-2026-32647.patch
 Patch4: CVE-2026-27651.patch
 Patch5: CVE-2026-27784.patch
 Patch6: CVE-2026-1642.patch
+Patch7: CVE-2026-42945.patch
 
 BuildRequires:  openssl-devel
 BuildRequires:  pcre-devel
@@ -210,6 +211,8 @@ rm -rf %{buildroot}
 %{dyn_modules_dir}/ngx_stream_ssl_preread_module.so
 
 %changelog
+* Fri Jun 05 2026 Daniel Casota <dcasota@gmail.com> 1.26.3-2.2.2
+- Backport CVE-2026-42945 fix (rewrite-module buffer overrun) onto 1.26.3
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 1.26.3-2.2.1
 - Adjusted to build for subrelease 90
 * Wed Apr 08 2026 Mukul Sikka <mukul.sikka@broadcom.com> 1.26.3-2.2
