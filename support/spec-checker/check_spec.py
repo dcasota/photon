@@ -34,6 +34,60 @@ with open(f"{scriptPath}/{cfg_fn}", "r") as f:
 g_ignore_list = []
 g_mainline = ""
 
+# ---------------------------------------------------------------------------
+# Build toggle parse matrix
+#
+# A spec is normally parsed exactly once, in whatever single configuration its
+# own defaults select. Conditional code behind a build toggle is therefore
+# never parsed and silently rots (dangling patches, duplicate Patch indices,
+# ...). The matrix re-parses each spec with every toggle it actually reads
+# forced to each of its meaningful values.
+#
+# The table is data driven on purpose: to cover a new toggle add one entry
+# here, or override/extend it from check-spec-cfg.json with a
+# "parse_matrix_toggles" object of the same shape. No code change needed.
+#
+# Note: only toggles the spec really reads are swept, and only toggles listed
+# here - sweeping every %{?foo} in the tree would multiply the runtime for no
+# benefit.
+# ---------------------------------------------------------------------------
+parse_matrix_toggles = {
+    "STIG_HARDEN": ["0", "1"],
+    "fips": ["0", "1"],
+    "canister_build": ["0", "1"],
+    "acvp_build": ["0", "1"],
+    "kat_build": ["0", "1"],
+}
+parse_matrix_toggles.update(cfg_dict.get("parse_matrix_toggles", {}))
+
+# "<pkgdir>/<spec>.spec" entries whose unconditional pin of a build toggle is
+# deliberate, e.g. a flavour that must never select the other branch. Prefer
+# fixing the spec with "%{!?NAME: %global NAME <default>}", which keeps the
+# default and still lets -D reach the other branch.
+parse_matrix_ignore_pinned = cfg_dict.get("parse_matrix_ignore_pinned", [])
+
+# %{NAME} / %{?NAME} / %{!?NAME: ...} / %if 0%{?NAME}  -> a toggle the spec reads
+toggle_ref_regex = re.compile(r"%\{[!?]*([A-Za-z_][A-Za-z0-9_]*)[:}]")
+# %define NAME <value> / %global NAME <value>
+toggle_def_regex = re.compile(r"^\s*%(?:define|global)\s+([A-Za-z_][A-Za-z0-9_]*)\s+(.*?)\s*$")
+# %if 0%{photon_subrelease} >= 91  -> the spec varies with the subrelease
+subrel_cond_regex = re.compile(r"^\s*%if.*%\{\??photon_subrelease\}\s*(>=|<=|==|>|<)\s*(\d+)")
+# %global build_if %{photon_subrelease} >= 91  -> subreleases the spec supports
+build_if_regex = re.compile(r"^\s*%global\s+build_if\s+%\{\??photon_subrelease\}\s*(>=|<=|==|>|<)\s*(\d+)")
+# conditional nesting, so that a %define inside %if is not mistaken for a pin
+cond_open_regex = re.compile(r"^\s*%if(arch|narch|os|nos|\b)")
+cond_close_regex = re.compile(r"^\s*%endif\b")
+# Source<N>:/Patch<N>: lines of a parsed spec
+parsed_src_regex = re.compile(r"^(?:Source|Patch)\d*\s*:\s*(\S+)", re.IGNORECASE)
+
+cmp_ops = {
+    ">": operator.gt,
+    ">=": operator.ge,
+    "<": operator.lt,
+    "<=": operator.le,
+    "==": operator.eq,
+}
+
 
 def pr_err(msg):
     print(msg, file=sys.stderr)
@@ -64,6 +118,7 @@ class ErrorDict:
             "unused_files": ["List of unused files"],
             "license": ["License errors"],
             "cfgYml": ["Config Yaml errors"],
+            "parse_matrix": ["Build toggle parse matrix errors"],
             "others": ["Other errors"],
         }
 
@@ -862,6 +917,251 @@ def setSpecPaths():
     distTag = data["photon-build-param"]["photon-dist-tag"]
 
 
+def pm_scan_spec(spec_fn):
+    """
+    Scan a spec for the build toggles it actually reads and for the values of
+    photon_subrelease it distinguishes.
+
+    Returns (toggles, pinned, subrel_thresholds, build_if):
+      toggles           - names from parse_matrix_toggles the spec refers to
+      pinned            - {name: (lineno, text)} for toggles the spec %defines
+                          unconditionally. rpm lets a spec body %define beat a
+                          command line -D, so such a toggle cannot be forced.
+      subrel_thresholds - integers the spec compares photon_subrelease against
+                          in an %if
+      build_if          - (op, value) of "%global build_if %{photon_subrelease}
+                          <op> <value>", the subreleases the spec supports
+    """
+    toggles = set()
+    pinned = {}
+    subrel_thresholds = set()
+    build_if = None
+    depth = 0
+
+    with open(spec_fn, "r") as fp:
+        lines = fp.readlines()
+
+    for idx, line in enumerate(lines):
+        line = line.rstrip("\n")
+
+        if line.lstrip().startswith("#"):
+            continue
+
+        m = build_if_regex.match(line)
+        if m:
+            build_if = (m.group(1), int(m.group(2)))
+            # build_if is a plain %global, it never varies the parse itself
+            continue
+
+        m = subrel_cond_regex.match(line)
+        if m:
+            subrel_thresholds.add(int(m.group(2)))
+
+        for name in toggle_ref_regex.findall(line):
+            if name in parse_matrix_toggles:
+                toggles.add(name)
+
+        m = toggle_def_regex.match(line)
+        if m and m.group(1) in parse_matrix_toggles:
+            toggles.add(m.group(1))
+            # A %define nested in %if/%ifarch is a legitimate derived value,
+            # not a pin - only an unconditional one shadows -D for every cell.
+            if depth == 0:
+                pinned.setdefault(m.group(1), (idx + 1, line.strip()))
+
+        if cond_open_regex.match(line):
+            depth += 1
+        elif cond_close_regex.match(line):
+            depth = max(0, depth - 1)
+
+    return toggles, pinned, subrel_thresholds, build_if
+
+
+def pm_probe_spec(spec_fn, neutralize):
+    """
+    A spec body %define/%global wins over a command line -D, so for a toggle
+    the spec pins unconditionally, forcing it does nothing at all. To still
+    parse the code behind such a toggle, write a probe copy with those pins
+    blanked out. Line count is preserved so that rpmspec diagnostics keep
+    pointing at the line numbers of the real spec.
+
+    Returns the original spec when there is nothing to neutralize.
+    """
+    if not neutralize:
+        return spec_fn, False
+
+    with open(spec_fn, "r") as fp:
+        lines = fp.readlines()
+
+    out = []
+    for line in lines:
+        line = line.rstrip("\n")
+        m = toggle_def_regex.match(line)
+        out.append("" if m and m.group(1) in neutralize else line)
+
+    probe_fn = f"/tmp/parse-matrix-{os.getpid()}-{os.path.basename(spec_fn)}"
+    with open(probe_fn, "w") as fp:
+        fp.write("\n".join(out) + "\n")
+
+    return probe_fn, True
+
+
+def pm_parse_cell(probe_fn, dirname, macros):
+    cmd = ["rpmspec", "-D", f"_sourcedir {dirname}"]
+    for k, v in macros.items():
+        cmd += ["-D", f"{k} {v}"]
+    cmd += ["-P", probe_fn]
+
+    out, err, rc = CommandUtils.runCmd(cmd, capture=True, ignore_rc=True)
+
+    return out, err, rc
+
+
+def pm_collect(parsed_spec):
+    """
+    Basenames of every Source/Patch the parsed cell selects. Remote sources are
+    skipped, they are fetched and never expected to sit next to the spec.
+    """
+    files = set()
+
+    for line in parsed_spec.split("\n"):
+        if line.startswith("%changelog"):
+            break
+
+        m = parsed_src_regex.match(line)
+        if m and "://" not in m.group(1):
+            files.add(os.path.basename(m.group(1)))
+
+    return files
+
+
+def pm_subrelease_values(subrel_thresholds, build_if, subrelease, mainline):
+    """
+    Values of photon_subrelease worth parsing with: for every threshold the
+    spec branches on, the value just below it and the value itself, restricted
+    to the range the spec declares it supports via build_if.
+    """
+    values = set()
+
+    for n in subrel_thresholds:
+        values.update([n - 1, n])
+
+    values = {v for v in values if 90 <= v <= int(mainline)}
+
+    if build_if:
+        op, val = build_if
+        values = {v for v in values if cmp_ops[op](v, val)}
+
+    values.discard(int(subrelease))
+
+    return sorted(values)
+
+
+def check_parse_matrix(spec_fn, err_dict, dirname, subrelease, mainline):
+    """
+    Parse the spec once per meaningful build configuration instead of only in
+    the one its own defaults select, and report anything that only the other
+    configurations reveal.
+    """
+    ret = False
+    sec = "parse_matrix"
+
+    toggles, pinned, subrel_thresholds, build_if = pm_scan_spec(spec_fn)
+
+    # a deliberate pin is still neutralized, so its branch keeps being parsed,
+    # only the finding is suppressed
+    report_pinned = (
+        "/".join(spec_fn.split("/")[-2:]) not in parse_matrix_ignore_pinned
+    )
+
+    cells = [("default", {}, frozenset())]
+
+    for name in sorted(toggles):
+        for val in parse_matrix_toggles[name]:
+            neutralize = frozenset([name]) if name in pinned else frozenset()
+            cells.append((f"{name}={val}", {name: val}, neutralize))
+
+    for val in pm_subrelease_values(
+        subrel_thresholds, build_if, subrelease, mainline
+    ):
+        cells.append((f"photon_subrelease={val}",
+                      {"photon_subrelease": val}, frozenset()))
+
+    if len(cells) == 1:
+        # nothing conditional to sweep, the default parse is the whole matrix
+        return ret
+
+    if report_pinned:
+        for name, (lineno, text) in sorted(pinned.items()):
+            err_dict.update_err_dict(
+                sec,
+                f"build toggle {name} is declared but unreachable: '{text}' "
+                f"at line {lineno} shadows -D {name} <value>, so the "
+                f"conditional code behind {name} is never validated by a "
+                f"normal build",
+            )
+            ret = True
+
+    probe_specs = {}
+    default_files = set()
+
+    try:
+        for name, macros, neutralize in cells:
+            if neutralize not in probe_specs:
+                probe_specs[neutralize] = pm_probe_spec(spec_fn, neutralize)
+
+            probe_fn, _ = probe_specs[neutralize]
+
+            cell_macros = {"photon_subrelease": subrelease}
+            cell_macros.update(macros)
+
+            out, err, rc = pm_parse_cell(probe_fn, dirname, cell_macros)
+
+            macro_str = " ".join(f"-D '{k} {v}'" for k, v in cell_macros.items())
+
+            if rc:
+                err_dict.update_err_dict(
+                    sec,
+                    f"rpmspec failed for cell [{name}] "
+                    f"({macro_str}):\n{err.strip()}",
+                )
+                ret = True
+                continue
+
+            files = pm_collect(out)
+
+            if name == "default":
+                default_files = files
+                continue
+
+            # Only files this cell brings in on top of the default parse are
+            # reported. Whatever the default configuration already references
+            # is the existing checks' business, and specs whose patches come
+            # from a source archive (glibc, linux, grub2, shim) legitimately
+            # have no such file next to the spec - flagging those would be
+            # noise, not a finding.
+            #
+            # rpm resolves a local Source/Patch by basename against a flat
+            # _sourcedir, and the package builder stages a package's sources
+            # into a flat SOURCES dir, so "Source1: pam.d/chage.stig" is
+            # satisfied by <specdir>/pam.d/chage.stig. Hence basename plus a
+            # recursive lookup below the package directory.
+            for fn in sorted(files - default_files):
+                if not find_file_in_dir(fn, dirname):
+                    err_dict.update_err_dict(
+                        sec,
+                        f"cell [{name}] ({macro_str}) references {fn}, which "
+                        f"does not exist in {dirname}",
+                    )
+                    ret = True
+    finally:
+        for probe_fn, is_temp in probe_specs.values():
+            if is_temp and os.path.exists(probe_fn):
+                os.remove(probe_fn)
+
+    return ret
+
+
 def check_specs(files_list, subrelease, mainline):
     ret = False
     global specPaths
@@ -911,6 +1211,9 @@ def check_specs(files_list, subrelease, mainline):
                 check_make_smp_flags(lines_dict, err_dict),
                 check_for_unused_files(altered_spec, err_dict, currSpecDir, subrelease),
                 check_proper_spdx_license(spec, err_dict),
+                check_parse_matrix(
+                    spec_fn, err_dict, currSpecDir, subrelease, mainline
+                ),
             ]
         ):
             err = True
