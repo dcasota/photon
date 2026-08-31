@@ -23,6 +23,7 @@ Patch4: 0005-tdnf-capture-install-output.patch
 Patch5: 0006-stig-drop-redundant-packages.patch
 Patch6: 0007-installer-seed-locale.conf-before-package-install.patch
 Patch7: 0008-isoBuilder-put-installer-requestable-packages-on-media.patch
+Patch8: 0009-installer-restrict-sshd-to-FIPS-approved-algorithms.patch
 
 BuildRequires: python3-devel
 BuildRequires: python3-pyinstaller
@@ -78,7 +79,7 @@ rm -rf %{buildroot}
 
 %changelog
 * Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 2.8-3
-- Fix interactive install, disk UI, STIG packages, locale.conf, media packages
+- Fix the interactive install crash and disk-selection UI, add btrfs-progs, capture tdnf output, drop redundant STIG packages, seed /etc/locale.conf, and put installer-requestable packages on the media; restrict sshd to FIPS-approved algorithms when FIPS is enabled, so the installed system stays reachable over SSH
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.8-2
 - Extended to build for subrelease 91 and above
 * Tue Apr 28 2026 Oliver Kurth <oliver.kurth@broadcom.com> 2.8-1
