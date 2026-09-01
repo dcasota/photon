@@ -79,7 +79,7 @@ rm -rf %{buildroot}
 
 %changelog
 * Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 2.8-3
-- Fix the interactive install crash and disk-selection UI, add btrfs-progs, capture tdnf output, drop redundant STIG packages, seed /etc/locale.conf, and put installer-requestable packages on the media; restrict sshd to FIPS-approved algorithms when FIPS is enabled, so the installed system stays reachable over SSH
+- Fix interactive install, disk UI, locale, media packages; FIPS sshd
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.8-2
 - Extended to build for subrelease 91 and above
 * Tue Apr 28 2026 Oliver Kurth <oliver.kurth@broadcom.com> 2.8-1
