@@ -5,7 +5,7 @@
 Summary:       Photon OS Installer
 Name:          photon-os-installer
 Version:       2.9
-Release:       1%{?dist}
+Release:       2%{?dist}
 Group:         System Environment/Base
 Vendor:        VMware, Inc.
 Distribution:  Photon
@@ -21,6 +21,7 @@ Patch: 0002-fix-up-old-public_key-syntax-for-backward-compatibil.patch
 Patch: 0006-stig-drop-redundant-packages.patch
 Patch: 0007-installer-seed-locale.conf-before-package-install.patch
 Patch: 0008-isoBuilder-put-installer-requestable-packages-on-media.patch
+Patch: 0009-installer-restrict-sshd-to-FIPS-approved-algorithms.patch
 
 BuildRequires: python3-devel
 BuildRequires: python3-pyinstaller
@@ -75,6 +76,8 @@ rm -rf %{buildroot}
 %{_bindir}/photon-iso-builder
 
 %changelog
+* Wed Sep 02 2026 Daniel Casota <dcasota@gmail.com> 2.9-2
+- Restrict sshd to FIPS-approved algorithms when FIPS is enabled, so the installed system stays reachable over SSH
 * Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 2.9-1
 - Upgrade to v2.9, drop the upstreamed mkpasswd patch, rebase 0002 onto the v2.9 context, switch to unnumbered Patch:, and put installer-requestable packages on the media
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.8-2
