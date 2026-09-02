@@ -21,6 +21,7 @@ Patch: 0002-fix-up-old-public_key-syntax-for-backward-compatibil.patch
 Patch: 0006-stig-drop-redundant-packages.patch
 Patch: 0007-installer-seed-locale.conf-before-package-install.patch
 Patch: 0008-isoBuilder-put-installer-requestable-packages-on-media.patch
+Patch: 0009-installer-restrict-sshd-to-FIPS-approved-algorithms.patch
 
 BuildRequires: python3-devel
 BuildRequires: python3-pyinstaller
@@ -76,7 +77,7 @@ rm -rf %{buildroot}
 
 %changelog
 * Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 2.9-1
-- Upgrade to v2.9; STIG packages; requestable packages on media
+- Upgrade to v2.9; STIG, media packages; FIPS sshd
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.8-2
 - Extended to build for subrelease 91 and above
 * Tue Apr 28 2026 Oliver Kurth <oliver.kurth@broadcom.com> 2.8-1
