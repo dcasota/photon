@@ -40,7 +40,7 @@
 Summary:        Kernel
 Name:           linux-esx
 Version:        6.12.103
-Release:        12%{?dist}
+Release:        14%{?dist}
 URL:            http://www.kernel.org
 Group:          System Environment/Kernel
 Vendor:         VMware, Inc.
@@ -83,7 +83,25 @@ Source10001: jitterentropy_canister_wrapper.c
 Source10002: jitterentropy_canister_wrapper.h
 Source10003: jitterentropy_canister_wrapper_asm.S
 
+# Which canister this build links.
+#
+# Default: the published, certified one. A build that has just created an
+# equivalent canister from the kernel under test overrides it with
+# canister_equivalent=1 plus fips_canister_override=<NEVR>.
+#
+# Two macros rather than one, and an %%if rather than a bang-question guard,
+# Photon's own SpecParser is stricter than rpm:
+#   - _isDefinition() matches only a line STARTING with %%define/%%global, so
+#     a guard of the bang-question form never reaches self.defs and
+#     ExtraBuildRequiresSansSnapshot keeps the macro literal;
+#   - _isConditionTrue() eval()s the expanded text after lstrip("0"), which is
+#     fine for a 0/1 flag and a NameError for a version string.
+# So the flag is what %%if tests, and the version rides in a second macro.
+%if 0%{?canister_equivalent}
+%define fips_canister_version %{fips_canister_override}
+%else
 %define fips_canister_version 6.12.60-18.2.ph5
+%endif
 %define ExtraBuildRequiresSansSnapshot linux-fips-canister = %{fips_canister_version}
 BuildRequires:       linux-fips-canister = %{fips_canister_version}
 
@@ -561,6 +579,10 @@ ln -sf linux-%{uname_r}.cfg /boot/photon.cfg
 %{_usrsrc}/linux-headers-%{uname_r}
 
 %changelog
+* Wed Sep 02 2026 Daniel Casota <dcasota@gmail.com> 6.12.103-14
+- Accept the same canister_equivalent / fips_canister_override pair as
+  linux.spec, so this flavour - the one the ISO actually boots - can link a
+  locally built canister too. It never builds one; it only links.
 * Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 6.12.103-12
 - Move canister/.config handling into shared canister_config.inc (Source5),
   included by both linux.spec and linux-esx.spec so the two flavours cannot
