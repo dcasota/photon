@@ -80,7 +80,7 @@
 Summary:        Kernel
 Name:           linux
 Version:        6.12.103
-Release:        12%{?acvp_build:.acvp}%{?kat_build:.kat}%{?dist}
+Release:        13%{?acvp_build:.acvp}%{?kat_build:.kat}%{?dist}
 URL:            http://www.kernel.org/
 Group:          System Environment/Kernel
 Vendor:         VMware, Inc.
@@ -973,6 +973,14 @@ ln -sf linux-%{uname_r}.cfg /boot/photon.cfg
 %endif
 
 %changelog
+* Tue Sep 01 2026 Daniel Casota <dcasota@gmail.com> 6.12.103-13
+- Rebase canister-creation patches 1004 and 1010 onto 6.12.103. Upstream
+  dropped the WARN_ON() wrapper around !digest_size in pkcs1pad_verify(), and
+  that single line is context for both patches, so %prep failed at --fuzz=0
+  with "1 out of 2 hunks FAILED -- crypto/rsa-pkcs1pad.c.rej". canister_build
+  could not build against the shipping kernel. In 1004 the conversion is not
+  cosmetic: WARN_ON emits a __bug_table entry and that patch exists to keep
+  __bug_table out of the canister.
 * Tue Sep 01 2026 Daniel Casota <dcasota@gmail.com> 6.12.103-12
 - Move canister/.config handling into shared canister_config.inc (Source5),
   included by both linux.spec and linux-esx.spec so the two flavours cannot
