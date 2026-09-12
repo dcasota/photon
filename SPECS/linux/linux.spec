@@ -80,7 +80,7 @@
 Summary:        Kernel
 Name:           linux
 Version:        6.12.109
-Release:        1%{?acvp_build:.acvp}%{?kat_build:.kat}%{?dist}
+Release:        2%{?acvp_build:.acvp}%{?kat_build:.kat}%{?dist}
 URL:            http://www.kernel.org/
 Group:          System Environment/Kernel
 Vendor:         VMware, Inc.
@@ -992,6 +992,11 @@ ln -sf linux-%{uname_r}.cfg /boot/photon.cfg
 %endif
 
 %changelog
+* Sat Sep 12 2026 Daniel Casota <dcasota@gmail.com> 6.12.109-2
+- gen_canister_relocs: do not let the unmeasured .bss section consume a
+  section index, which misdirected reverse relocations and broke FIPS
+  canister verification when the compiler placed .bss before a measured
+  section
 * Fri Sep 11 2026 Ajay Kaher <ajay.kaher@broadcom.com> 6.12.109-1
 - Update to version 6.12.109
 * Fri Sep 11 2026 Ajay Kaher <ajay.kaher@broadcom.com> 6.12.107-11
