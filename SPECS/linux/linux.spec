@@ -57,8 +57,19 @@
 %global canister_build 1
 %endif
 
+%ifarch x86_64
 %if 0%{?acvp_build}
 %global fips 1
+%endif
+%endif
+
+# acvp_build and kat_build are x86_64-only: the canister they certify is
+# arch/x86 crypto and the only ACVP config is config_x86_64_acvp. Refuse them
+# on any other architecture instead of building with x86_64 inputs.
+%ifnarch x86_64
+%if 0%{?acvp_build} || 0%{?kat_build}
+%{error:acvp_build and kat_build are x86_64-only; refusing to build for %{_target_cpu}}
+%endif
 %endif
 
 # Set default FIPS flags
@@ -80,7 +91,7 @@
 Summary:        Kernel
 Name:           linux
 Version:        6.12.109
-Release:        2%{?acvp_build:.acvp}%{?kat_build:.kat}%{?dist}
+Release:        3%{?acvp_build:.acvp}%{?kat_build:.kat}%{?dist}
 URL:            http://www.kernel.org/
 Group:          System Environment/Kernel
 Vendor:         VMware, Inc.
@@ -987,6 +998,8 @@ ln -sf linux-%{uname_r}.cfg /boot/photon.cfg
 %endif
 
 %changelog
+* Sat Sep 12 2026 Daniel Casota <dcasota@gmail.com> 6.12.109-3
+- Make canister_build work against the current kernel
 * Fri Sep 11 2026 Daniel Casota <dcasota@gmail.com> 6.12.109-2
 - Share canister/.config handling via canister_config.inc; fixes the fips=0 path
 * Fri Sep 11 2026 Ajay Kaher <ajay.kaher@broadcom.com> 6.12.109-1
