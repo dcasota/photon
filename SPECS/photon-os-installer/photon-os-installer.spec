@@ -5,7 +5,7 @@
 Summary:       Photon OS Installer
 Name:          photon-os-installer
 Version:       2.8
-Release:       3%{?dist}
+Release:       4%{?dist}
 Group:         System Environment/Base
 Vendor:        VMware, Inc.
 Distribution:  Photon
@@ -23,6 +23,7 @@ Patch4: 0005-tdnf-capture-install-output.patch
 Patch5: 0006-stig-drop-redundant-packages.patch
 Patch6: 0007-installer-seed-locale.conf-before-package-install.patch
 Patch7: 0008-isoBuilder-put-installer-requestable-packages-on-media.patch
+Patch8: 0009-installer-restrict-sshd-to-FIPS-approved-algorithms.patch
 
 BuildRequires: python3-devel
 BuildRequires: python3-pyinstaller
@@ -77,6 +78,8 @@ rm -rf %{buildroot}
 %{_bindir}/photon-iso-builder
 
 %changelog
+* Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 2.8-4
+- Restrict sshd to FIPS-approved algorithms when FIPS is enabled, so the installed system stays reachable over SSH
 * Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 2.8-3
 - Fix the interactive install crash and disk-selection UI, add btrfs-progs, capture tdnf output, drop redundant STIG packages, seed /etc/locale.conf, and put installer-requestable packages on the media
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.8-2

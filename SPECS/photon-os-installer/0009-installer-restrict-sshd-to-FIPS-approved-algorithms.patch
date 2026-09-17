@@ -1,0 +1,113 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daniel Casota <dcasota@gmail.com>
+Date: Mon, 31 Aug 2026 00:00:00 +0000
+Subject: [PATCH] installer: restrict sshd to FIPS-approved algorithms
+
+Enabling FIPS makes the installed system unreachable over SSH.
+
+_setup_security() adds fips=1 to the kernel command line and installs
+openssl-fips-provider, but leaves sshd with its stock algorithm lists.
+Those include curve25519, chacha20-poly1305, ed25519 and umac, none of
+which are FIPS-approved. sshd advertises them anyway, the peer selects
+one, and the FIPS-constrained crypto then refuses the operation:
+
+  sshd-session: ssh_dispatch_run_fatal: Connection from 192.168.225.1
+      port 52972: invalid argument [preauth]
+
+The connection dies after key exchange. Nothing reports a fault - the
+system is "running", there are no failed units, and sshd is active and
+listening on 22 - so the machine looks healthy while remote
+administration is impossible. Reproduced on a kickstart install with
+security.fips true and no STIG hardening: a default client fails, and
+the same client restricted to approved algorithms connects immediately.
+
+Two existing mechanisms would have prevented this and neither applies
+here. The STIG role sets Ciphers and MACs itself, and is explicit about
+why ("This must be before we install the OpenSSL FIPS Provider or the
+default OpenSSH Ciphers will cause issues with connecting over SSH"),
+but FIPS can be enabled without STIG. The openssh package carries a
+hardened sshd_config with approved algorithms, but only when it is built
+with STIG_HARDEN, which defaults to 0.
+
+So the installer has to close it: it is what puts the system into FIPS
+mode, and it cannot assume which openssh build variant is on the media.
+
+Existing active settings for these keywords are removed rather than
+appended after, because sshd uses the first value it sees for them.
+Commented examples are left untouched.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+--- a/photon_installer/installer.py
++++ b/photon_installer/installer.py
+@@ -1698,6 +1698,62 @@
+         if self.install_config.get('eject_cdrom', True):
+             self.cmd.run(['eject', '-r'])
+ 
++    # FIPS 140-3 approved SSH algorithms. sshd's stock lists include
++    # curve25519, chacha20-poly1305, ed25519 and umac, none of which are
++    # approved. With fips=1 sshd still advertises them, the peer selects one,
++    # and the FIPS-constrained crypto then refuses the operation:
++    #
++    #   sshd-session: ssh_dispatch_run_fatal: Connection from <ip>:
++    #       invalid argument [preauth]
++    #
++    # The connection dies after key exchange, so remote administration is
++    # impossible even though the system reports itself healthy - no failed
++    # units, sshd active and listening.
++    FIPS_SSHD_ALGORITHMS = {
++        'KexAlgorithms': 'ecdh-sha2-nistp256,ecdh-sha2-nistp384,'
++                         'ecdh-sha2-nistp521,diffie-hellman-group16-sha512,'
++                         'diffie-hellman-group18-sha512,'
++                         'diffie-hellman-group14-sha256',
++        'Ciphers': 'aes256-gcm@openssh.com,aes128-gcm@openssh.com,'
++                   'aes256-ctr,aes192-ctr,aes128-ctr',
++        'MACs': 'hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,'
++                'hmac-sha2-512,hmac-sha2-256',
++        'HostKeyAlgorithms': 'rsa-sha2-512,rsa-sha2-256,ecdsa-sha2-nistp256,'
++                             'ecdsa-sha2-nistp384,ecdsa-sha2-nistp521',
++        'PubkeyAcceptedAlgorithms': 'rsa-sha2-512,rsa-sha2-256,'
++                                    'ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,'
++                                    'ecdsa-sha2-nistp521',
++    }
++
++    def _restrict_sshd_to_fips_algorithms(self):
++        sshd_config = os.path.join(self.photon_root, "etc/ssh/sshd_config")
++        if not os.path.exists(sshd_config):
++            return
++
++        # sshd uses the FIRST value it sees for these keywords, so an existing
++        # setting would win over anything appended. Drop the active ones and
++        # write the approved values instead; commented examples are left alone.
++        lowered = {k.lower() for k in self.FIPS_SSHD_ALGORITHMS}
++        with open(sshd_config, "rt") as fin:
++            lines = fin.readlines()
++
++        kept = []
++        for line in lines:
++            head = line.strip().split(' ')[0].split('\t')[0].lower()
++            if head in lowered:
++                continue
++            kept.append(line)
++
++        if kept and not kept[-1].endswith("\n"):
++            kept.append("\n")
++        kept.append("\n# FIPS 140-3: offer only approved algorithms.\n")
++        for key in sorted(self.FIPS_SSHD_ALGORITHMS):
++            kept.append(f"{key} {self.FIPS_SSHD_ALGORITHMS[key]}\n")
++
++        with open(sshd_config, "wt") as fout:
++            fout.writelines(kept)
++        self.logger.info("restricted sshd algorithms to the FIPS-approved set")
++
+     def _setup_security(self):
+         if 'security' not in self.install_config:
+             return
+@@ -1707,6 +1763,7 @@
+             self.poi_kernel_cmdline += " security=selinux selinux=1"
+         if security.get('fips', False):
+             self.poi_kernel_cmdline += " fips=1"
++            self._restrict_sshd_to_fips_algorithms()
+ 
+         selinux = security.get('selinux', None)
+         if selinux is not None:
