@@ -1,0 +1,48 @@
+--- a/SPECS/linux/linux-esx.spec
++++ b/SPECS/linux/linux-esx.spec
+@@ -1,3 +1,6 @@
++# experimental/linux-7.2.7 (Photon 5 userland)
++# Milestone 2 scaffold: consume upstream Linux 7.2.7 with FIPS/canister OFF.
++# Out-of-tree Photon patches are still the 6.12 set and will not all apply.
+ %global build_if %{photon_subrelease} >= 91
+ %global security_hardening none
+ %global __cmake_in_source_build 0
+@@ -17,7 +20,7 @@
+ %define archdir x86
+ 
+ # Set this flag to 0 to build without canister
+-%global fips 1
++%global fips 0
+ %endif
+ 
+ %ifarch aarch64
+@@ -28,8 +31,8 @@
+ 
+ Summary:        Kernel
+ Name:           linux-esx
+-Version:        6.12.109
+-Release:        6%{?dist}
++Version:        7.2.7
++Release:        1%{?dist}
+ URL:            http://www.kernel.org
+ Group:          System Environment/Kernel
+ Vendor:         VMware, Inc.
+@@ -38,7 +41,7 @@
+ %define uname_r %{version}-%{release}-esx
+ %define _modulesdir /lib/modules/%{uname_r}
+ 
+-Source0:        http://www.kernel.org/pub/linux/kernel/v6.x/linux-%{version}.tar.xz
++Source0:        https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-%{version}.tar.xz
+ Source1:        config-esx_%{_arch}
+ Source2:        initramfs.trigger
+ # contains pre, postun, filetriggerun tasks
+@@ -579,6 +582,10 @@
+ %{_usrsrc}/linux-headers-%{uname_r}
+ 
+ %changelog
++* Mon Sep 21 2026 dcasota <dcasota@users.noreply.github.com> 7.2.7-1
++- Experimental: rebase source to Linux 7.2.7 from kernel.org v7.x.
++- Disable FIPS canister on this branch (no 7.2 certified canister).
++- Photon 5.0 userland / .ph5 dist tag unchanged. Patches still 6.12-era.
+ * Fri Sep 18 2026 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 6.12.109-6
+ - Fixes CVE-2026-68337, CVE-2026-68441
