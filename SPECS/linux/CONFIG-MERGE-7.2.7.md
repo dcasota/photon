@@ -12,11 +12,13 @@ expected on 7.2.7.
 3. After first successful %prep, copy sandbox .config back into SPECS/linux/
    if the official check should be re-enabled.
 
+Do not start from make defconfig.
+
 ## io_uring
 
 - CONFIG_IO_URING: keep (Photon 6.12 policy)
 - CONFIG_IO_URING_ZCRX: keep (def_bool y, zero-copy RX)
-- CONFIG_IO_URING_BPF: accept def_bool default (olddefconfig restores it)
-- CONFIG_IO_URING_BPF_OPS: off via DEBUG_INFO_BTF=n (bpf_io_reg loop_step on 7.1+)
+- CONFIG_IO_URING_BPF: accept def_bool default
+- CONFIG_IO_URING_BPF_OPS: off via DEBUG_INFO_BTF=n (bpf_io_reg loop_step)
 
-Runtime (not Kconfig): sysctl kernel.io_uring_disabled=1
+Runtime: sysctl kernel.io_uring_disabled=1
