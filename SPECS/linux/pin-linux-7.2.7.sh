@@ -47,7 +47,6 @@ disable_unrebased_ranges() {
   [ -f "$spec" ] || return 0
   sed -i -E '/^%autopatch /{ /-m0 -M49/b; s/.*/# unrebased autopatch range skipped for 7.2.7/; }' "$spec"
   sed -i -E '/^Patch([2-9]|[1-4][0-9]):/d' "$spec"
-  echo "[runPh7-2-7] $spec: only Patch0/1 + %autopatch 0-49 left"
 }
 
 inject_config_merge() {
@@ -55,7 +54,7 @@ inject_config_merge() {
   needle="$2"
   [ -f "$spec" ] || return 0
   python3 - "$spec" "$needle" << 'PY'
-import sys
+import re, sys
 from pathlib import Path
 spec, needle = Path(sys.argv[1]), sys.argv[2]
 text = spec.read_text()
@@ -70,21 +69,37 @@ block = (
     "  scripts/config --disable DEBUG_INFO_BTF || :\n"
     "  scripts/config --disable IO_URING_BPF_OPS || :\n"
     "  make ARCH=%{arch} LC_ALL= olddefconfig\n"
-    "fi\n"
+    "fi"
 )
-if "7.2.7 config merge" in text:
-    print(f"[runPh7-2-7] {spec} already has config merge")
+new_text, n = re.subn(
+    r"# 7\\.2\\.7 config merge:.*?\\n(?:# .*\\n)*make ARCH=%\\{arch\\} LC_ALL= olddefconfig\\n"
+    r"if \\[ -x scripts/config \\\]; then\\n(?:  scripts/config .*\\n)*"
+    r"  make ARCH=%\\{arch\\} LC_ALL= olddefconfig\\nfi",
+    block, text, count=1, flags=re.S,
+)
+if n:
+    spec.write_text(new_text)
+    print(f"[runPh7-2-7] {spec}: refreshed 7.2.7 config merge")
     raise SystemExit(0)
 old_inc = f"%include {needle}"
-old_simple = "make ARCH=%{arch} olddefconfig"
 if old_inc in text:
-    text = text.replace(old_inc, block.rstrip("\n"), 1)
-elif old_simple in text:
-    text = text.replace(old_simple, block.rstrip("\n"), 1)
-else:
-    print(f"[runPh7-2-7] WARNING: no config-check include in {spec}")
+    spec.write_text(text.replace(old_inc, block, 1))
+    print(f"[runPh7-2-7] {spec}: injected 7.2.7 config merge")
     raise SystemExit(0)
-spec.write_text(text)
-print(f"[runPh7-2-7] {spec}: injected 7.2.7 config merge")
+simple = "make ARCH=%{arch} olddefconfig"
+if simple in text and "7.2.7 config merge" not in text:
+    spec.write_text(text.replace(simple, block, 1))
+    print(f"[runPh7-2-7] {spec}: upgraded one-line olddefconfig to merge block")
+    raise SystemExit(0)
+print(f"[runPh7-2-7] WARNING: no config-check include in {spec}", file=sys.stderr)
 PY
 }
+
+cd "$BASE_DIR/$RELEASE_BRANCH" || exit 1
+pin_727 SPECS/linux/linux.spec SPECS/linux/linux.spec.7.2.7.patch
+pin_727 SPECS/linux/linux-esx.spec SPECS/linux/linux-esx.spec.7.2.7.patch
+sync_cve_include
+disable_unrebased_ranges SPECS/linux/linux.spec
+disable_unrebased_ranges SPECS/linux/linux-esx.spec
+inject_config_merge SPECS/linux/linux.spec '%{SOURCE7}'
+inject_config_merge SPECS/linux/linux-esx.spec '%{SOURCE4}'
