@@ -60,13 +60,12 @@ spec, needle = Path(sys.argv[1]), sys.argv[2]
 text = spec.read_text()
 block = (
     "# 7.2.7 config merge: Photon policy kept, obsolete 6.12 symbols dropped.\n"
-    "# IO_URING_ZCRX is def_bool y (zero-copy RX) -- leave it.\n"
-    "# IO_URING_BPF is def_bool y if BPF+NET -- olddefconfig restores it.\n"
-    "# IO_URING_BPF_OPS needs DEBUG_INFO_BTF; keep BTF off so bpf_io_reg\n"
-    "# loop_step cannot attach to another task ring.\n"
+    "# bpftool BUILD_BPF_SKEL dumps BTF from vmlinux -- keep DEBUG_INFO_BTF.\n"
+    "# IO_URING_ZCRX stays. IO_URING_BPF_OPS may follow BTF; accepted here.\n"
     "make ARCH=%{arch} LC_ALL= olddefconfig\n"
     "if [ -x scripts/config ]; then\n"
-    "  scripts/config --disable DEBUG_INFO_BTF || :\n"
+    "  scripts/config --enable DEBUG_INFO || :\n"
+    "  scripts/config --enable DEBUG_INFO_BTF || :\n"
     "  scripts/config --disable IO_URING_BPF_OPS || :\n"
     "  make ARCH=%{arch} LC_ALL= olddefconfig\n"
     "fi"
@@ -103,3 +102,12 @@ disable_unrebased_ranges SPECS/linux/linux.spec
 disable_unrebased_ranges SPECS/linux/linux-esx.spec
 inject_config_merge SPECS/linux/linux.spec '%{SOURCE7}'
 inject_config_merge SPECS/linux/linux-esx.spec '%{SOURCE4}'
+
+pin_rust_locale() {
+  spec="SPECS/rust/rust.spec"
+  [ -f "$spec" ] || spec=$(find SPECS -name rust.spec 2>/dev/null | head -n1)
+  [ -n "$spec" ] && [ -f "$spec" ] || return 0
+  grep -q 'export LANG=C' "$spec" && return 0
+  grep -q '^%build' "$spec" && sed -i '/^%build/a export LANG=C\nexport LC_ALL=C' "$spec"
+}
+pin_rust_locale
