@@ -42,3 +42,13 @@ Tested: clean `patch --dry-run` on pristine 7.3-rc4; full `bzImage modules` buil
 vermagic `... RAP`); QEMU/KVM boot of Photon 5.0 to the login prompt without PAX/RAP violations.
 Patch62 (`objtool: Return error in case of failures`) stays off: it no longer applies, and RAP
 builds emit objtool `no-cfi indirect call!` notes that it would turn into errors.
+
+## rdrand-rng on 7.3-rc4
+
+systemd ships `/etc/modules-load.d/10-rdrand-rng.conf`, and both kernel configs set
+`CONFIG_HW_RANDOM_RDRAND=m`, but the driver comes from Photon's `Patch6`
+(`vmw/0001-hwrng-rdrand-Add-RNG-driver-based-on-x86-rdrand-inst.patch`), which the 7.3-rc4 pin
+skipped. `vmw/0001-hwrng-rdrand-Add-RNG-driver-based-on-x86-rdrand-inst-7.3.patch` rebases it:
+the Makefile line now follows the AMD entry (7.3 added AIROHA where the old context expected
+ATMEL), and `static_cpu_has()`, removed in 7.x, becomes `cpu_feature_enabled()`. Tested: clean
+`patch --dry-run` on pristine 7.3-rc4, and `rdrand-rng.ko` builds against the 7.3-rc4 esx headers.
