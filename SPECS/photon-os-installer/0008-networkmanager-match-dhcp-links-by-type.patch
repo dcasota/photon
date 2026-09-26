@@ -1,0 +1,41 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] networkmanager: match DHCP links by type, not by eth* name
+
+The legacy "dhcp" network type wrote [Match] Name=e*. Photon boots with
+net.ifnames=0, so the names are kernel-enumerated (eth0), and
+systemd-networkd warns at every boot:
+
+  eth0: Found matching .network file, based on potentially unpredictable
+  interface name: /etc/systemd/network/50-dhcp-en.network
+
+Match Type=ether with Kind=!* instead, the upstream systemd pattern for
+all physical Ethernet links (virtual links such as veth have a kind).
+The writer learns the "type" and "kind" match keys.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+--- a/photon_installer/networkmanager.py	2026-01-21 23:43:56.000000000 +0100
++++ b/photon_installer/networkmanager.py	2026-09-26 10:13:38.234166446 +0200
+@@ -147,7 +147,10 @@
+         type = old_config['type']
+         if type == 'dhcp':
+             config['ethernets'] = {
+-                'dhcp-en': {'match': {'name': 'e*'}, 'dhcp4': True}
++                # all physical Ethernet links; Kind=!* excludes virtual ones (veth,
++                # macvlan, ...). Unlike Name=e* this does not rely on the kernel-assigned
++                # eth* names that net.ifnames=0 produces, which networkd warns about.
++                'dhcp-en': {'match': {'type': 'ether', 'kind': '!*'}, 'dhcp4': True}
+             }
+         elif type == 'static':
+             config['ethernets'] = {'static-en': {'match': {'name': 'eth0'}}}
+@@ -249,6 +252,10 @@
+                 if 'name' in iface_config['match']:
+                     name = iface_config['match']['name']
+                     sysdict['Match']['Name'] = name
++                if 'type' in iface_config['match']:
++                    sysdict['Match']['Type'] = iface_config['match']['type']
++                if 'kind' in iface_config['match']:
++                    sysdict['Match']['Kind'] = iface_config['match']['kind']
+ 
+         else:
+             raise Exception(f"unknown interface type {type}")
