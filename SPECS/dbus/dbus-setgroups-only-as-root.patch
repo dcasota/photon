@@ -1,0 +1,31 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] sysdeps-unix: drop supplementary groups only when running as root
+
+dbus.service starts dbus-daemon with User=dbus. Built without libaudit,
+_dbus_change_to_daemon_user() still calls setgroups(), which fails with
+EPERM for an unprivileged process and logs at every boot:
+
+  dbus-daemon: Failed to drop supplementary groups: Operation not permitted
+
+Only call setgroups() when the effective UID is 0, as the libaudit
+implementation in bus/audit.c already does.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+--- a/dbus/dbus-sysdeps-util-unix.c	2025-02-27 17:29:06.000000000 +0100
++++ b/dbus/dbus-sysdeps-util-unix.c	2026-09-26 10:13:19.453805897 +0200
+@@ -353,8 +353,13 @@
+    *
+    * not sure this is right, maybe if setuid()
+    * is going to work then setgroups() should also work.
++   *
++   * When systemd already started us as the bus user (User= in
++   * dbus.service), there are no supplementary groups to drop and the
++   * call can only fail with EPERM, so skip it, as the libaudit variant
++   * in bus/audit.c does.
+    */
+-  if (setgroups (0, NULL) < 0)
++  if (_dbus_geteuid () == 0 && setgroups (0, NULL) < 0)
+     _dbus_warn ("Failed to drop supplementary groups: %s",
+                 _dbus_strerror (errno));
+ 

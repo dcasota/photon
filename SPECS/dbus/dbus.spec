@@ -3,7 +3,7 @@
 Summary:        DBus message bus
 Name:           dbus
 Version:        1.16.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            http://www.freedesktop.org/wiki/Software/dbus
 Group:          Applications/File
 Vendor:         VMware, Inc.
@@ -12,6 +12,8 @@ Distribution:   Photon
 Source0: http://dbus.freedesktop.org/releases/dbus/%{name}-%{version}.tar.xz
 
 Source1: license.txt
+
+Patch0: dbus-setgroups-only-as-root.patch
 %include %{SOURCE1}
 
 Source2: %{name}.sysusers
@@ -138,6 +140,9 @@ install -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysusersdir}/%{name}.conf
 %{_userunitdir}/%{name}.socket
 
 %changelog
+* Sat Sep 26 2026 Daniel Casota <dcasota@gmail.com> 1.16.2-4
+- Drop supplementary groups only when running as root; dbus.service already
+  starts the daemon as the dbus user, so setgroups() only logged EPERM
 * Thu May 14 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.16.2-3
 - Build for subrelease >= 91
 * Tue Feb 24 2026 Oliver Kurth <oliver.kurth@broadcom.com> 1.16.2-2
