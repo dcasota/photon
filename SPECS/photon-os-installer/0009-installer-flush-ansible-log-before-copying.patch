@@ -1,0 +1,32 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] installer: flush the ansible log before copying it
+
+_ansible_run() writes the playbook output to the configured logfile and
+copies that file into the target's /var/log, but never closes it. The
+last buffer of output is still in memory when shutil.copy() runs, so
+/var/log/ansible-stig.log on an installed STIG system ends mid-task,
+without the PLAY RECAP, although the playbook finished successfully.
+
+Close the logfile once the playbook has exited, before the return-code
+check, so the copy is complete and a failed run leaves a full log too.
+---
+ photon_installer/installer.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/photon_installer/installer.py b/photon_installer/installer.py
+index 0a3cd1f..9c388ae 100644
+--- a/photon_installer/installer.py
++++ b/photon_installer/installer.py
+@@ -917,6 +917,9 @@ class Installer(object):
+                 else:
+                     self.logger.info(line)
+             process.wait()
++            if logf is not None:
++                # flush the tail (incl. PLAY RECAP) before copying or failing
++                logf.close()
+             assert process.returncode == 0, f"ansible run for playbook {playbook} failed"
+             if logf is not None:
+                 shutil.copy(ans_cfg['logfile'], os.path.join(self.photon_root, "var/log"))
+-- 
+2.53.0
+
