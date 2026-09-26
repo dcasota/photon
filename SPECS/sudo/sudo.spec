@@ -1,13 +1,12 @@
 Summary:        Sudo
 Name:           sudo
 Version:        1.9.15p5
-Release:        6%{?dist}
+Release:        7%{?dist}
 URL:            https://www.sudo.ws/
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        http://www.sudo.ws/sudo/dist/%{name}-%{version}.tar.gz
-Source1:        %{name}.sysusers
 
 Source2: license.txt
 %include %{SOURCE2}
@@ -73,18 +72,13 @@ mkdir -p %{buildroot}%{_libdir}/tmpfiles.d
 touch %{buildroot}%{_libdir}/tmpfiles.d/sudo.conf
 
 %find_lang %{name}
-install -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/%{name}.conf
 
 %{_fixperms} %{buildroot}/*
 
 %check
 %make_build check
 
-%post
-/sbin/ldconfig
-if [ $1 -eq 1 ] ; then
-  %sysusers_create_compat %{SOURCE1}
-fi
+%post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
 
@@ -108,12 +102,14 @@ rm -rf %{buildroot}/*
 %{_mandir}/man8/*
 %{_docdir}/%{name}-%{version}/*
 %{_datarootdir}/locale/*
-%{_sysusersdir}/%{name}.conf
 %attr(0644,root,root) %{_libdir}/tmpfiles.d/sudo.conf
 %exclude  %{_sysconfdir}/sudoers.dist
 %exclude %{_prefix}/libexec/sudo/*.la
 
 %changelog
+* Sat Sep 26 2026 Daniel Casota <dcasota@gmail.com> 1.9.15p5-7
+- Drop sudo.sysusers: filesystem already creates group wheel (GID 28), and
+  the duplicate g wheel line made systemd-sysusers log a conflict at boot
 * Thu Apr 09 2026 Mukul Sikka <mukul.sikka@broadcom.com> 1.9.15p5-6
 - Fix for CVE-2026-35535
 * Sat Jun 28 2025 Mukul Sikka <mukul.sikka@broadcom.com> 1.9.15p5-5
