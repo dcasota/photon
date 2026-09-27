@@ -83,7 +83,7 @@ class TDNF:
         # Always default to Docker
         self.sandbox = Container(
             name=self.sandboxName,
-            baseImagePath=f"photon:{constants.releaseVersionToConsume}",
+            baseImagePath=constants.getSandboxBaseImage(),
             optionalMounts={
                 "binds": binds,
                 "bindsrw": bindsrw,

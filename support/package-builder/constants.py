@@ -55,6 +55,13 @@ class constants(object):
     commonBuildNumber = None
     releaseVersion = None
     subreleaseVersion = None
+    # Tag of the container image the tdnf sandbox is created from. Defaults to
+    # photon:<releaseVersionToConsume>, which is NOT architecture-qualified: on a
+    # host that builds more than one arch, importing the rootfs rebinds that one
+    # tag (ph-docker-img-import.sh does `docker rmi -f` first), so an aarch64
+    # build silently destroys the x86_64 base image and vice versa. Setting
+    # "sandbox-base-image" in build-config.json keeps the two apart.
+    sandboxBaseImage = None
     photonBranch = None
     katBuild = False
     canisterBuild = False
@@ -375,6 +382,16 @@ class constants(object):
     @staticmethod
     def setReleaseVersionToConsume(releaseVersionToConsume):
         constants.releaseVersionToConsume = releaseVersionToConsume
+
+    @staticmethod
+    def setSandboxBaseImage(sandboxBaseImage):
+        constants.sandboxBaseImage = sandboxBaseImage
+
+    @staticmethod
+    def getSandboxBaseImage():
+        if constants.sandboxBaseImage:
+            return constants.sandboxBaseImage
+        return f"photon:{constants.releaseVersionToConsume}"
 
     @staticmethod
     def enableToolchainBootstrap():

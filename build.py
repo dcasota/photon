@@ -1053,7 +1053,7 @@ class CheckTools:
         version = constants.releaseVersionToConsume
         scriptPath = f"{photonDir}/tools/scripts/ph-docker-img-import.sh"
 
-        imgName = f"photon:{version}"
+        imgName = constants.getSandboxBaseImage()
         imgFile = f"{buildImgsPath}/{baseImgTarball}"
 
         if not os.path.exists(imgFile):
@@ -1066,12 +1066,38 @@ class CheckTools:
         runCmd(cmd)
 
     def check_git_hooks(repoDir=photonDir):
-        git_hooks_path = f"{repoDir}/.git/hooks"
+        # In a git WORKTREE, <repo>/.git is a FILE pointing at the parent
+        # repository, so the literal <repo>/.git/hooks cannot exist and `ln`
+        # fails with ENOTDIR. Ask git where the hooks directory really is.
+        out, _, _ = runCmd(
+            ["git", "-C", repoDir, "rev-parse", "--path-format=absolute",
+             "--git-path", "hooks"],
+            capture=True,
+        )
+        git_hooks_path = out.strip()
+        os.makedirs(git_hooks_path, exist_ok=True)
+
+        # That directory is shared by every worktree of the repository, so the
+        # hooks must not point into whichever worktree happened to run a build:
+        # a build from a second worktree of common would re-point them there,
+        # and removing that worktree would leave them dangling. Link to the
+        # scripts of common's main worktree; for a plain clone that is this
+        # checkout, exactly as before.
         hook_scripts_path = f"{photonDir}/tools/scripts"
+        out, _, _ = runCmd(
+            ["git", "-C", photonDir, "rev-parse", "--path-format=absolute",
+             "--git-common-dir"],
+            capture=True,
+        )
+        main_scripts = os.path.join(os.path.dirname(out.strip()), "tools", "scripts")
+        if os.path.isdir(main_scripts):
+            hook_scripts_path = main_scripts
 
         for fn in {"commit-msg", "pre-push"}:
+            # exists() follows the link: a working hook is left alone, a
+            # missing or dangling one is (re)created.
             if not os.path.exists(f"{git_hooks_path}/{fn}"):
-                print(f"{hook_scripts_path}/{fn} doesn't exist, create ...")
+                print(f"{git_hooks_path}/{fn} doesn't exist, create ...")
                 runCmd(
                     [
                         "ln",
@@ -1096,9 +1122,13 @@ class CheckTools:
         runCmd([script, repoDir])
 
     def check_docker():
-        runCmd(["systemctl", "start", "docker"])
-
+        # Inside a container there is no systemd to talk to, and the daemon is
+        # started by the container itself. The two checks below already guard on
+        # /.dockerenv for exactly this case; the systemctl call was left
+        # unguarded, so build.py could never run in a container despite being
+        # container-aware two lines down.
         if not glob.glob(Build_Config.dockerEnv):
+            runCmd(["systemctl", "start", "docker"])
             runCmd(["docker", "version"], capture=True)
 
         docker_py_ver = "2.3.0"
@@ -1523,6 +1553,10 @@ def initialize_constants():
 
     constants.setReleaseVersionToConsume(
         configdict["photon-build-param"]["photon-release-version-to-consume"]
+    )
+    # Optional; unset keeps the previous photon:<release> tag exactly as before.
+    constants.setSandboxBaseImage(
+        configdict.get("photon-build-param", {}).get("sandbox-base-image")
     )
 
     if configdict.get("photon-build-param", {}).get("toolchain-bootstrap", False):
