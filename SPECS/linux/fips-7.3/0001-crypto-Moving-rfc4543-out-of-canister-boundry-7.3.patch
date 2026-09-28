@@ -1,0 +1,86 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10111: 0001-crypto-Moving-rfc4543-out-of-canister-boundry.patch (rebased on the 7.x gf128hash GCM)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/gcm.c b/crypto/gcm.c
+index 5f16b237b3c5ce409489fc6e69a8de8301d2fe12..39a5073995b44d35ad81f29fd0ccdff34a4f29ad 100644
+--- a/crypto/gcm.c
++++ b/crypto/gcm.c
+@@ -15,6 +15,13 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
++#include <linux/fips.h>
++
++/* rfc4543 is built outside the canister (gcm_rfc4543.o); the canister
++ * registers its template. */
++int crypto_rfc4543_create(struct crypto_template *tmpl, struct rtattr **tb);
++
++#ifdef FIPS_CANISTER
+ 
+ struct gcm_instance_ctx {
+ 	struct crypto_skcipher_spawn ctr;
+@@ -36,6 +43,7 @@ struct crypto_rfc4106_req_ctx {
+ 	struct aead_request subreq;
+ };
+ 
++#else
+ struct crypto_rfc4543_instance_ctx {
+ 	struct crypto_aead_spawn aead;
+ };
+@@ -48,6 +56,9 @@ struct crypto_rfc4543_ctx {
+ struct crypto_rfc4543_req_ctx {
+ 	struct aead_request subreq;
+ };
++#endif
++
++#ifdef FIPS_CANISTER
+ 
+ struct crypto_gcm_req_priv_ctx {
+ 	u8 iv[16];
+@@ -644,6 +655,8 @@ static int crypto_rfc4106_create(struct crypto_template *tmpl,
+ 	return err;
+ }
+ 
++#else /* !FIPS_CANISTER: rfc4543 is outside the canister */
++
+ static int crypto_rfc4543_setkey(struct crypto_aead *parent, const u8 *key,
+ 				 unsigned int keylen)
+ {
+@@ -758,7 +771,7 @@ static void crypto_rfc4543_free(struct aead_instance *inst)
+ 	kfree(inst);
+ }
+ 
+-static int crypto_rfc4543_create(struct crypto_template *tmpl,
++int crypto_rfc4543_create(struct crypto_template *tmpl,
+ 				struct rtattr **tb)
+ {
+ 	u32 mask;
+@@ -767,6 +780,10 @@ static int crypto_rfc4543_create(struct crypto_template *tmpl,
+ 	struct crypto_rfc4543_instance_ctx *ctx;
+ 	int err;
+ 
++	/* crypto rfc4543 is not allowed in fips mode. */
++	if (fips_enabled)
++		return -EINVAL;
++
+ 	err = crypto_check_attr_type(tb, CRYPTO_ALG_TYPE_AEAD, &mask);
+ 	if (err)
+ 		return err;
+@@ -830,6 +847,9 @@ static int crypto_rfc4543_create(struct crypto_template *tmpl,
+ 	return err;
+ }
+ 
++#endif /* FIPS_CANISTER */
++
++#ifdef FIPS_CANISTER
+ static struct crypto_template crypto_gcm_tmpls[] = {
+ 	{
+ 		.name = "gcm_base",
+@@ -872,3 +892,4 @@ MODULE_ALIAS_CRYPTO("gcm_base");
+ MODULE_ALIAS_CRYPTO("rfc4106");
+ MODULE_ALIAS_CRYPTO("rfc4543");
+ MODULE_ALIAS_CRYPTO("gcm");
++#endif /* FIPS_CANISTER */

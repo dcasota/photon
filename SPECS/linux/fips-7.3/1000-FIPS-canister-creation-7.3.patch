@@ -1,0 +1,1287 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch11000: 1000-FIPS-canister-creation.patch (rebuilt for 7.x: canister assembly, fcw_ routing, canister-local static keys/calls)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/arch/x86/crypto/aesni-intel_glue.c b/arch/x86/crypto/aesni-intel_glue.c
+index f0588604e943156f9713991373071123ad8c3306..f8830fd061c4b777113c082be56a832fd8852c13 100644
+--- a/arch/x86/crypto/aesni-intel_glue.c
++++ b/arch/x86/crypto/aesni-intel_glue.c
+@@ -37,7 +37,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/spinlock.h>
+ #include <linux/static_call.h>
+-
++#include "../../../crypto/fips_canister_wrapper.h"\n
+ 
+ #define AESNI_ALIGN	16
+ #define AESNI_ALIGN_ATTR __attribute__ ((__aligned__(AESNI_ALIGN)))
+@@ -107,9 +107,9 @@ static int aes_set_key_common(struct crypto_aes_ctx *ctx,
+ 	if (err)
+ 		return err;
+ 
+-	kernel_fpu_begin();
++	fcw_kernel_fpu_begin();
+ 	aesni_set_key(ctx, in_key, key_len);
+-	kernel_fpu_end();
++	fcw_kernel_fpu_end();
+ 	return 0;
+ }
+ 
+@@ -130,10 +130,10 @@ static int ecb_encrypt(struct skcipher_request *req)
+ 	err = skcipher_walk_virt(&walk, req, false);
+ 
+ 	while ((nbytes = walk.nbytes)) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		aesni_ecb_enc(ctx, walk.dst.virt.addr, walk.src.virt.addr,
+ 			      nbytes & AES_BLOCK_MASK);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		nbytes &= AES_BLOCK_SIZE - 1;
+ 		err = skcipher_walk_done(&walk, nbytes);
+ 	}
+@@ -152,10 +152,10 @@ static int ecb_decrypt(struct skcipher_request *req)
+ 	err = skcipher_walk_virt(&walk, req, false);
+ 
+ 	while ((nbytes = walk.nbytes)) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		aesni_ecb_dec(ctx, walk.dst.virt.addr, walk.src.virt.addr,
+ 			      nbytes & AES_BLOCK_MASK);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		nbytes &= AES_BLOCK_SIZE - 1;
+ 		err = skcipher_walk_done(&walk, nbytes);
+ 	}
+@@ -174,10 +174,10 @@ static int cbc_encrypt(struct skcipher_request *req)
+ 	err = skcipher_walk_virt(&walk, req, false);
+ 
+ 	while ((nbytes = walk.nbytes)) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		aesni_cbc_enc(ctx, walk.dst.virt.addr, walk.src.virt.addr,
+ 			      nbytes & AES_BLOCK_MASK, walk.iv);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		nbytes &= AES_BLOCK_SIZE - 1;
+ 		err = skcipher_walk_done(&walk, nbytes);
+ 	}
+@@ -196,10 +196,10 @@ static int cbc_decrypt(struct skcipher_request *req)
+ 	err = skcipher_walk_virt(&walk, req, false);
+ 
+ 	while ((nbytes = walk.nbytes)) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		aesni_cbc_dec(ctx, walk.dst.virt.addr, walk.src.virt.addr,
+ 			      nbytes & AES_BLOCK_MASK, walk.iv);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		nbytes &= AES_BLOCK_SIZE - 1;
+ 		err = skcipher_walk_done(&walk, nbytes);
+ 	}
+@@ -255,10 +255,10 @@ static int cts_cbc_encrypt(struct skcipher_request *req)
+ 	if (err)
+ 		return err;
+ 
+-	kernel_fpu_begin();
++	fcw_kernel_fpu_begin();
+ 	aesni_cts_cbc_enc(ctx, walk.dst.virt.addr, walk.src.virt.addr,
+ 			  walk.nbytes, walk.iv);
+-	kernel_fpu_end();
++	fcw_kernel_fpu_end();
+ 
+ 	return skcipher_walk_done(&walk, 0);
+ }
+@@ -311,10 +311,10 @@ static int cts_cbc_decrypt(struct skcipher_request *req)
+ 	if (err)
+ 		return err;
+ 
+-	kernel_fpu_begin();
++	fcw_kernel_fpu_begin();
+ 	aesni_cts_cbc_dec(ctx, walk.dst.virt.addr, walk.src.virt.addr,
+ 			  walk.nbytes, walk.iv);
+-	kernel_fpu_end();
++	fcw_kernel_fpu_end();
+ 
+ 	return skcipher_walk_done(&walk, 0);
+ }
+@@ -333,7 +333,7 @@ static int ctr_crypt_aesni(struct skcipher_request *req)
+ 	err = skcipher_walk_virt(&walk, req, false);
+ 
+ 	while ((nbytes = walk.nbytes) > 0) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		if (nbytes & AES_BLOCK_MASK)
+ 			aesni_ctr_enc(ctx, walk.dst.virt.addr,
+ 				      walk.src.virt.addr,
+@@ -348,7 +348,7 @@ static int ctr_crypt_aesni(struct skcipher_request *req)
+ 			crypto_inc(walk.iv, AES_BLOCK_SIZE);
+ 			nbytes = 0;
+ 		}
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		err = skcipher_walk_done(&walk, nbytes);
+ 	}
+ 	return err;
+@@ -415,11 +415,11 @@ xts_crypt_slowpath(struct skcipher_request *req, xts_crypt_func crypt_func)
+ 	err = skcipher_walk_virt(&walk, req, false);
+ 
+ 	while (walk.nbytes) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		(*crypt_func)(&ctx->crypt_ctx,
+ 			      walk.src.virt.addr, walk.dst.virt.addr,
+ 			      walk.nbytes & ~(AES_BLOCK_SIZE - 1), req->iv);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		err = skcipher_walk_done(&walk,
+ 					 walk.nbytes & (AES_BLOCK_SIZE - 1));
+ 	}
+@@ -440,10 +440,10 @@ xts_crypt_slowpath(struct skcipher_request *req, xts_crypt_func crypt_func)
+ 	if (err)
+ 		return err;
+ 
+-	kernel_fpu_begin();
++	fcw_kernel_fpu_begin();
+ 	(*crypt_func)(&ctx->crypt_ctx, walk.src.virt.addr, walk.dst.virt.addr,
+ 		      walk.nbytes, req->iv);
+-	kernel_fpu_end();
++	fcw_kernel_fpu_end();
+ 
+ 	return skcipher_walk_done(&walk, 0);
+ }
+@@ -459,7 +459,7 @@ xts_crypt(struct skcipher_request *req, xts_encrypt_iv_func encrypt_iv,
+ 	if (unlikely(req->cryptlen < AES_BLOCK_SIZE))
+ 		return -EINVAL;
+ 
+-	kernel_fpu_begin();
++	fcw_kernel_fpu_begin();
+ 	(*encrypt_iv)(&ctx->tweak_ctx, req->iv);
+ 
+ 	/*
+@@ -474,10 +474,10 @@ xts_crypt(struct skcipher_request *req, xts_encrypt_iv_func encrypt_iv,
+ 		   req->dst->length >= req->cryptlen)) {
+ 		(*crypt_func)(&ctx->crypt_ctx, sg_virt(req->src),
+ 			      sg_virt(req->dst), req->cryptlen, req->iv);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		return 0;
+ 	}
+-	kernel_fpu_end();
++	fcw_kernel_fpu_end();
+ 	return xts_crypt_slowpath(req, crypt_func);
+ }
+ 
+@@ -630,7 +630,7 @@ ctr_crypt(struct skcipher_request *req,
+ 		}
+ 		ctr64 += nblocks;
+ 
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		if (likely(ctr64 >= nblocks)) {
+ 			/* The low 64 bits of the counter won't overflow. */
+ 			(*ctr64_func)(key, walk.src.virt.addr,
+@@ -651,7 +651,7 @@ ctr_crypt(struct skcipher_request *req,
+ 				      walk.dst.virt.addr + p1_nbytes,
+ 				      nbytes - p1_nbytes, le_ctr);
+ 		}
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		le_ctr[0] = ctr64;
+ 
+ 		err = skcipher_walk_done(&walk, walk.nbytes - nbytes);
+@@ -682,10 +682,10 @@ xctr_crypt(struct skcipher_request *req,
+ 		if (nbytes < walk.total)
+ 			nbytes = round_down(nbytes, AES_BLOCK_SIZE);
+ 
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		(*xctr_func)(key, walk.src.virt.addr, walk.dst.virt.addr,
+ 			     nbytes, req->iv, ctr);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 
+ 		ctr += DIV_ROUND_UP(nbytes, AES_BLOCK_SIZE);
+ 		err = skcipher_walk_done(&walk, walk.nbytes - nbytes);
+@@ -1200,9 +1200,9 @@ static int gcm_setkey(struct crypto_aead *tfm, const u8 *raw_key,
+ 		return err;
+ 
+ 	if (likely(crypto_simd_usable())) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		aes_gcm_precompute(key, flags);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 	} else {
+ 		static const u8 x_to_the_minus1[16] __aligned(__alignof__(be128)) = {
+ 			[0] = 0xc2, [15] = 1
+@@ -1269,7 +1269,7 @@ static int gcm_setkey(struct crypto_aead *tfm, const u8 *raw_key,
+ /*
+  * Initialize @ghash_acc, then pass all @assoclen bytes of associated data
+  * (a.k.a. additional authenticated data) from @sg_src through the GHASH update
+- * assembly function.  kernel_fpu_begin() must have already been called.
++ * assembly function.  fcw_kernel_fpu_begin() must have already been called.
+  */
+ static void gcm_process_assoc(const struct aes_gcm_key *key, u8 ghash_acc[16],
+ 			      struct scatterlist *sg_src, unsigned int assoclen,
+@@ -1318,8 +1318,8 @@ static void gcm_process_assoc(const struct aes_gcm_key *key, u8 ghash_acc[16],
+ next:
+ 		scatterwalk_done_src(&walk, orig_len_this_step);
+ 		if (need_resched()) {
+-			kernel_fpu_end();
+-			kernel_fpu_begin();
++			fcw_kernel_fpu_end();
++			fcw_kernel_fpu_begin();
+ 		}
+ 		assoclen -= orig_len_this_step;
+ 	}
+@@ -1373,7 +1373,7 @@ gcm_crypt(struct aead_request *req, int flags)
+ 	 * section and start a new one if there are multiple data segments or if
+ 	 * rescheduling is needed while processing the associated data.
+ 	 */
+-	kernel_fpu_begin();
++	fcw_kernel_fpu_begin();
+ 
+ 	/* Pass the associated data through GHASH. */
+ 	gcm_process_assoc(key, ghash_acc, req->src, assoclen, flags);
+@@ -1391,11 +1391,11 @@ gcm_crypt(struct aead_request *req, int flags)
+ 		aes_gcm_update(key, le_ctr, ghash_acc, walk.src.virt.addr,
+ 			       walk.dst.virt.addr, nbytes, flags);
+ 		le_ctr[0] += nbytes / AES_BLOCK_SIZE;
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		err = skcipher_walk_done(&walk, walk.nbytes - nbytes);
+ 		if (err)
+ 			return err;
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 	}
+ 	/* Last segment: process all remaining data. */
+ 	aes_gcm_update(key, le_ctr, ghash_acc, walk.src.virt.addr,
+@@ -1431,7 +1431,7 @@ gcm_crypt(struct aead_request *req, int flags)
+ 				       datalen, tag, taglen, flags))
+ 			err = -EBADMSG;
+ 	}
+-	kernel_fpu_end();
++	fcw_kernel_fpu_end();
+ 	if (nbytes)
+ 		skcipher_walk_done(&walk, 0);
+ 	return err;
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 70c40d5465fdd3e3d9e997116efba10932c2d827..1e6346e0c4c6e0c859aaa9f05ff010cc37df096b 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -189,6 +189,112 @@ obj-$(CONFIG_CRYPTO_SIMD) += crypto_simd.o
+ obj-$(CONFIG_CRYPTO_KDF800108_CTR) += kdf_sp800108.o
+ 
+ obj-$(CONFIG_CRYPTO_KRB5) += krb5/
++
++#
++# FIPS canister (canister_build): the approved algorithms, compiled from their
++# usual sources but linked into one relocatable object whose text and rodata
++# are measured by fips_integrity.c at boot.
++#
++# crypto/ members
++canister += geniv.o seqiv.o
++canister += rsapubkey.asn1.o rsaprivkey.asn1.o rsa.o rsa_helper.o rsassa-pkcs1.o
++canister += ecdsa.o ecdsa-x962.o ecdsa-p1363.o ecdsasignature.asn1.o
++canister += algboss.o testmgr.o
++canister += hmac.o cmac.o
++canister += sha256.o sha512.o sha3.o
++canister += cbc.o cts.o xts.o ctr.o gcm.o ccm.o aes.o
++canister += ecc.o drbg.o ecdh.o ecdh_helper.o
++canister += crypto_self_test.o
++canister += fips_integrity.o
++
++hostprogs := partial_reloc gen_canister_relocs
++HOSTLDLIBS_partial_reloc = -lelf
++HOSTCFLAGS_partial_reloc = -g
++HOSTLDLIBS_gen_canister_relocs = -lelf
++HOSTCFLAGS_gen_canister_relocs = -g
++
++quiet_cmd_pr = RELOC   $@
++cmd_pr = $(obj)/partial_reloc $@
++
++quiet_cmd_gencr = GENCR   $@
++cmd_gencr = $(obj)/gen_canister_relocs $< $@ $(obj)/canister_markers.lds $(obj)/fips_canister-kallsyms
++
++quiet_cmd_update_hmac = HMAC    $@
++cmd_update_hmac = $(obj)/update_canister_hmac.sh $@ $(obj)/canister_markers.lds
++
++# arch/x86/crypto members (AES-NI modes), compiled here as x86-<name>.o
++aesni-intel-y := aesni-intel_asm.o aesni-intel_glue.o
++aesni-intel-$(CONFIG_64BIT) += aes-ctr-avx-x86_64.o aes-gcm-aesni-x86_64.o \
++			       aes-gcm-vaes-avx2.o aes-gcm-vaes-avx512.o \
++			       aes-xts-avx-x86_64.o
++x86-hwaccelerated-y := $(aesni-intel-y)
++
++$(obj)/x86-%.o: $(srctree)/arch/x86/crypto/%.c FORCE
++	$(call if_changed_rule,cc_o_c)
++
++$(obj)/x86-%.o: $(srctree)/arch/x86/crypto/%.S FORCE
++	$(call if_changed_rule,as_o_S)
++
++# lib/crypto members, compiled here as lib-crypto-<name>.o; their x86 code is
++# included from lib/crypto/x86/*.h (C) or assembled as lib-crypto-x86-<name>.o
++lib-crypto-y := aes.o sha256.o sha512.o sha3.o gf128hash.o
++lib-crypto-x86-y := aes-aesni.o \
++		    sha256-ssse3-asm.o sha256-avx-asm.o sha256-avx2-asm.o sha256-ni-asm.o \
++		    sha512-ssse3-asm.o sha512-avx-asm.o sha512-avx2-asm.o \
++		    ghash-pclmul.o polyval-pclmul-avx.o
++
++$(obj)/lib-crypto-x86-%.o: $(srctree)/lib/crypto/x86/%.S FORCE
++	$(call if_changed_rule,as_o_S)
++
++$(obj)/lib-crypto-%.o: $(srctree)/lib/crypto/%.c FORCE
++	$(call if_changed_rule,cc_o_c)
++
++$(foreach o,$(lib-crypto-y),$(eval CFLAGS_lib-crypto-$(o) += -I$(srctree)/lib/crypto/$(SRCARCH) -I$(srctree)/lib/crypto))
++
++extra-y += $(canister)
++
++canister-objs := $(addprefix $(obj)/x86-,$(x86-hwaccelerated-y)) \
++		 $(addprefix $(obj)/lib-crypto-,$(lib-crypto-y)) \
++		 $(addprefix $(obj)/lib-crypto-x86-,$(lib-crypto-x86-y)) \
++		 $(addprefix $(obj)/,$(canister))
++
++$(obj)/canister.o: $(obj)/partial_reloc $(canister-objs)
++	$(Q)$(LD) -z noexecstack -T $(src)/canister_combine.lds -r $(canister-objs) -o $@
++	$(call cmd,pr)
++	@$(foreach o,$(x86-hwaccelerated-y),echo x86-$(o) > objs;)
++	@$(foreach o,$(lib-crypto-y),echo lib-crypto-$(o) >> objs;)
++	@$(foreach o,$(lib-crypto-x86-y),echo lib-crypto-x86-$(o) >> objs;)
++	@$(foreach o,$(canister),echo $(o) >> objs;)
++
++canister-cflags := -DFIPS_CANISTER -mharden-sls=all -D__NO_FORTIFY
++canister-cflags-remove := -DLATENT_ENTROPY_PLUGIN \
++	-fplugin=./scripts/gcc-plugins/latent_entropy_plugin.so \
++	-fplugin-arg-rap_plugin-check=call $(RETPOLINE_CFLAGS) $(RETHUNK_CFLAGS)
++
++$(foreach o,$(canister),$(eval CFLAGS_$(o) += $(canister-cflags)))
++$(foreach o,$(canister),$(eval CFLAGS_REMOVE_$(o) += $(canister-cflags-remove)))
++$(foreach o,$(lib-crypto-y),$(eval CFLAGS_lib-crypto-$(o) += $(canister-cflags)))
++$(foreach o,$(lib-crypto-y),$(eval CFLAGS_REMOVE_lib-crypto-$(o) += $(canister-cflags-remove)))
++$(foreach o,$(x86-hwaccelerated-y),$(eval CFLAGS_x86-$(o) += $(canister-cflags)))
++$(foreach o,$(x86-hwaccelerated-y),$(eval CFLAGS_REMOVE_x86-$(o) += $(canister-cflags-remove)))
++$(foreach o,$(x86-hwaccelerated-y),$(eval OBJECT_FILES_NON_STANDARD_x86-$(o) := y))
++$(foreach o,$(lib-crypto-x86-y),$(eval OBJECT_FILES_NON_STANDARD_lib-crypto-x86-$(o) := y))
++
++$(src)/canister_relocs.c: $(obj)/canister.o $(obj)/gen_canister_relocs
++	$(call cmd,gencr)
++clean-files += canister_relocs.c
++clean-files += fips_canister-kallsyms
++# Make savecmd_ happy for proper incremental build
++targets += canister_relocs.o $(addprefix x86-,$(x86-hwaccelerated-y)) \
++	   $(addprefix lib-crypto-,$(lib-crypto-y)) $(addprefix lib-crypto-x86-,$(lib-crypto-x86-y))
++$(obj)/canister_markers.lds: $(src)/canister_relocs.c
++
++clean-files += canister_markers.lds
++
++$(obj)/fips_canister.o: $(obj)/canister.o $(obj)/canister_relocs.o $(obj)/canister_markers.lds
++	$(Q)$(LD) -z noexecstack -T $(obj)/canister_markers.lds -r $(obj)/canister.o $(obj)/canister_relocs.o -o $@
++	$(call cmd_and_savecmd,update_hmac)
++
+ obj-$(CONFIG_CRYPTO_FIPS) += fips_canister_wrapper.o fips_canister.o
+ obj-$(CONFIG_CRYPTO_FIPS) += fips_canister_wrapper_internal.o
+ 
+diff --git a/crypto/ccm.c b/crypto/ccm.c
+index 916441e4f2b863a19d408364694b1f6506d314e8..bfec8ee47cb830426ef1d818de1db71907592e96 100644
+--- a/crypto/ccm.c
++++ b/crypto/ccm.c
+@@ -16,6 +16,7 @@
+ #include <linux/module.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
++#include "fips_canister_wrapper.h"
+ 
+ struct ccm_instance_ctx {
+ 	struct crypto_skcipher_spawn ctr;
+@@ -455,7 +456,7 @@ static int crypto_ccm_create_common(struct crypto_template *tmpl,
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*ictx), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*ictx), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 	ictx = aead_instance_ctx(inst);
+@@ -710,7 +711,7 @@ static int crypto_rfc4309_create(struct crypto_template *tmpl,
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+@@ -856,7 +857,7 @@ static int cbcmac_create(struct crypto_template *tmpl, struct rtattr **tb)
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 	spawn = shash_instance_ctx(inst);
+diff --git a/crypto/cmac.c b/crypto/cmac.c
+index 83e58937f0136680ab19f7b4aca392bb6e0af092..aa8f33cd290a846b916251e10fe122d06e7c4dd4 100644
+--- a/crypto/cmac.c
++++ b/crypto/cmac.c
+@@ -19,6 +19,7 @@
+ #include <linux/module.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
++#include "fips_canister_wrapper.h"
+ 
+ /*
+  * +------------------------
+@@ -169,7 +170,7 @@ static int cmac_create(struct crypto_template *tmpl, struct rtattr **tb)
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 	spawn = shash_instance_ctx(inst);
+diff --git a/crypto/ctr.c b/crypto/ctr.c
+index a388f0ceb3a00b478b9b6959ee696524092b44be..fcf60dafe44877a4197131aface6694575123a35 100644
+--- a/crypto/ctr.c
++++ b/crypto/ctr.c
+@@ -14,6 +14,7 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
++#include "fips_canister_wrapper.h"
+ 
+ struct crypto_rfc3686_ctx {
+ 	struct crypto_skcipher *child;
+@@ -267,7 +268,7 @@ static int crypto_rfc3686_create(struct crypto_template *tmpl,
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+diff --git a/crypto/cts.c b/crypto/cts.c
+index 48898d5e24ffaa11bfa236d45245d0e20717290b..6382cc87915b41e4583055cb5b1b101e19ba459b 100644
+--- a/crypto/cts.c
++++ b/crypto/cts.c
+@@ -51,6 +51,7 @@
+ #include <crypto/scatterwalk.h>
+ #include <linux/slab.h>
+ #include <linux/compiler.h>
++#include "fips_canister_wrapper.h"
+ 
+ struct crypto_cts_ctx {
+ 	struct crypto_skcipher *child;
+@@ -333,7 +334,7 @@ static int crypto_cts_create(struct crypto_template *tmpl, struct rtattr **tb)
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+diff --git a/crypto/ecc.c b/crypto/ecc.c
+index 3250a464b8523aa86b525cded939f5d70b20b024..3475dacf8e797d987c26d4e53a7c6c8bfb79e44f 100644
+--- a/crypto/ecc.c
++++ b/crypto/ecc.c
+@@ -37,6 +37,7 @@
+ #include <linux/ratelimit.h>
+ 
+ #include "ecc_curve_defs.h"
++#include "fips_canister_wrapper.h"
+ 
+ typedef struct {
+ 	u64 m_low;
+@@ -103,11 +104,11 @@ struct ecc_point *ecc_alloc_point(unsigned int ndigits)
+ 		return NULL;
+ 
+ 	ndigits_sz = ndigits * sizeof(u64);
+-	p->x = kmalloc(ndigits_sz, GFP_KERNEL);
++	p->x = fcw_kmalloc(ndigits_sz, GFP_KERNEL);
+ 	if (!p->x)
+ 		goto err_alloc_x;
+ 
+-	p->y = kmalloc(ndigits_sz, GFP_KERNEL);
++	p->y = fcw_kmalloc(ndigits_sz, GFP_KERNEL);
+ 	if (!p->y)
+ 		goto err_alloc_y;
+ 
+diff --git a/crypto/ecdh.c b/crypto/ecdh.c
+index 9f0b93b3166d853c06119633b6d137d85eca8cd0..cba236bcfe79ae2ddbcd800b6d40d769b883434b 100644
+--- a/crypto/ecdh.c
++++ b/crypto/ecdh.c
+@@ -11,6 +11,7 @@
+ #include <crypto/kpp.h>
+ #include <crypto/ecdh.h>
+ #include <linux/scatterlist.h>
++#include "fips_canister_wrapper.h"
+ 
+ struct ecdh_ctx {
+ 	unsigned int curve_id;
+@@ -66,12 +67,12 @@ static int ecdh_compute_value(struct kpp_request *req)
+ 	/* Public part is a point thus it has both coordinates */
+ 	public_key_sz = 2 * nbytes;
+ 
+-	public_key = kmalloc(public_key_sz, GFP_KERNEL);
++	public_key = fcw_kmalloc(public_key_sz, GFP_KERNEL);
+ 	if (!public_key)
+ 		return -ENOMEM;
+ 
+ 	if (req->src) {
+-		shared_secret = kmalloc(nbytes, GFP_KERNEL);
++		shared_secret = fcw_kmalloc(nbytes, GFP_KERNEL);
+ 		if (!shared_secret)
+ 			goto free_pubkey;
+ 
+diff --git a/crypto/ecdsa-p1363.c b/crypto/ecdsa-p1363.c
+index e0c55c64711c83aa07dd18139bd855e1ec226494..7ba10ef7500239bae99731eb722bf2cfdca643bc 100644
+--- a/crypto/ecdsa-p1363.c
++++ b/crypto/ecdsa-p1363.c
+@@ -11,6 +11,7 @@
+ #include <crypto/sig.h>
+ #include <crypto/internal/ecc.h>
+ #include <crypto/internal/sig.h>
++#include "fips_canister_wrapper.h"
+ 
+ struct ecdsa_p1363_ctx {
+ 	struct crypto_sig *child;
+@@ -108,7 +109,7 @@ static int ecdsa_p1363_create(struct crypto_template *tmpl, struct rtattr **tb)
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+diff --git a/crypto/ecdsa-x962.c b/crypto/ecdsa-x962.c
+index ee71594d10a06934f43098766ee30990408ac897..50c98f1a694ae570bc9996c0357300327cddf101 100644
+--- a/crypto/ecdsa-x962.c
++++ b/crypto/ecdsa-x962.c
+@@ -15,6 +15,7 @@
+ #include <crypto/internal/sig.h>
+ 
+ #include "ecdsasignature.asn1.h"
++#include "fips_canister_wrapper.h"
+ 
+ struct ecdsa_x962_ctx {
+ 	struct crypto_sig *child;
+@@ -185,7 +186,7 @@ static int ecdsa_x962_create(struct crypto_template *tmpl, struct rtattr **tb)
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+diff --git a/crypto/fips_canister_static.h b/crypto/fips_canister_static.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e243fe2c42161b0248985b1c7368872067a4aa5
+--- /dev/null
++++ b/crypto/fips_canister_static.h
+@@ -0,0 +1,48 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Static keys and static calls inside the FIPS canister.
++ *
++ * Jump labels and static calls are patched at run time, which would change
++ * the canister text after fips_integrity_init() measured it; the canister link
++ * refuses __jump_table and friends for that reason. Code compiled into the
++ * canister (FIPS_CANISTER) that selects an implementation once at init gets
++ * the same semantics from a __ro_after_init flag or function pointer here.
++ *
++ * Include this AFTER <linux/jump_label.h> and <linux/static_call.h> and only
++ * from files whose keys and calls are private to the canister: an inline
++ * function from another header that was already parsed keeps the real
++ * primitives, and the canister link rejects the resulting patch site.
++ */
++#ifndef _FIPS_CANISTER_STATIC_H
++#define _FIPS_CANISTER_STATIC_H
++
++#ifdef FIPS_CANISTER
++#include <linux/compiler.h>
++#include <linux/types.h>
++
++#undef DEFINE_STATIC_KEY_FALSE
++#undef DEFINE_STATIC_KEY_TRUE
++#undef static_branch_likely
++#undef static_branch_unlikely
++#undef static_branch_enable
++#undef static_branch_disable
++#undef static_key_enabled
++#define DEFINE_STATIC_KEY_FALSE(name)	bool name = false
++#define DEFINE_STATIC_KEY_TRUE(name)	bool name = true
++#define static_branch_likely(key)	likely(*(key))
++#define static_branch_unlikely(key)	unlikely(*(key))
++#define static_branch_enable(key)	((void)(*(key) = true))
++#define static_branch_disable(key)	((void)(*(key) = false))
++#define static_key_enabled(key)		(*(key))
++
++#undef DEFINE_STATIC_CALL
++#undef static_call
++#undef static_call_update
++#define DEFINE_STATIC_CALL(name, _func) \
++	static typeof(&(_func)) __fips_canister_sc_##name __ro_after_init = (_func)
++#define static_call(name)		(*__fips_canister_sc_##name)
++#define static_call_update(name, _func) \
++	((void)(__fips_canister_sc_##name = (_func)))
++#endif /* FIPS_CANISTER */
++
++#endif /* _FIPS_CANISTER_STATIC_H */
+diff --git a/crypto/gcm.c b/crypto/gcm.c
+index 39a5073995b44d35ad81f29fd0ccdff34a4f29ad..d46437e2a517f32b735620877f4dad17f9635506 100644
+--- a/crypto/gcm.c
++++ b/crypto/gcm.c
+@@ -16,6 +16,7 @@
+ #include <linux/module.h>
+ #include <linux/slab.h>
+ #include <linux/fips.h>
++#include "fips_canister_wrapper.h"
+ 
+ /* rfc4543 is built outside the canister (gcm_rfc4543.o); the canister
+  * registers its template. */
+@@ -100,7 +101,7 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
+ 	if (err)
+ 		return err;
+ 
+-	data = kzalloc(sizeof(*data) + crypto_skcipher_reqsize(ctr),
++	data = fcw_kzalloc(sizeof(*data) + crypto_skcipher_reqsize(ctr),
+ 		       GFP_KERNEL);
+ 	if (!data)
+ 		return -ENOMEM;
+@@ -354,7 +355,7 @@ static int crypto_gcm_create_common(struct crypto_template *tmpl,
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 	ctx = aead_instance_ctx(inst);
+@@ -596,7 +597,7 @@ static int crypto_rfc4106_create(struct crypto_template *tmpl,
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+@@ -788,7 +789,7 @@ int crypto_rfc4543_create(struct crypto_template *tmpl,
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+diff --git a/crypto/geniv.c b/crypto/geniv.c
+index 04befe3a7f44cb1ef3f65fadc12c3ef90d8edefc..93f3550c7cac7e51c056c0e99e4aba8d1ba03b87 100644
+--- a/crypto/geniv.c
++++ b/crypto/geniv.c
+@@ -14,6 +14,7 @@
+ #include <linux/module.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/slab.h>
++#include "fips_canister_wrapper.h"
+ 
+ static int aead_geniv_setkey(struct crypto_aead *tfm,
+ 			     const u8 *key, unsigned int keylen)
+@@ -52,7 +53,7 @@ struct aead_instance *aead_geniv_alloc(struct crypto_template *tmpl,
+ 	if (err)
+ 		return ERR_PTR(err);
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return ERR_PTR(-ENOMEM);
+ 
+diff --git a/crypto/hmac.c b/crypto/hmac.c
+index 807e08b252c55551105c31838545dc559226db2f..cdd0798a57779da3933f9b499762354dfb7f736b 100644
+--- a/crypto/hmac.c
++++ b/crypto/hmac.c
+@@ -19,6 +19,7 @@
+ #include <linux/module.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
++#include "fips_canister_wrapper.h"
+ 
+ struct hmac_ctx {
+ 	struct crypto_shash *hash;
+@@ -176,7 +177,7 @@ static int __hmac_create_shash(struct crypto_template *tmpl,
+ 	int ds;
+ 	int ss;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 	spawn = shash_instance_ctx(inst);
+@@ -424,7 +425,7 @@ static int hmac_create_ahash(struct crypto_template *tmpl, struct rtattr **tb,
+ 	struct hash_alg_common *halg;
+ 	int ds, ss, err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 	spawn = ahash_instance_ctx(inst);
+diff --git a/crypto/rsassa-pkcs1.c b/crypto/rsassa-pkcs1.c
+index 94fa5e9600e79d5f0d626abf46c4b934e755c40c..a6f2b3908f005e5f6bd65f80437d1db7d8a69aa1 100644
+--- a/crypto/rsassa-pkcs1.c
++++ b/crypto/rsassa-pkcs1.c
+@@ -16,6 +16,7 @@
+ #include <crypto/internal/akcipher.h>
+ #include <crypto/internal/rsa.h>
+ #include <crypto/internal/sig.h>
++#include "fips_canister_wrapper.h"
+ 
+ /*
+  * Full Hash Prefix for EMSA-PKCS1-v1_5 encoding method (RFC 9580 table 24)
+@@ -237,7 +238,7 @@ static int rsassa_pkcs1_verify(struct crypto_sig *tfm,
+ 		return -EINVAL;
+ 
+ 	/* RFC 8017 sec 8.2.2 step 2 - RSA verification */
+-	child_req = kmalloc(sizeof(*child_req) + child_reqsize + ctx->key_size,
++	child_req = fcw_kmalloc(sizeof(*child_req) + child_reqsize + ctx->key_size,
+ 			    GFP_KERNEL);
+ 	if (!child_req)
+ 		return -ENOMEM;
+@@ -365,7 +366,7 @@ static int rsassa_pkcs1_create(struct crypto_template *tmpl, struct rtattr **tb)
+ 	if (err)
+ 		return err;
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+diff --git a/crypto/testmgr.c b/crypto/testmgr.c
+index 4958211fbfa9323ff2ee332c79887ec30ac59d2a..ea2688792d160336fe00fdb16ada685eb7653180 100644
+--- a/crypto/testmgr.c
++++ b/crypto/testmgr.c
+@@ -68,6 +68,7 @@ int alg_test(const char *driver, const char *alg, u32 type, u32 mask)
+ #else
+ 
+ #include "testmgr.h"
++#include "fips_canister_wrapper.h"
+ 
+ /*
+  * Need slab memory for testing (size in number of pages).
+@@ -835,7 +836,7 @@ static int prepare_keybuf(const u8 *key, unsigned int ksize,
+ 	if (key_offset != 0) {
+ 		if (cfg->key_offset_relative_to_alignmask)
+ 			key_offset += alignmask;
+-		keybuf = kmalloc(key_offset + ksize, GFP_KERNEL);
++		keybuf = fcw_kmalloc(key_offset + ksize, GFP_KERNEL);
+ 		if (!keybuf)
+ 			return -ENOMEM;
+ 		keyptr = keybuf + key_offset;
+@@ -1690,7 +1691,7 @@ static int test_hash_vec(const struct hash_testvec *vec, unsigned int vec_num,
+ 						req, desc, tsgl, hashstate);
+ 			if (err)
+ 				return err;
+-			cond_resched();
++			fcw_cond_resched();
+ 		}
+ 	}
+ 	return 0;
+@@ -1801,7 +1802,7 @@ static int test_hash_vs_generic_impl(const char *generic_driver,
+ 		goto out;
+ 	}
+ 
+-	generic_req = ahash_request_alloc(generic_tfm, GFP_KERNEL);
++	generic_req = fcw_ahash_request_alloc(generic_tfm, GFP_KERNEL);
+ 	if (!generic_req) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -1829,9 +1830,9 @@ static int test_hash_vs_generic_impl(const char *generic_driver,
+ 	 * the other implementation against them.
+ 	 */
+ 
+-	vec.key = kmalloc(maxkeysize, GFP_KERNEL);
+-	vec.plaintext = kmalloc(maxdatasize, GFP_KERNEL);
+-	vec.digest = kmalloc(digestsize, GFP_KERNEL);
++	vec.key = fcw_kmalloc(maxkeysize, GFP_KERNEL);
++	vec.plaintext = fcw_kmalloc(maxdatasize, GFP_KERNEL);
++	vec.digest = fcw_kmalloc(digestsize, GFP_KERNEL);
+ 	if (!vec.key || !vec.plaintext || !vec.digest) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -1848,7 +1849,7 @@ static int test_hash_vs_generic_impl(const char *generic_driver,
+ 					req, desc, tsgl, hashstate);
+ 		if (err)
+ 			goto out;
+-		cond_resched();
++		fcw_cond_resched();
+ 	}
+ 	err = 0;
+ out:
+@@ -1882,7 +1883,7 @@ static int alloc_shash(const char *driver, u32 type, u32 mask,
+ 		return PTR_ERR(tfm);
+ 	}
+ 
+-	desc = kmalloc(sizeof(*desc) + crypto_shash_descsize(tfm), GFP_KERNEL);
++	desc = fcw_kmalloc(sizeof(*desc) + crypto_shash_descsize(tfm), GFP_KERNEL);
+ 	if (!desc) {
+ 		crypto_free_shash(tfm);
+ 		return -ENOMEM;
+@@ -1924,7 +1925,7 @@ static int __alg_test_hash(const struct hash_testvec *vecs,
+ 	}
+ 	driver = crypto_ahash_driver_name(atfm);
+ 
+-	req = ahash_request_alloc(atfm, GFP_KERNEL);
++	req = fcw_ahash_request_alloc(atfm, GFP_KERNEL);
+ 	if (!req) {
+ 		pr_err("alg: hash: failed to allocate request for %s\n",
+ 		       driver);
+@@ -1953,7 +1954,7 @@ static int __alg_test_hash(const struct hash_testvec *vecs,
+ 	statesize = crypto_ahash_statesize(atfm);
+ 	if (stfm)
+ 		statesize = max(statesize, crypto_shash_statesize(stfm));
+-	hashstate = kmalloc(statesize + TESTMGR_POISON_LEN, GFP_KERNEL);
++	hashstate = fcw_kmalloc(statesize + TESTMGR_POISON_LEN, GFP_KERNEL);
+ 	if (!hashstate) {
+ 		pr_err("alg: hash: failed to allocate hash state buffer for %s\n",
+ 		       driver);
+@@ -1968,7 +1969,7 @@ static int __alg_test_hash(const struct hash_testvec *vecs,
+ 		err = test_hash_vec(&vecs[i], i, req, desc, tsgl, hashstate);
+ 		if (err)
+ 			goto out;
+-		cond_resched();
++		fcw_cond_resched();
+ 	}
+ 	err = test_hash_vs_generic_impl(generic_driver, maxkeysize, req,
+ 					desc, tsgl, hashstate);
+@@ -2247,7 +2248,7 @@ static int test_aead_vec(int enc, const struct aead_testvec *vec,
+ 						&cfg, req, tsgls);
+ 			if (err)
+ 				return err;
+-			cond_resched();
++			fcw_cond_resched();
+ 		}
+ 	}
+ 	return 0;
+@@ -2473,7 +2474,7 @@ static int test_aead_inauthentic_inputs(struct aead_slow_tests_ctx *ctx)
+ 			if (err)
+ 				return err;
+ 		}
+-		cond_resched();
++		fcw_cond_resched();
+ 	}
+ 	return 0;
+ }
+@@ -2517,7 +2518,7 @@ static int test_aead_vs_generic_impl(struct aead_slow_tests_ctx *ctx)
+ 		return err;
+ 	}
+ 
+-	generic_req = aead_request_alloc(generic_tfm, GFP_KERNEL);
++	generic_req = fcw_aead_request_alloc(generic_tfm, GFP_KERNEL);
+ 	if (!generic_req) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -2577,7 +2578,7 @@ static int test_aead_vs_generic_impl(struct aead_slow_tests_ctx *ctx)
+ 			if (err)
+ 				goto out;
+ 		}
+-		cond_resched();
++		fcw_cond_resched();
+ 	}
+ 	err = 0;
+ out:
+@@ -2611,11 +2612,11 @@ static int test_aead_slow(const struct alg_test_desc *test_desc,
+ 		ctx->maxkeysize = max_t(unsigned int, ctx->maxkeysize,
+ 					test_desc->suite.aead.vecs[i].klen);
+ 
+-	ctx->vec.key = kmalloc(ctx->maxkeysize, GFP_KERNEL);
+-	ctx->vec.iv = kmalloc(crypto_aead_ivsize(ctx->tfm), GFP_KERNEL);
+-	ctx->vec.assoc = kmalloc(ctx->maxdatasize, GFP_KERNEL);
+-	ctx->vec.ptext = kmalloc(ctx->maxdatasize, GFP_KERNEL);
+-	ctx->vec.ctext = kmalloc(ctx->maxdatasize, GFP_KERNEL);
++	ctx->vec.key = fcw_kmalloc(ctx->maxkeysize, GFP_KERNEL);
++	ctx->vec.iv = fcw_kmalloc(crypto_aead_ivsize(ctx->tfm), GFP_KERNEL);
++	ctx->vec.assoc = fcw_kmalloc(ctx->maxdatasize, GFP_KERNEL);
++	ctx->vec.ptext = fcw_kmalloc(ctx->maxdatasize, GFP_KERNEL);
++	ctx->vec.ctext = fcw_kmalloc(ctx->maxdatasize, GFP_KERNEL);
+ 	if (!ctx->vec.key || !ctx->vec.iv || !ctx->vec.assoc ||
+ 	    !ctx->vec.ptext || !ctx->vec.ctext) {
+ 		err = -ENOMEM;
+@@ -2648,7 +2649,7 @@ static int test_aead(int enc, const struct aead_test_suite *suite,
+ 		err = test_aead_vec(enc, &suite->vecs[i], i, req, tsgls);
+ 		if (err)
+ 			return err;
+-		cond_resched();
++		fcw_cond_resched();
+ 	}
+ 	return 0;
+ }
+@@ -2677,7 +2678,7 @@ static int alg_test_aead(const struct alg_test_desc *desc, const char *driver,
+ 	}
+ 	driver = crypto_aead_driver_name(tfm);
+ 
+-	req = aead_request_alloc(tfm, GFP_KERNEL);
++	req = fcw_aead_request_alloc(tfm, GFP_KERNEL);
+ 	if (!req) {
+ 		pr_err("alg: aead: failed to allocate request for %s\n",
+ 		       driver);
+@@ -2989,7 +2990,7 @@ static int test_skcipher_vec(int enc, const struct cipher_testvec *vec,
+ 						    &cfg, req, tsgls);
+ 			if (err)
+ 				return err;
+-			cond_resched();
++			fcw_cond_resched();
+ 		}
+ 	}
+ 	return 0;
+@@ -3111,7 +3112,7 @@ static int test_skcipher_vs_generic_impl(const char *generic_driver,
+ 		goto out;
+ 	}
+ 
+-	generic_req = skcipher_request_alloc(generic_tfm, GFP_KERNEL);
++	generic_req = fcw_skcipher_request_alloc(generic_tfm, GFP_KERNEL);
+ 	if (!generic_req) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -3156,10 +3157,10 @@ static int test_skcipher_vs_generic_impl(const char *generic_driver,
+ 	 * the other implementation against them.
+ 	 */
+ 
+-	vec.key = kmalloc(maxkeysize, GFP_KERNEL);
+-	vec.iv = kmalloc(ivsize, GFP_KERNEL);
+-	vec.ptext = kmalloc(maxdatasize, GFP_KERNEL);
+-	vec.ctext = kmalloc(maxdatasize, GFP_KERNEL);
++	vec.key = fcw_kmalloc(maxkeysize, GFP_KERNEL);
++	vec.iv = fcw_kmalloc(ivsize, GFP_KERNEL);
++	vec.ptext = fcw_kmalloc(maxdatasize, GFP_KERNEL);
++	vec.ctext = fcw_kmalloc(maxdatasize, GFP_KERNEL);
+ 	if (!vec.key || !vec.iv || !vec.ptext || !vec.ctext) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -3180,7 +3181,7 @@ static int test_skcipher_vs_generic_impl(const char *generic_driver,
+ 					    cfg, req, tsgls);
+ 		if (err)
+ 			goto out;
+-		cond_resched();
++		fcw_cond_resched();
+ 	}
+ 	err = 0;
+ out:
+@@ -3205,7 +3206,7 @@ static int test_skcipher(int enc, const struct cipher_test_suite *suite,
+ 		err = test_skcipher_vec(enc, &suite->vecs[i], i, req, tsgls);
+ 		if (err)
+ 			return err;
+-		cond_resched();
++		fcw_cond_resched();
+ 	}
+ 	return 0;
+ }
+@@ -3234,7 +3235,7 @@ static int alg_test_skcipher(const struct alg_test_desc *desc,
+ 	}
+ 	driver = crypto_skcipher_driver_name(tfm);
+ 
+-	req = skcipher_request_alloc(tfm, GFP_KERNEL);
++	req = fcw_skcipher_request_alloc(tfm, GFP_KERNEL);
+ 	if (!req) {
+ 		pr_err("alg: skcipher: failed to allocate request for %s\n",
+ 		       driver);
+@@ -3279,11 +3280,11 @@ static int test_acomp(struct crypto_acomp *tfm,
+ 	struct acomp_req *req;
+ 	struct crypto_wait wait;
+ 
+-	output = kmalloc(COMP_BUF_SIZE, GFP_KERNEL);
++	output = fcw_kmalloc(COMP_BUF_SIZE, GFP_KERNEL);
+ 	if (!output)
+ 		return -ENOMEM;
+ 
+-	decomp_out = kmalloc(COMP_BUF_SIZE, GFP_KERNEL);
++	decomp_out = fcw_kmalloc(COMP_BUF_SIZE, GFP_KERNEL);
+ 	if (!decomp_out) {
+ 		kfree(output);
+ 		return -ENOMEM;
+@@ -3486,7 +3487,7 @@ static int drbg_cavs_test(const struct drbg_testvec *test, const char *driver,
+ {
+ 	int ret = -EAGAIN;
+ 	struct crypto_rng *drng;
+-	unsigned char *buf = kzalloc(test->expectedlen, GFP_KERNEL);
++	unsigned char *buf = fcw_kzalloc(test->expectedlen, GFP_KERNEL);
+ 
+ 	if (!buf)
+ 		return -ENOMEM;
+@@ -3579,7 +3580,7 @@ static int do_test_kpp(struct crypto_kpp *tfm, const struct kpp_testvec *vec,
+ 	int err = -ENOMEM;
+ 	struct scatterlist src, dst;
+ 
+-	req = kpp_request_alloc(tfm, GFP_KERNEL);
++	req = fcw_kpp_request_alloc(tfm, GFP_KERNEL);
+ 	if (!req)
+ 		return err;
+ 
+@@ -3590,7 +3591,7 @@ static int do_test_kpp(struct crypto_kpp *tfm, const struct kpp_testvec *vec,
+ 		goto free_req;
+ 
+ 	out_len_max = crypto_kpp_maxsize(tfm);
+-	output_buf = kzalloc(out_len_max, GFP_KERNEL);
++	output_buf = fcw_kzalloc(out_len_max, GFP_KERNEL);
+ 	if (!output_buf) {
+ 		err = -ENOMEM;
+ 		goto free_req;
+@@ -3768,7 +3769,7 @@ static int test_akcipher_one(struct crypto_akcipher *tfm,
+ 	if (testmgr_alloc_buf(xbuf))
+ 		return err;
+ 
+-	req = akcipher_request_alloc(tfm, GFP_KERNEL);
++	req = fcw_akcipher_request_alloc(tfm, GFP_KERNEL);
+ 	if (!req)
+ 		goto free_xbuf;
+ 
+@@ -3786,7 +3787,7 @@ static int test_akcipher_one(struct crypto_akcipher *tfm,
+ 	/* First run encrypt test which does not require a private key */
+ 	err = -ENOMEM;
+ 	out_len_max = crypto_akcipher_maxsize(tfm);
+-	outbuf_enc = kzalloc(out_len_max, GFP_KERNEL);
++	outbuf_enc = fcw_kzalloc(out_len_max, GFP_KERNEL);
+ 	if (!outbuf_enc)
+ 		goto free_req;
+ 
+@@ -3835,7 +3836,7 @@ static int test_akcipher_one(struct crypto_akcipher *tfm,
+ 		err = 0;
+ 		goto free_all;
+ 	}
+-	outbuf_dec = kzalloc(out_len_max, GFP_KERNEL);
++	outbuf_dec = fcw_kzalloc(out_len_max, GFP_KERNEL);
+ 	if (!outbuf_dec) {
+ 		err = -ENOMEM;
+ 		goto free_all;
+@@ -3933,7 +3934,7 @@ static int test_sig_one(struct crypto_sig *tfm, const struct sig_testvec *vecs)
+ 	u8 *ptr, *key __free(kfree);
+ 	int err, sig_size;
+ 
+-	key = kmalloc(vecs->key_len + 2 * sizeof(u32) + vecs->param_len,
++	key = fcw_kmalloc(vecs->key_len + 2 * sizeof(u32) + vecs->param_len,
+ 		      GFP_KERNEL);
+ 	if (!key)
+ 		return -ENOMEM;
+@@ -3976,7 +3977,7 @@ static int test_sig_one(struct crypto_sig *tfm, const struct sig_testvec *vecs)
+ 		return -EINVAL;
+ 	}
+ 
+-	u8 *sig __free(kfree) = kzalloc(sig_size, GFP_KERNEL);
++	u8 *sig __free(kfree) = fcw_kzalloc(sig_size, GFP_KERNEL);
+ 	if (!sig)
+ 		return -ENOMEM;
+ 
+diff --git a/crypto/xts.c b/crypto/xts.c
+index 1dc948745444222caf6cbeb49f5ec2dfdfcdb1d2..e326e3c2bddafa3df0bd395235b5341589b01a13 100644
+--- a/crypto/xts.c
++++ b/crypto/xts.c
+@@ -21,6 +21,7 @@
+ #include <crypto/xts.h>
+ #include <crypto/b128ops.h>
+ #include <crypto/gf128mul.h>
++#include "fips_canister_wrapper.h"
+ 
+ struct xts_tfm_ctx {
+ 	struct crypto_skcipher *child;
+@@ -356,7 +357,7 @@ static int xts_create(struct crypto_template *tmpl, struct rtattr **tb)
+ 	if (IS_ERR(cipher_name))
+ 		return PTR_ERR(cipher_name);
+ 
+-	inst = kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
++	inst = fcw_kzalloc(sizeof(*inst) + sizeof(*ctx), GFP_KERNEL);
+ 	if (!inst)
+ 		return -ENOMEM;
+ 
+diff --git a/lib/crypto/x86/aes.h b/lib/crypto/x86/aes.h
+index b047dee94f578d1f7f9aa8f9786a8d29c65ba4dd..cbbf4b3c62d95c5e797a533b15ce09ed71ab18d3 100644
+--- a/lib/crypto/x86/aes.h
++++ b/lib/crypto/x86/aes.h
+@@ -6,6 +6,8 @@
+  */
+ 
+ #include <asm/fpu/api.h>
++#include "../../../crypto/fips_canister_wrapper.h"
++#include "../../../crypto/fips_canister_static.h"
+ 
+ static __ro_after_init DEFINE_STATIC_KEY_FALSE(have_aes);
+ 
+@@ -38,12 +40,12 @@ static void aes_preparekey_arch(union aes_enckey_arch *k,
+ 
+ 	if (static_branch_likely(&have_aes) && key_len != AES_KEYSIZE_192 &&
+ 	    irq_fpu_usable()) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		if (key_len == AES_KEYSIZE_128)
+ 			aes128_expandkey_aesni(rndkeys, inv_rndkeys, in_key);
+ 		else
+ 			aes256_expandkey_aesni(rndkeys, inv_rndkeys, in_key);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 	} else {
+ 		aes_expandkey_generic(rndkeys, inv_rndkeys, in_key, key_len);
+ 	}
+@@ -54,9 +56,9 @@ static void aes_encrypt_arch(const struct aes_enckey *key,
+ 			     const u8 in[AES_BLOCK_SIZE])
+ {
+ 	if (static_branch_likely(&have_aes) && irq_fpu_usable()) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		aes_encrypt_aesni(key->k.rndkeys, key->nrounds, out, in);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 	} else {
+ 		aes_encrypt_generic(key->k.rndkeys, key->nrounds, out, in);
+ 	}
+@@ -67,10 +69,10 @@ static void aes_decrypt_arch(const struct aes_key *key,
+ 			     const u8 in[AES_BLOCK_SIZE])
+ {
+ 	if (static_branch_likely(&have_aes) && irq_fpu_usable()) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		aes_decrypt_aesni(key->inv_k.inv_rndkeys, key->nrounds,
+ 				  out, in);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 	} else {
+ 		aes_decrypt_generic(key->inv_k.inv_rndkeys, key->nrounds,
+ 				    out, in);
+diff --git a/lib/crypto/x86/gf128hash.h b/lib/crypto/x86/gf128hash.h
+index 6b79b06caab0a3e03d4c9a13657dd14f737edf3d..12f0bcdc883c285b764e81795c4ea6ce45f0b4ec 100644
+--- a/lib/crypto/x86/gf128hash.h
++++ b/lib/crypto/x86/gf128hash.h
+@@ -6,6 +6,8 @@
+  */
+ #include <asm/fpu/api.h>
+ #include <linux/cpufeature.h>
++#include "../../../crypto/fips_canister_wrapper.h"
++#include "../../../crypto/fips_canister_static.h"
+ 
+ #define NUM_H_POWERS 8
+ 
+@@ -31,14 +33,14 @@ static void polyval_preparekey_arch(struct polyval_key *key,
+ 	static_assert(ARRAY_SIZE(key->h_powers) == NUM_H_POWERS);
+ 	memcpy(&key->h_powers[NUM_H_POWERS - 1], raw_key, POLYVAL_BLOCK_SIZE);
+ 	if (static_branch_likely(&have_pclmul_avx) && irq_fpu_usable()) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		for (int i = NUM_H_POWERS - 2; i >= 0; i--) {
+ 			key->h_powers[i] = key->h_powers[i + 1];
+ 			polyval_mul_pclmul_avx(
+ 				&key->h_powers[i],
+ 				&key->h_powers[NUM_H_POWERS - 1]);
+ 		}
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 	} else {
+ 		for (int i = NUM_H_POWERS - 2; i >= 0; i--) {
+ 			key->h_powers[i] = key->h_powers[i + 1];
+@@ -52,12 +54,12 @@ static void polyval_mul_x86(struct polyval_elem *a,
+ 			    const struct polyval_elem *b)
+ {
+ 	if (static_branch_likely(&have_pclmul) && irq_fpu_usable()) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		if (static_branch_likely(&have_pclmul_avx))
+ 			polyval_mul_pclmul_avx(a, b);
+ 		else
+ 			polyval_mul_pclmul(a, b);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 	} else {
+ 		polyval_mul_generic(a, b);
+ 	}
+@@ -88,9 +90,9 @@ static void ghash_blocks_arch(struct polyval_elem *acc,
+ 			size_t n = min_t(size_t, nblocks,
+ 					 4096 / GHASH_BLOCK_SIZE);
+ 
+-			kernel_fpu_begin();
++			fcw_kernel_fpu_begin();
+ 			ghash_blocks_pclmul(acc, &key->h, data, n);
+-			kernel_fpu_end();
++			fcw_kernel_fpu_end();
+ 			data += n * GHASH_BLOCK_SIZE;
+ 			nblocks -= n;
+ 		} while (nblocks);
+@@ -110,9 +112,9 @@ static void polyval_blocks_arch(struct polyval_elem *acc,
+ 			size_t n = min_t(size_t, nblocks,
+ 					 4096 / POLYVAL_BLOCK_SIZE);
+ 
+-			kernel_fpu_begin();
++			fcw_kernel_fpu_begin();
+ 			polyval_blocks_pclmul_avx(acc, key, data, n);
+-			kernel_fpu_end();
++			fcw_kernel_fpu_end();
+ 			data += n * POLYVAL_BLOCK_SIZE;
+ 			nblocks -= n;
+ 		} while (nblocks);
+diff --git a/lib/crypto/x86/sha256.h b/lib/crypto/x86/sha256.h
+index 0ee69d8e39fe8557976d8ec9110087d142973a48..eb2f7cc2c0869d04f76110bb46a775e934f621a0 100644
+--- a/lib/crypto/x86/sha256.h
++++ b/lib/crypto/x86/sha256.h
+@@ -6,6 +6,8 @@
+  */
+ #include <asm/fpu/api.h>
+ #include <linux/static_call.h>
++#include "../../../crypto/fips_canister_wrapper.h"
++#include "../../../crypto/fips_canister_static.h"
+ 
+ static __ro_after_init DEFINE_STATIC_KEY_FALSE(have_sha_ni);
+ 
+@@ -18,9 +20,9 @@ DEFINE_STATIC_CALL(sha256_blocks_x86, sha256_blocks_generic);
+ 			 size_t nblocks)                                   \
+ 	{                                                                  \
+ 		if (likely(irq_fpu_usable())) {                            \
+-			kernel_fpu_begin();                                \
++			fcw_kernel_fpu_begin();                                \
+ 			asm_fn(state, data, nblocks);                      \
+-			kernel_fpu_end();                                  \
++			fcw_kernel_fpu_end();                                  \
+ 		} else {                                                   \
+ 			sha256_blocks_generic(state, data, nblocks);       \
+ 		}                                                          \
+@@ -79,9 +81,9 @@ static bool sha256_finup_2x_arch(const struct __sha256_ctx *ctx,
+ 	 */
+ 	if (static_branch_likely(&have_sha_ni) && len >= SHA256_BLOCK_SIZE &&
+ 	    len <= 65536 && likely(irq_fpu_usable())) {
+-		kernel_fpu_begin();
++		fcw_kernel_fpu_begin();
+ 		sha256_ni_finup2x(ctx, data1, data2, len, out1, out2);
+-		kernel_fpu_end();
++		fcw_kernel_fpu_end();
+ 		kmsan_unpoison_memory(out1, SHA256_DIGEST_SIZE);
+ 		kmsan_unpoison_memory(out2, SHA256_DIGEST_SIZE);
+ 		return true;
+diff --git a/lib/crypto/x86/sha512.h b/lib/crypto/x86/sha512.h
+index 0213c70cedd01cac6fa843967d5a4fa7a20fa241..7af537e985c83b790ac19e15c64de8ec7082d65e 100644
+--- a/lib/crypto/x86/sha512.h
++++ b/lib/crypto/x86/sha512.h
+@@ -6,6 +6,8 @@
+  */
+ #include <asm/fpu/api.h>
+ #include <linux/static_call.h>
++#include "../../../crypto/fips_canister_wrapper.h"
++#include "../../../crypto/fips_canister_static.h"
+ 
+ DEFINE_STATIC_CALL(sha512_blocks_x86, sha512_blocks_generic);
+ 
+@@ -16,9 +18,9 @@ DEFINE_STATIC_CALL(sha512_blocks_x86, sha512_blocks_generic);
+ 			 size_t nblocks)                                   \
+ 	{                                                                  \
+ 		if (likely(irq_fpu_usable())) {                            \
+-			kernel_fpu_begin();                                \
++			fcw_kernel_fpu_begin();                                \
+ 			asm_fn(state, data, nblocks);                      \
+-			kernel_fpu_end();                                  \
++			fcw_kernel_fpu_end();                                  \
+ 		} else {                                                   \
+ 			sha512_blocks_generic(state, data, nblocks);       \
+ 		}                                                          \

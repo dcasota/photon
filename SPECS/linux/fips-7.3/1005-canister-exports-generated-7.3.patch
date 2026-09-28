@@ -1,0 +1,33 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch11005 (7.x): canister exports generated from the canister object instead of a hand list
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/include/linux/export.h b/include/linux/export.h
+index a686fd0ba406509da5f397e3a415d05c5a051c0d..608d9083314c5153ceaf4ff09dc59f390271ccf0 100644
+--- a/include/linux/export.h
++++ b/include/linux/export.h
+@@ -38,7 +38,21 @@
+ 		__EXPORT_SYMBOL_REF(sym)	ASM_NL	\
+ 	.previous
+ 
+-#if defined(__DISABLE_EXPORTS)
++#if defined(FIPS_CANISTER) && !defined(__ASSEMBLY__)
++
++/*
++ * Inside the FIPS canister no symbol is exported (the measured object must not
++ * carry .export_symbol, and a prebuilt canister gets no genksyms CRCs). Each
++ * export is recorded as "sym|license|namespace" in a .discard section instead;
++ * crypto/gen_canister_exports.sh turns the records of fips_canister.o into the
++ * exports of fips_canister_exports.c, which is built outside the canister.
++ */
++#define __EXPORT_SYMBOL(sym, license, ns)				\
++	asm(".pushsection .discard.fips_canister_exports,\"\",@progbits\n\t" \
++	    ".ascii \"" #sym "|" license "|" ns "\\n\"\n\t"		\
++	    ".popsection")
++
++#elif defined(__DISABLE_EXPORTS)
+ 
+ /*
+  * Allow symbol exports to be disabled completely so that C code may

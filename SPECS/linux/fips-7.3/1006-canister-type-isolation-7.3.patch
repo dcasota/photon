@@ -1,0 +1,793 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch11006 (7.x): canister type isolation - no task_struct/lock types in any canister object
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/arch/x86/crypto/aesni-intel_glue.c b/arch/x86/crypto/aesni-intel_glue.c
+index 6186bd83d94badfb9a5354165a825e6e9fdac3eb..c5d5df0557e0cd03e88bdb506fefb220584f6f3b 100644
+--- a/arch/x86/crypto/aesni-intel_glue.c
++++ b/arch/x86/crypto/aesni-intel_glue.c
+@@ -1319,7 +1319,7 @@ static void gcm_process_assoc(const struct aes_gcm_key *key, u8 ghash_acc[16],
+ 		}
+ next:
+ 		scatterwalk_done_src(&walk, orig_len_this_step);
+-		if (need_resched()) {
++		if (fcw_need_resched()) {
+ 			fcw_kernel_fpu_end();
+ 			fcw_kernel_fpu_begin();
+ 		}
+diff --git a/crypto/Makefile b/crypto/Makefile
+index e09a82112cea54a1e1bff1dfdec67b894eff92df..63057260a2a7e0fa705472d0ed88b608e68b472e 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -220,7 +220,7 @@ quiet_cmd_gencr = GENCR   $@
+ cmd_gencr = $(obj)/gen_canister_relocs $< $@ $(obj)/canister_markers.lds $(obj)/fips_canister-kallsyms
+ 
+ quiet_cmd_update_hmac = HMAC    $@
+-cmd_update_hmac = $(obj)/update_canister_hmac.sh $@ $(obj)/canister_markers.lds
++cmd_update_hmac = $(src)/update_canister_hmac.sh $@ $(obj)/canister_markers.lds
+ 
+ # arch/x86/crypto members (AES-NI modes), compiled here as x86-<name>.o
+ aesni-intel-y := aesni-intel_asm.o aesni-intel_glue.o
+@@ -261,7 +261,8 @@ canister-objs := $(addprefix $(obj)/x86-,$(x86-hwaccelerated-y)) \
+ $(obj)/canister.o: $(obj)/partial_reloc $(canister-objs)
+ 	$(Q)$(LD) -z noexecstack -T $(src)/canister_combine.lds -r $(canister-objs) -o $@
+ 	$(call cmd,pr)
+-	@$(foreach o,$(x86-hwaccelerated-y),echo x86-$(o) > objs;)
++	@: > objs
++	@$(foreach o,$(x86-hwaccelerated-y),echo x86-$(o) >> objs;)
+ 	@$(foreach o,$(lib-crypto-y),echo lib-crypto-$(o) >> objs;)
+ 	@$(foreach o,$(lib-crypto-x86-y),echo lib-crypto-x86-$(o) >> objs;)
+ 	@$(foreach o,$(canister),echo $(o) >> objs;)
+diff --git a/crypto/algboss.c b/crypto/algboss.c
+index 8b936cae6608fa50db7474d461c5e5a5785a4752..e2070e3c56a785a7d48f39a87548bb7d20d48e37 100644
+--- a/crypto/algboss.c
++++ b/crypto/algboss.c
+@@ -19,6 +19,7 @@
+ #include <linux/string.h>
+ 
+ #include "internal.h"
++#include "fips_canister_wrapper.h"
+ 
+ struct cryptomgr_param {
+ 	struct rtattr *tb[CRYPTO_MAX_ATTRS + 2];
+@@ -59,7 +60,7 @@ static int cryptomgr_probe(void *data)
+ 
+ 	do {
+ 		err = tmpl->create(tmpl, param->tb);
+-	} while (err == -EAGAIN && !signal_pending(current));
++	} while (err == -EAGAIN && !fcw_signal_pending());
+ 
+ 	crypto_tmpl_put(tmpl);
+ 
+@@ -69,12 +70,12 @@ static int cryptomgr_probe(void *data)
+ 	complete_all(&param->larval->completion);
+ 	crypto_alg_put(&param->larval->alg);
+ 	kfree(param);
+-	module_put_and_kthread_exit(0);
++	__fcw_module_put_and_kthread_exit(NULL, 0);	/* built in: THIS_MODULE is NULL */
+ }
+ 
+ static int cryptomgr_schedule_probe(struct crypto_larval *larval)
+ {
+-	struct task_struct *thread;
++	void *thread;
+ 	struct cryptomgr_param *param;
+ 	const char *name = larval->alg.cra_name;
+ 	const char *p;
+@@ -154,7 +155,7 @@ static int cryptomgr_schedule_probe(struct crypto_larval *larval)
+ 	crypto_alg_get(&larval->alg);
+ 	param->larval = larval;
+ 
+-	thread = kthread_run(cryptomgr_probe, param, "cryptomgr_probe");
++	thread = fcw_kthread_run(cryptomgr_probe, param, "cryptomgr_probe");
+ 	if (IS_ERR(thread))
+ 		goto err_put_larval;
+ 
+@@ -181,12 +182,12 @@ static int cryptomgr_test(void *data)
+ 	crypto_alg_tested(param->driver, err);
+ 
+ 	kfree(param);
+-	module_put_and_kthread_exit(0);
++	__fcw_module_put_and_kthread_exit(NULL, 0);	/* built in: THIS_MODULE is NULL */
+ }
+ 
+ static int cryptomgr_schedule_test(struct crypto_alg *alg)
+ {
+-	struct task_struct *thread;
++	void *thread;
+ 	struct crypto_test_param *param;
+ 
+ 	if (!IS_ENABLED(CONFIG_CRYPTO_SELFTESTS))
+@@ -203,7 +204,7 @@ static int cryptomgr_schedule_test(struct crypto_alg *alg)
+ 	memcpy(param->alg, alg->cra_name, sizeof(param->alg));
+ 	param->type = alg->cra_flags;
+ 
+-	thread = kthread_run(cryptomgr_test, param, "cryptomgr_test");
++	thread = fcw_kthread_run(cryptomgr_test, param, "cryptomgr_test");
+ 	if (IS_ERR(thread))
+ 		goto err_free_param;
+ 
+diff --git a/crypto/drbg.c b/crypto/drbg.c
+index 2f38c0feb98094272e51f21fbf30fad4301da089..1ae567c6077a777c5dbba763f40137b9beaae902 100644
+--- a/crypto/drbg.c
++++ b/crypto/drbg.c
+@@ -93,7 +93,7 @@
+ #include <linux/fips.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+-#include <linux/mutex.h>
++#include "fips_canister_wrapper.h"
+ #include <linux/string_choices.h>
+ #include <linux/unaligned.h>
+ 
+@@ -124,7 +124,11 @@
+ #define DRBG_MAX_ADDTL_BYTES	(U32_MAX - 1)
+ 
+ struct drbg_state {
+-	struct mutex drbg_mutex;	/* lock around DRBG */
++	/*
++	 * Lock around the DRBG: a wrapper-owned mutex (fcw_mutex_*), because
++	 * no mutex or task_struct type may live inside the FIPS canister.
++	 */
++	void *drbg_mutex;
+ 	u8 V[DRBG_STATE_LEN];		/* internal state -- 10.1.2.1 1a */
+ 	struct hmac_sha512_key key;	/* current key -- 10.1.2.1 1b */
+ 	/* Number of RNG requests since last reseed -- 10.1.2.1 1c */
+@@ -228,7 +232,6 @@ static void drbg_hmac_generate(struct drbg_state *drbg, u8 *out, size_t outlen,
+  */
+ static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
+ 		     bool reseed)
+-	__must_hold(&drbg->drbg_mutex)
+ {
+ 	int ret;
+ 	u8 entropy_buf[(32 + 16) * 2];
+@@ -341,7 +344,6 @@ static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
+  */
+ static int drbg_generate(struct drbg_state *drbg, u8 *out, size_t outlen,
+ 			 const u8 *addtl, size_t addtl_len)
+-	__must_hold(&drbg->drbg_mutex)
+ {
+ 	int err;
+ 
+@@ -423,7 +425,9 @@ static int drbg_kcapi_init(struct crypto_tfm *tfm)
+ {
+ 	struct drbg_state *drbg = crypto_tfm_ctx(tfm);
+ 
+-	mutex_init(&drbg->drbg_mutex);
++	drbg->drbg_mutex = fcw_mutex_init();
++	if (!drbg->drbg_mutex)
++		return -ENOMEM;
+ 
+ 	return 0;
+ }
+@@ -434,10 +438,10 @@ static void drbg_kcapi_set_entropy(struct crypto_rng *tfm,
+ {
+ 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
+ 
+-	mutex_lock(&drbg->drbg_mutex);
++	fcw_mutex_lock(drbg->drbg_mutex);
+ 	drbg->test_entropy = data;
+ 	drbg->test_entropylen = len;
+-	mutex_unlock(&drbg->drbg_mutex);
++	fcw_mutex_unlock(drbg->drbg_mutex);
+ }
+ 
+ /*
+@@ -451,16 +455,15 @@ static void drbg_track_external(struct drbg_state *drbg, struct crypto_rng *tfm)
+ 		drbg->jent->base.external = drbg->external;
+ }
+ 
+-/* Seed (i.e. instantiate) or re-seed the DRBG. */
+-static int drbg_kcapi_seed(struct crypto_rng *tfm,
+-			   const u8 *pers, unsigned int pers_len)
++/* Seed (i.e. instantiate) or re-seed the DRBG. Called with drbg_mutex held. */
++static int __drbg_kcapi_seed(struct crypto_rng *tfm,
++			     const u8 *pers, unsigned int pers_len)
+ {
+ 	static const u8 initial_key[DRBG_STATE_LEN]; /* all zeroes */
+ 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
+ 	int ret;
+ 
+ 	pr_devel("DRBG: Initializing DRBG\n");
+-	guard(mutex)(&drbg->drbg_mutex);
+ 
+ 	drbg_track_external(drbg, tfm);
+ 
+@@ -502,6 +505,18 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
+ 	return 0;
+ }
+ 
++static int drbg_kcapi_seed(struct crypto_rng *tfm,
++			   const u8 *pers, unsigned int pers_len)
++{
++	struct drbg_state *drbg = crypto_rng_ctx(tfm);
++	int ret;
++
++	fcw_mutex_lock(drbg->drbg_mutex);
++	ret = __drbg_kcapi_seed(tfm, pers, pers_len);
++	fcw_mutex_unlock(drbg->drbg_mutex);
++	return ret;
++}
++
+ /*
+  * Generate random numbers invoked by the kernel crypto API:
+  *
+@@ -524,10 +539,10 @@ static int drbg_kcapi_generate(struct crypto_rng *tfm,
+ 		unsigned int n = min(dlen, DRBG_MAX_REQUEST_BYTES);
+ 		int err;
+ 
+-		mutex_lock(&drbg->drbg_mutex);
++		fcw_mutex_lock(drbg->drbg_mutex);
+ 		drbg_track_external(drbg, tfm);
+ 		err = drbg_generate(drbg, dst, n, src, slen);
+-		mutex_unlock(&drbg->drbg_mutex);
++		fcw_mutex_unlock(drbg->drbg_mutex);
+ 		if (err < 0)
+ 			return err;
+ 		dst += n;
+@@ -542,6 +557,7 @@ static void drbg_kcapi_exit(struct crypto_tfm *tfm)
+ 	struct drbg_state *drbg = crypto_tfm_ctx(tfm);
+ 
+ 	crypto_free_rng(drbg->jent);
++	kfree(drbg->drbg_mutex);
+ 	memzero_explicit(drbg, sizeof(*drbg));
+ }
+ 
+@@ -570,7 +586,7 @@ static inline int __init drbg_healthcheck_sanity(void)
+ 	if (!drbg)
+ 		return -ENOMEM;
+ 
+-	guard(mutex_init)(&drbg->drbg_mutex);
++	/* The sanity checks below call drbg_generate()/drbg_seed() unlocked. */
+ 	drbg->instantiated = true;
+ 
+ 	/*
+diff --git a/crypto/testmgr.c b/crypto/testmgr.c
+index a3caa6285faa4a8193e657efbf11d76ad404b429..55a28387a6281ddee09d3abb92467d4bca29bd04 100644
+--- a/crypto/testmgr.c
++++ b/crypto/testmgr.c
+@@ -587,7 +587,7 @@ static int build_test_sglist(struct test_sglist *tsgl,
+ 			     const struct test_sg_division *divs,
+ 			     const unsigned int alignmask,
+ 			     const unsigned int total_len,
+-			     struct iov_iter *data,
++			     void *data,	/* wrapper-owned iov_iter */
+ 			     const struct test_sg_division *out_divs[XBUFSIZE])
+ {
+ 	struct {
+@@ -649,8 +649,8 @@ static int build_test_sglist(struct test_sglist *tsgl,
+ 		if (data) {
+ 			size_t copy_len, copied;
+ 
+-			copy_len = min(partitions[i].length, data->count);
+-			copied = copy_from_iter(addr, copy_len, data);
++			copy_len = min(partitions[i].length, fcw_iov_iter_count(data));
++			copied = fcw_copy_from_iter(addr, copy_len, data);
+ 			if (WARN_ON(copied != copy_len))
+ 				return -EINVAL;
+ 			testmgr_poison(addr + copy_len, partitions[i].length +
+@@ -702,7 +702,7 @@ static int verify_correct_output(const struct test_sglist *tsgl,
+ 			unchecked_prefix_len = 0;
+ 		}
+ 		len = min(len, len_to_check);
+-		actual_output = page_address(sg_page(sg)) + offset;
++		actual_output = fcw_sg_page_address(sg) + offset;
+ 		if (memcmp(expected_output, actual_output, len) != 0)
+ 			return -EINVAL;
+ 		if (check_poison &&
+@@ -776,15 +776,19 @@ static int build_cipher_test_sglists(struct cipher_test_sglists *tsgls,
+ 				     const struct kvec *inputs,
+ 				     unsigned int nr_inputs)
+ {
+-	struct iov_iter input;
++	void *input;
+ 	int err;
+ 
+-	iov_iter_kvec(&input, ITER_SOURCE, inputs, nr_inputs, src_total_len);
++	/* The iov_iter (it reaches xarray and its lock) lives in the wrapper. */
++	input = fcw_iov_iter_kvec_new(inputs, nr_inputs, src_total_len);
++	if (!input)
++		return -ENOMEM;
+ 	err = build_test_sglist(&tsgls->src, cfg->src_divs, alignmask,
+ 				cfg->inplace_mode != OUT_OF_PLACE ?
+ 					max(dst_total_len, src_total_len) :
+ 					src_total_len,
+-				&input, NULL);
++				input, NULL);
++	fcw_iov_iter_free(input);
+ 	if (err)
+ 		return err;
+ 
+@@ -1246,13 +1250,18 @@ static int build_hash_sglist(struct test_sglist *tsgl,
+ 			     const struct test_sg_division *divs[XBUFSIZE])
+ {
+ 	struct kvec kv;
+-	struct iov_iter input;
++	void *input;
++	int err;
+ 
+ 	kv.iov_base = (void *)vec->plaintext;
+ 	kv.iov_len = vec->psize;
+-	iov_iter_kvec(&input, ITER_SOURCE, &kv, 1, vec->psize);
+-	return build_test_sglist(tsgl, cfg->src_divs, alignmask, vec->psize,
+-				 &input, divs);
++	input = fcw_iov_iter_kvec_new(&kv, 1, vec->psize);
++	if (!input)
++		return -ENOMEM;
++	err = build_test_sglist(tsgl, cfg->src_divs, alignmask, vec->psize,
++				input, divs);
++	fcw_iov_iter_free(input);
++	return err;
+ }
+ 
+ static int check_hash_result(const char *type,
+@@ -3282,17 +3291,17 @@ static int alg_test_skcipher(const struct alg_test_desc *desc,
+ 	return err;
+ }
+ 
+-static int test_acomp(struct crypto_acomp *tfm,
++static int test_acomp(void *tfm,	/* struct crypto_acomp, wrapper-owned */
+ 		      const struct comp_testvec *ctemplate,
+ 		      const struct comp_testvec *dtemplate,
+ 		      int ctcount, int dtcount)
+ {
+-	const char *algo = crypto_tfm_alg_driver_name(crypto_acomp_tfm(tfm));
++	const char *algo = fcw_crypto_acomp_driver_name(tfm);
+ 	unsigned int i;
+ 	char *output, *decomp_out;
+ 	int ret;
+ 	struct scatterlist src, dst;
+-	struct acomp_req *req;
++	void *req;	/* struct acomp_req, owned by the wrapper */
+ 	struct crypto_wait wait;
+ 
+ 	output = fcw_kmalloc(COMP_BUF_SIZE, GFP_KERNEL);
+@@ -3321,7 +3330,7 @@ static int test_acomp(struct crypto_acomp *tfm,
+ 		sg_init_one(&src, input_vec, ilen);
+ 		sg_init_one(&dst, output, dlen);
+ 
+-		req = acomp_request_alloc(tfm);
++		req = fcw_acomp_request_alloc(tfm, GFP_KERNEL);
+ 		if (!req) {
+ 			pr_err("alg: acomp: request alloc failed for %s\n",
+ 			       algo);
+@@ -3330,56 +3339,56 @@ static int test_acomp(struct crypto_acomp *tfm,
+ 			goto out;
+ 		}
+ 
+-		acomp_request_set_params(req, &src, &dst, ilen, dlen);
+-		acomp_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
++		fcw_acomp_request_set_params(req, &src, &dst, ilen, dlen);
++		fcw_acomp_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+ 					   crypto_req_done, &wait);
+ 
+-		ret = crypto_wait_req(crypto_acomp_compress(req), &wait);
++		ret = crypto_wait_req(fcw_crypto_acomp_compress(req), &wait);
+ 		if (ret) {
+ 			pr_err("alg: acomp: compression failed on test %d for %s: ret=%d\n",
+ 			       i + 1, algo, -ret);
+ 			kfree(input_vec);
+-			acomp_request_free(req);
++			fcw_acomp_request_free(req);
+ 			goto out;
+ 		}
+ 
+-		ilen = req->dlen;
++		ilen = fcw_acomp_req_dlen(req);
+ 		dlen = COMP_BUF_SIZE;
+ 		sg_init_one(&src, output, ilen);
+ 		sg_init_one(&dst, decomp_out, dlen);
+ 		crypto_init_wait(&wait);
+-		acomp_request_set_params(req, &src, &dst, ilen, dlen);
++		fcw_acomp_request_set_params(req, &src, &dst, ilen, dlen);
+ 
+-		ret = crypto_wait_req(crypto_acomp_decompress(req), &wait);
++		ret = crypto_wait_req(fcw_crypto_acomp_decompress(req), &wait);
+ 		if (ret) {
+ 			pr_err("alg: acomp: compression failed on test %d for %s: ret=%d\n",
+ 			       i + 1, algo, -ret);
+ 			kfree(input_vec);
+-			acomp_request_free(req);
++			fcw_acomp_request_free(req);
+ 			goto out;
+ 		}
+ 
+-		if (req->dlen != ctemplate[i].inlen) {
++		if (fcw_acomp_req_dlen(req) != ctemplate[i].inlen) {
+ 			pr_err("alg: acomp: Compression test %d failed for %s: output len = %d\n",
+-			       i + 1, algo, req->dlen);
++			       i + 1, algo, fcw_acomp_req_dlen(req));
+ 			ret = -EINVAL;
+ 			kfree(input_vec);
+-			acomp_request_free(req);
++			fcw_acomp_request_free(req);
+ 			goto out;
+ 		}
+ 
+-		if (memcmp(input_vec, decomp_out, req->dlen)) {
++		if (memcmp(input_vec, decomp_out, fcw_acomp_req_dlen(req))) {
+ 			pr_err("alg: acomp: Compression test %d failed for %s\n",
+ 			       i + 1, algo);
+-			hexdump(output, req->dlen);
++			hexdump(output, fcw_acomp_req_dlen(req));
+ 			ret = -EINVAL;
+ 			kfree(input_vec);
+-			acomp_request_free(req);
++			fcw_acomp_request_free(req);
+ 			goto out;
+ 		}
+ 
+ 		kfree(input_vec);
+-		acomp_request_free(req);
++		fcw_acomp_request_free(req);
+ 	}
+ 
+ 	for (i = 0; i < dtcount; i++) {
+@@ -3398,7 +3407,7 @@ static int test_acomp(struct crypto_acomp *tfm,
+ 		sg_init_one(&src, input_vec, ilen);
+ 		sg_init_one(&dst, output, dlen);
+ 
+-		req = acomp_request_alloc(tfm);
++		req = fcw_acomp_request_alloc(tfm, GFP_KERNEL);
+ 		if (!req) {
+ 			pr_err("alg: acomp: request alloc failed for %s\n",
+ 			       algo);
+@@ -3407,40 +3416,40 @@ static int test_acomp(struct crypto_acomp *tfm,
+ 			goto out;
+ 		}
+ 
+-		acomp_request_set_params(req, &src, &dst, ilen, dlen);
+-		acomp_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
++		fcw_acomp_request_set_params(req, &src, &dst, ilen, dlen);
++		fcw_acomp_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+ 					   crypto_req_done, &wait);
+ 
+-		ret = crypto_wait_req(crypto_acomp_decompress(req), &wait);
++		ret = crypto_wait_req(fcw_crypto_acomp_decompress(req), &wait);
+ 		if (ret) {
+ 			pr_err("alg: acomp: decompression failed on test %d for %s: ret=%d\n",
+ 			       i + 1, algo, -ret);
+ 			kfree(input_vec);
+-			acomp_request_free(req);
++			fcw_acomp_request_free(req);
+ 			goto out;
+ 		}
+ 
+-		if (req->dlen != dtemplate[i].outlen) {
++		if (fcw_acomp_req_dlen(req) != dtemplate[i].outlen) {
+ 			pr_err("alg: acomp: Decompression test %d failed for %s: output len = %d\n",
+-			       i + 1, algo, req->dlen);
++			       i + 1, algo, fcw_acomp_req_dlen(req));
+ 			ret = -EINVAL;
+ 			kfree(input_vec);
+-			acomp_request_free(req);
++			fcw_acomp_request_free(req);
+ 			goto out;
+ 		}
+ 
+-		if (memcmp(output, dtemplate[i].output, req->dlen)) {
++		if (memcmp(output, dtemplate[i].output, fcw_acomp_req_dlen(req))) {
+ 			pr_err("alg: acomp: Decompression test %d failed for %s\n",
+ 			       i + 1, algo);
+-			hexdump(output, req->dlen);
++			hexdump(output, fcw_acomp_req_dlen(req));
+ 			ret = -EINVAL;
+ 			kfree(input_vec);
+-			acomp_request_free(req);
++			fcw_acomp_request_free(req);
+ 			goto out;
+ 		}
+ 
+ 		kfree(input_vec);
+-		acomp_request_free(req);
++		fcw_acomp_request_free(req);
+ 	}
+ 
+ 	ret = 0;
+@@ -3478,10 +3487,10 @@ static int alg_test_cipher(const struct alg_test_desc *desc,
+ static int alg_test_comp(const struct alg_test_desc *desc, const char *driver,
+ 			 u32 type, u32 mask)
+ {
+-	struct crypto_acomp *acomp;
++	void *acomp;	/* struct crypto_acomp, wrapper-owned */
+ 	int err;
+ 
+-	acomp = crypto_alloc_acomp(driver, type, mask);
++	acomp = fcw_crypto_alloc_acomp(driver, type, mask);
+ 	if (IS_ERR(acomp)) {
+ 		if (PTR_ERR(acomp) == -ENOENT)
+ 			return 0;
+@@ -3493,7 +3502,7 @@ static int alg_test_comp(const struct alg_test_desc *desc, const char *driver,
+ 			 desc->suite.comp.decomp.vecs,
+ 			 desc->suite.comp.comp.count,
+ 			 desc->suite.comp.decomp.count);
+-	crypto_free_acomp(acomp);
++	fcw_crypto_free_acomp(acomp);
+ 	return err;
+ }
+ 
+diff --git a/include/crypto/algapi.h b/include/crypto/algapi.h
+index 7123ab05af6302b88c237e8468ba9fe64bcd543b..e309ef742c38ab1b7b50057606466dcde62ef171 100644
+--- a/include/crypto/algapi.h
++++ b/include/crypto/algapi.h
+@@ -75,7 +75,11 @@ struct crypto_template {
+ 	struct list_head list;
+ 	struct hlist_head instances;
+ 	struct hlist_head dead;
++#ifdef FIPS_CANISTER
++	void *module;	/* struct module: kept opaque inside the FIPS canister */
++#else
+ 	struct module *module;
++#endif
+ 
+ 	struct work_struct free_work;
+ 
+diff --git a/include/crypto/scatterwalk.h b/include/crypto/scatterwalk.h
+index 624fab589c2c71f1feaa2b573178d62e7cd41b2a..6b890d39779e4de6f2c018165ea03eacee2a9cfd 100644
+--- a/include/crypto/scatterwalk.h
++++ b/include/crypto/scatterwalk.h
+@@ -99,6 +99,14 @@ static inline void scatterwalk_get_sglist(struct scatter_walk *walk,
+ 
+ static inline void scatterwalk_map(struct scatter_walk *walk)
+ {
++#ifdef FIPS_CANISTER
++	/*
++	 * FIPS canister (x86_64, no HIGHMEM): the direct-map address of the
++	 * sg entry comes from the wrapper; see <linux/scatterlist.h>.
++	 */
++	BUILD_BUG_ON(IS_ENABLED(CONFIG_HIGHMEM));
++	walk->__addr = fcw_sg_page_address(walk->sg) + walk->offset;
++#else
+ 	struct page *base_page = sg_page(walk->sg);
+ 	unsigned int offset = walk->offset;
+ 	void *addr;
+@@ -125,6 +133,7 @@ static inline void scatterwalk_map(struct scatter_walk *walk)
+ 	}
+ 
+ 	walk->__addr = addr;
++#endif
+ }
+ 
+ /**
+diff --git a/include/linux/crypto.h b/include/linux/crypto.h
+index e9f22004fb90e31217b1373e9c19f0b7173d11f8..bf833552715d77c645afba8e977a27abc565ccb2 100644
+--- a/include/linux/crypto.h
++++ b/include/linux/crypto.h
+@@ -345,7 +345,11 @@ struct crypto_alg {
+ 	char cra_name[CRYPTO_MAX_ALG_NAME];
+ 	char cra_driver_name[CRYPTO_MAX_ALG_NAME];
+ 
++#ifdef FIPS_CANISTER
++	void *cra_type;	/* const struct crypto_type: kept opaque inside the FIPS canister */
++#else
+ 	const struct crypto_type *cra_type;
++#endif
+ 
+ 	union {
+ 		struct cipher_alg cipher;
+@@ -355,7 +359,11 @@ struct crypto_alg {
+ 	void (*cra_exit)(struct crypto_tfm *tfm);
+ 	void (*cra_destroy)(struct crypto_alg *alg);
+ 	
++#ifdef FIPS_CANISTER
++	void *cra_module;	/* struct module: kept opaque inside the FIPS canister */
++#else
+ 	struct module *cra_module;
++#endif
+ } CRYPTO_MINALIGN_ATTR;
+ 
+ /*
+diff --git a/include/linux/init.h b/include/linux/init.h
+index 3849608a04b5ea60bbf9830c066d5cdd2cc09de0..18a9b8f82091dcad9de34595e8d9b4628fb0c1ac 100644
+--- a/include/linux/init.h
++++ b/include/linux/init.h
+@@ -173,8 +173,17 @@ extern bool initcall_debug;
+ extern struct module __this_module;
+ #define THIS_MODULE (&__this_module)
+ #else
++#ifdef FIPS_CANISTER
++/*
++ * FIPS canister (always built in): an untyped NULL. The typed form makes
++ * gcc emit the complete struct module (mutexes, spinlocks, task_struct)
++ * into the canister's debug info even when it lands in a void * field.
++ */
++#define THIS_MODULE ((void *)0)
++#else
+ #define THIS_MODULE ((struct module *)0)
+ #endif
++#endif
+ 
+ #endif
+   
+diff --git a/include/linux/module.h b/include/linux/module.h
+index 96cc98568eea54cfed5f9be63aa31f12153c30dd..13916c76f567cb04fd59734c2304635329d74c3e 100644
+--- a/include/linux/module.h
++++ b/include/linux/module.h
+@@ -1019,4 +1019,18 @@ static inline unsigned long find_kallsyms_symbol_value(struct module *mod,
+ /* Define __free(module_put) macro for struct module *. */
+ DEFINE_FREE(module_put, struct module *, if (_T) module_put(_T))
+ 
++#ifdef FIPS_CANISTER
++/*
++ * FIPS canister: module references are taken through the wrapper, so that
++ * struct module (mutexes, kobjects, srcu: locks and task_struct) stays out of
++ * the canister's types. The canister itself is always built in.
++ */
++extern bool fcw_try_module_get(void *module);
++extern void fcw_module_put(void *module);
++#undef try_module_get
++#undef module_put
++#define try_module_get(m)	fcw_try_module_get((void *)(m))
++#define module_put(m)		fcw_module_put((void *)(m))
++#endif /* FIPS_CANISTER */
++
+ #endif /* _LINUX_MODULE_H */
+diff --git a/include/linux/moduleparam.h b/include/linux/moduleparam.h
+index 86595031bf90a6709fe1bca6887147bca5f56ace..a66469819a08653cce05f559eaf71212a0c1e8c3 100644
+--- a/include/linux/moduleparam.h
++++ b/include/linux/moduleparam.h
+@@ -81,7 +81,11 @@ enum {
+ 
+ struct kernel_param {
+ 	const char *name;
++#ifdef FIPS_CANISTER
++	void *mod;	/* struct module: kept opaque inside the FIPS canister */
++#else
+ 	struct module *mod;
++#endif
+ 	const struct kernel_param_ops *ops;
+ 	const u16 perm;
+ 	s8 level;
+diff --git a/include/linux/printk.h b/include/linux/printk.h
+index 924ecef0b2ec580499a7b262278cd8b154ea4e88..19d1297daa7dc3c38843b7c2168912bf6bb410f1 100644
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -509,7 +509,13 @@ struct pi_entry {
+  *
+  * See the vsnprintf() documentation for format string extensions over C99.
+  */
++#ifdef FIPS_CANISTER
++/* FIPS canister: all output goes through the wrapper's fcw_printk(). */
++extern __printf(1, 2) int fcw_printk(const char *fmt, ...);
++#define printk(fmt, ...) fcw_printk(fmt, ##__VA_ARGS__)
++#else
+ #define printk(fmt, ...) printk_index_wrap(_printk, fmt, ##__VA_ARGS__)
++#endif
+ #define printk_deferred(fmt, ...)					\
+ 	printk_index_wrap(_printk_deferred, fmt, ##__VA_ARGS__)
+ 
+@@ -696,6 +702,17 @@ struct pi_entry {
+  * no local ratelimit_state used in the !PRINTK case
+  */
+ #ifdef CONFIG_PRINTK
++#ifdef FIPS_CANISTER
++/* FIPS canister: the ratelimit state (it holds a lock) lives in the wrapper. */
++extern bool fcw_ratelimit(void **rsp, const char *name);
++#define printk_ratelimited(fmt, ...)					\
++({									\
++	static void *_fcw_rs;						\
++									\
++	if (fcw_ratelimit(&_fcw_rs, __func__))				\
++		printk(fmt, ##__VA_ARGS__);				\
++})
++#else
+ #define printk_ratelimited(fmt, ...)					\
+ ({									\
+ 	static DEFINE_RATELIMIT_STATE(_rs,				\
+@@ -705,6 +722,7 @@ struct pi_entry {
+ 	if (__ratelimit(&_rs))						\
+ 		printk(fmt, ##__VA_ARGS__);				\
+ })
++#endif
+ #else
+ #define printk_ratelimited(fmt, ...)					\
+ 	no_printk(fmt, ##__VA_ARGS__)
+diff --git a/include/linux/scatterlist.h b/include/linux/scatterlist.h
+index 6de1a24342990735d55cc0ac67b8416fc78a6883..e1c553ca7aab70e213562bcd6d3ff75dfd03ad5e 100644
+--- a/include/linux/scatterlist.h
++++ b/include/linux/scatterlist.h
+@@ -203,13 +203,29 @@ static inline struct page *sg_page(struct scatterlist *sg)
+  * @buflen:	 Data length
+  *
+  **/
++#ifdef FIPS_CANISTER
++/*
++ * FIPS canister: page-based helpers go through the wrapper, so that no
++ * struct page (and what it reaches: address_space, locks, task_struct)
++ * enters the canister's types.
++ */
++extern void fcw_sg_set_buf(struct scatterlist *sg, const void *buf,
++			   unsigned int buflen);
++extern void *fcw_sg_page_address(struct scatterlist *sg);
++#endif
++
+ static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
+ 			      unsigned int buflen)
+ {
++#ifdef FIPS_CANISTER
++	/* No page code in the canister, not even as dead code: it emits types. */
++	fcw_sg_set_buf(sg, buf, buflen);
++#else
+ #ifdef CONFIG_DEBUG_SG
+ 	BUG_ON(!virt_addr_valid(buf));
+ #endif
+ 	sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
++#endif
+ }
+ 
+ /*
+@@ -424,7 +440,11 @@ static inline dma_addr_t sg_phys(struct scatterlist *sg)
+  **/
+ static inline void *sg_virt(struct scatterlist *sg)
+ {
++#ifdef FIPS_CANISTER
++	return fcw_sg_page_address(sg) + sg->offset;
++#else
+ 	return page_address(sg_page(sg)) + sg->offset;
++#endif
+ }
+ 
+ /**
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+index cda126def67afd81b2fbfd3ed878e932863ded7f..0769f98035cda3131b57b4a6c24ce5249fe5044e 100644
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -1458,4 +1458,32 @@ size_t kmalloc_size_roundup(size_t size);
+ void __init kmem_cache_init_late(void);
+ void __init kvfree_rcu_init(void);
+ 
++#ifdef FIPS_CANISTER
++/*
++ * FIPS canister: allocations go through the wrapper outside the measured
++ * object (the canister must not reference slab internals such as
++ * kmalloc_caches). kmalloc_obj() and friends expand through these.
++ */
++extern void *fcw_kmalloc(size_t size, gfp_t flags);
++extern void *fcw_kzalloc(size_t size, gfp_t flags);
++
++static __always_inline void *__fcw_kmalloc_array(size_t n, size_t size, gfp_t flags)
++{
++	size_t bytes;
++
++	if (unlikely(check_mul_overflow(n, size, &bytes)))
++		return NULL;
++	return fcw_kmalloc(bytes, flags);
++}
++
++#undef kmalloc
++#undef kzalloc
++#undef kmalloc_array
++#undef kcalloc
++#define kmalloc(size, flags)		fcw_kmalloc(size, flags)
++#define kzalloc(size, flags)		fcw_kzalloc(size, flags)
++#define kmalloc_array(n, size, flags)	__fcw_kmalloc_array(n, size, flags)
++#define kcalloc(n, size, flags)		__fcw_kmalloc_array(n, size, (flags) | __GFP_ZERO)
++#endif /* FIPS_CANISTER */
++
+ #endif	/* _LINUX_SLAB_H */
+diff --git a/include/linux/string.h b/include/linux/string.h
+index 5702daca4326b7ebbfcecf6a84f710fe75ef8542..94a4ce16760c8ebf0ff70e53b9bcc34d5f158b84 100644
+--- a/include/linux/string.h
++++ b/include/linux/string.h
+@@ -585,4 +585,19 @@ strends(const char *str, const char *suffix)
+ 	return !(strcmp(str + str_len - suffix_len, suffix));
+ }
+ 
++#ifdef FIPS_CANISTER
++/* FIPS canister: kmemdup() allocates through the wrapper (see slab.h). */
++extern void *fcw_kmalloc(size_t size, gfp_t flags);
++static inline void *__fcw_kmemdup(const void *src, size_t len, gfp_t gfp)
++{
++	void *p = fcw_kmalloc(len, gfp);
++
++	if (p)
++		memcpy(p, src, len);
++	return p;
++}
++#undef kmemdup
++#define kmemdup(src, len, gfp)	__fcw_kmemdup(src, len, gfp)
++#endif /* FIPS_CANISTER */
++
+ #endif /* _LINUX_STRING_H_ */

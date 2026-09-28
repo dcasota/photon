@@ -1,0 +1,65 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch11001/11002/11013 (7.x): no static_call in aesni glue; canister asm and C use ret;int3 (no return thunk sites)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/arch/x86/crypto/aesni-intel_glue.c b/arch/x86/crypto/aesni-intel_glue.c
+index f8830fd061c4b777113c082be56a832fd8852c13..2f464707d0f2e154df19b6cd6de9b29e31284ee5 100644
+--- a/arch/x86/crypto/aesni-intel_glue.c
++++ b/arch/x86/crypto/aesni-intel_glue.c
+@@ -36,7 +36,6 @@
+ #include <linux/jump_label.h>
+ #include <linux/workqueue.h>
+ #include <linux/spinlock.h>
+-#include <linux/static_call.h>
+ #include "../../../crypto/fips_canister_wrapper.h"\n
+ 
+ #define AESNI_ALIGN	16
+diff --git a/arch/x86/include/asm/linkage.h b/arch/x86/include/asm/linkage.h
+index c9769a7b6e66c13bc542c1634c8e030953a552e1..6180a3e3b408ec235eda9845e2b41017fa4d3acd 100644
+--- a/arch/x86/include/asm/linkage.h
++++ b/arch/x86/include/asm/linkage.h
+@@ -40,10 +40,11 @@
+ 
+ #ifdef __ASSEMBLER__
+ 
+-#if defined(CONFIG_MITIGATION_RETHUNK) && !defined(__DISABLE_EXPORTS) && !defined(BUILD_VDSO)
++#if defined(CONFIG_MITIGATION_RETHUNK) && !defined(__DISABLE_EXPORTS) && !defined(BUILD_VDSO) && \
++    !defined(FIPS_CANISTER)
+ #define RET	jmp __x86_return_thunk
+ #else /* CONFIG_MITIGATION_RETPOLINE */
+-#ifdef CONFIG_MITIGATION_SLS
++#if defined(CONFIG_MITIGATION_SLS) || defined(FIPS_CANISTER)
+ #define RET	ret; int3
+ #else
+ #define RET	ret
+@@ -52,10 +53,11 @@
+ 
+ #else /* __ASSEMBLER__ */
+ 
+-#if defined(CONFIG_MITIGATION_RETHUNK) && !defined(__DISABLE_EXPORTS) && !defined(BUILD_VDSO)
++#if defined(CONFIG_MITIGATION_RETHUNK) && !defined(__DISABLE_EXPORTS) && !defined(BUILD_VDSO) && \
++    !defined(FIPS_CANISTER)
+ #define ASM_RET	"jmp __x86_return_thunk\n\t"
+ #else /* CONFIG_MITIGATION_RETPOLINE */
+-#ifdef CONFIG_MITIGATION_SLS
++#if defined(CONFIG_MITIGATION_SLS) || defined(FIPS_CANISTER)
+ #define ASM_RET	"ret; int3\n\t"
+ #else
+ #define ASM_RET	"ret\n\t"
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 1e6346e0c4c6e0c859aaa9f05ff010cc37df096b..e09a82112cea54a1e1bff1dfdec67b894eff92df 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -278,6 +278,10 @@ $(foreach o,$(lib-crypto-y),$(eval CFLAGS_REMOVE_lib-crypto-$(o) += $(canister-c
+ $(foreach o,$(x86-hwaccelerated-y),$(eval CFLAGS_x86-$(o) += $(canister-cflags)))
+ $(foreach o,$(x86-hwaccelerated-y),$(eval CFLAGS_REMOVE_x86-$(o) += $(canister-cflags-remove)))
+ $(foreach o,$(x86-hwaccelerated-y),$(eval OBJECT_FILES_NON_STANDARD_x86-$(o) := y))
++# Assembler members see FIPS_CANISTER too: RET becomes "ret; int3" instead of a
++# return-thunk jump (no .return_sites in the canister; replaces 1002/1013).
++$(foreach o,$(x86-hwaccelerated-y),$(eval AFLAGS_x86-$(o) += -DFIPS_CANISTER))
++$(foreach o,$(lib-crypto-x86-y),$(eval AFLAGS_lib-crypto-x86-$(o) += -DFIPS_CANISTER))
+ $(foreach o,$(lib-crypto-x86-y),$(eval OBJECT_FILES_NON_STANDARD_lib-crypto-x86-$(o) := y))
+ 
+ $(src)/canister_relocs.c: $(obj)/canister.o $(obj)/gen_canister_relocs

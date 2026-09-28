@@ -1,0 +1,934 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] 10202/10204 (7.x): match_canister_structs fixes - iterator bound, opaque declarations, shared-node frees, struct equality, cache sizing/publication, bitfields, anonymous-aggregate arrays, .c-local structures; pad list trimmed to the 7.x canister
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/scripts/gcc-plugins/fips_canister_plugins/fips_canister_common.c b/scripts/gcc-plugins/fips_canister_plugins/fips_canister_common.c
+index f4cefa27d8c68aaee910fd897f67130472dde3b3..596ac6e5f6d6dad15f1846acda169cbddafebbb1 100644
+--- a/scripts/gcc-plugins/fips_canister_plugins/fips_canister_common.c
++++ b/scripts/gcc-plugins/fips_canister_plugins/fips_canister_common.c
+@@ -9,11 +9,17 @@
+ #include "fips_canister_common.h"
+ #include "constants.h"
+ 
++/*
++ * Structures shared by the canister and the kernel. Every entry must be in
++ * the canister's debuginfo (match_canister_structs fails otherwise). 7.x:
++ * compress_alg and crypto_comp are gone, sha256_state/sha512_state became the
++ * lib/crypto contexts, the canister sees acomp_req/crypto_acomp only through
++ * the wrapper and does not use crypto_sync_skcipher.
++ */
+ const char *pad_struct_list[] = {
+ 	"crypto_async_request",
+ 	"crypto_tfm",
+ 	"cipher_alg",
+-	"compress_alg",
+ 	"crypto_alg",
+ 	"crypto_aes_ctx",
+ 	"skcipher_request",
+@@ -24,9 +30,7 @@ const char *pad_struct_list[] = {
+ 	"aead_request",
+ 	"aead_alg",
+ 	"crypto_aead",
+-	"sha256_state",
+ 	"aead_geniv_ctx",
+-	"crypto_sync_skcipher",
+ 	"rng_alg",
+ 	"crypto_rng",
+ 	"gcry_mpi",
+@@ -37,7 +41,6 @@ const char *pad_struct_list[] = {
+ 	"ecc_point",
+ 	"ecc_curve",
+ 	"crypto_wait",
+-	"crypto_comp",
+ 	"hash_alg_common",
+ 	"ahash_request",
+ 	"crypto_ahash",
+@@ -47,10 +50,7 @@ const char *pad_struct_list[] = {
+ 	"kpp_request",
+ 	"crypto_kpp",
+ 	"kpp_alg",
+-	"acomp_req",
+-	"crypto_acomp",
+ 	"crypto_cipher",
+-	"sha512_state",
+ 	"sha3_state",
+ 	"ecdh"
+ };
+diff --git a/scripts/gcc-plugins/fips_canister_plugins/kernel_iterator.c b/scripts/gcc-plugins/fips_canister_plugins/kernel_iterator.c
+index 6c59d527ec3c5ca90a9442e277d4dfe88efcbe32..2922afe82b8782a94057ea2c889c77d25cf7f7e7 100644
+--- a/scripts/gcc-plugins/fips_canister_plugins/kernel_iterator.c
++++ b/scripts/gcc-plugins/fips_canister_plugins/kernel_iterator.c
+@@ -12,6 +12,19 @@
+ #include "kernel_iterator.h"
+ #include "fips_canister_common.h"
+ 
++/*
++ * Unnamed bitfields (": 2") only reserve bits: DWARF has no member for them,
++ * so the canister's member lists do not contain them. Step over them.
++ */
++static tree skip_unnamed_bitfields(tree field)
++{
++	while (field && TREE_CODE(field) == FIELD_DECL && !DECL_NAME(field) &&
++	       DECL_BIT_FIELD_TYPE(field))
++		field = TREE_CHAIN(field);
++
++	return field;
++}
++
+ void kern_iter_init(struct kern_iter *kern_iter, tree def)
+ {
+ 	struct kernel_stack_entry *entry;
+@@ -21,7 +34,7 @@ void kern_iter_init(struct kern_iter *kern_iter, tree def)
+ 	INIT_LIST_HEAD(&kern_iter->stack_head);
+ 
+ 	entry->type = TYPE_MAIN_VARIANT(def);
+-	entry->member = TYPE_FIELDS(def);
++	entry->member = skip_unnamed_bitfields(TYPE_FIELDS(def));
+ 	entry->member_base_type = get_field_base_type(entry->member);
+ 
+ 	list_add_tail(&entry->l_entry, &kern_iter->stack_head);
+@@ -71,7 +84,8 @@ tree kern_iter_next_field(struct kern_iter *kern_iter)
+ 		return NULL;
+ 
+ 	cur_entry = list_last_entry(&kern_iter->stack_head, kernel_stack_entry, l_entry);
+-	cur_entry->member = cur_entry->member ? TREE_CHAIN(cur_entry->member) : NULL;
++	cur_entry->member = cur_entry->member ?
++		skip_unnamed_bitfields(TREE_CHAIN(cur_entry->member)) : NULL;
+ 
+ 	if(!cur_entry->member)
+ 		return NULL;
+@@ -119,7 +133,7 @@ tree kern_iter_push(struct kern_iter *kern_iter, bool allow_loops)
+ 
+ 	if(type && (!is_cycle(type, kern_iter) || allow_loops)) {
+ 		entry->type = type;
+-		entry->member = TYPE_FIELDS(type);
++		entry->member = skip_unnamed_bitfields(TYPE_FIELDS(type));
+ 		entry->member_base_type = get_field_base_type(entry->member);
+ 	}
+ 
+diff --git a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/data_struct_iterator.c b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/data_struct_iterator.c
+index cc860763aac6788059eb9f90c02dc0e843c5663b..b353f332b8e4768f9de2f6af20c7f2adb60cace2 100644
+--- a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/data_struct_iterator.c
++++ b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/data_struct_iterator.c
+@@ -121,7 +121,7 @@ struct data_member *ds_iter_cur_memb(struct ds_iter *ds_iter)
+ 	if(!cur_def)
+ 		return NULL;
+ 
+-	if(cur_entry->memb_idx > cur_def->nr_members)
++	if(cur_entry->memb_idx >= cur_def->nr_members)
+ 		return NULL;
+ 
+ 	return &cur_def->members[cur_entry->memb_idx];
+diff --git a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/dwarf_debuginfo_parser.c b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/dwarf_debuginfo_parser.c
+index cb6a6f5a927da1844f440a04c940f30a5b766ab2..61fb4ce0cc8f8e153b0a1fa1c6c210517f218341 100644
+--- a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/dwarf_debuginfo_parser.c
++++ b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/dwarf_debuginfo_parser.c
+@@ -16,7 +16,7 @@
+ #include "data_struct_iterator.h"
+ #include "../constants.h"
+ 
+-#define CANISTER_LOC "crypto/fips_canister.o"
++#define CANISTER_LOC CANISTER_OBJ_LOC
+ 
+ static struct conf_fprintf conf = {
+ 	.emit_stats = 1,
+@@ -219,6 +219,10 @@ static int parse_struct_member_tag(struct tag *tag,
+ 
+ 	new_member->byte_size = cls_member->byte_size;
+ 	new_member->byte_offset = cls_member->byte_offset;
++	/* A full-width bitfield is an ordinary member (see struct data_member) */
++	if (cls_member->bitfield_size &&
++	    cls_member->bitfield_size != cls_member->byte_size * 8)
++		new_member->bit_size = cls_member->bitfield_size;
+ 
+ 	if(tag_is_pointer(tag, cu))
+ 		new_member->is_ptr = true;
+@@ -318,6 +322,20 @@ static struct data_structure *__parse_tag(struct tag *tag, struct cu *cu,
+ 	i = 0;
+ 	type__for_each_tag(type, tag_pos)
+ 	{
++		/*
++		 * Only data members have a slot: new_struct was sized from
++		 * type->nr_members, while a structure's DWARF children can also
++		 * be other tags (e.g. nested type definitions).
++		 */
++		if (!tag__is_class_member(tag_pos))
++			continue;
++		if (i >= type->nr_members) {
++			fprintf(stderr,
++				"struct %s: more members than the %u counted\n",
++				new_struct->name, type->nr_members);
++			free(new_struct);
++			return NULL;
++		}
+ 		if (parse_struct_member_tag(tag_pos, cu,
+ 						&new_struct->members[i],
+ 						tag_stack_head) < 0) {
+@@ -359,6 +377,17 @@ static void free_struct_def_list(void) {
+ 	}
+ }
+ 
++static bool decl_file_is_c(struct tag *tag, struct cu *cu)
++{
++	const char *file = tag__decl_file(tag, cu);
++	size_t len;
++
++	if (!file)
++		return false;
++	len = strlen(file);
++	return len > 2 && !strcmp(file + len - 2, ".c");
++}
++
+ static int cu__parse_structs(struct cu *cu)
+ {
+ 	int i;
+@@ -371,6 +400,15 @@ static int cu__parse_structs(struct cu *cu)
+ 	struct data_structure *def;
+ 
+ 	cu__for_each_type(cu, i, tag) {
++		/*
++		 * A structure defined in a .c file is private to that unit: it is
++		 * never the layout the canister shares with the kernel, and its
++		 * name may be reused by an unrelated kernel structure (7.x: the
++		 * AES-NI glue's struct aes_gcm_key vs <crypto/aes-gcm.h>).
++		 */
++		if (decl_file_is_c(tag, cu))
++			continue;
++
+ 		def = parse_tag(tag, cu);
+ 		if(!def || def->nr_members == 0)
+ 			continue;
+@@ -418,6 +456,8 @@ dwarf_struct_parser(struct cu *cu, struct conf_load *conf_load __maybe_unused,
+ struct conf_load dwarf_conf_parser = {
+ 	.steal = dwarf_struct_parser,
+ 	.conf_fprintf = &conf,
++	/* keep DW_AT_decl_file: needed to tell .c-local structures apart */
++	.extra_dbg_info = true,
+ };
+ 
+ static struct data_structure *get_struct_in_list_by_name(const char *name)
+@@ -451,6 +491,14 @@ static bool multiple_defs_in_list(const char *name)
+ 	return false;
+ }
+ 
++/*
++ * Re-point a member at the listed definition of its structure. The replaced
++ * definition is not freed: definitions parsed from one type unit share nodes
++ * (a recursive structure points back at its parent while it is parsed), so a
++ * recursive free of one copy can release nodes still referenced by listed
++ * definitions, including the one being walked. The copies live until cc1
++ * exits; the parse runs once and is then cached (canister_structures.db).
++ */
+ static int remap_member_def(struct data_member *memb)
+ {
+ 	struct data_structure *cached_def;
+@@ -471,7 +519,17 @@ static int remap_member_def(struct data_member *memb)
+ 	 * we don't know which one is correct.
+ 	 */
+ 	if(memb->definition->nr_members == 0) {
+-		free_struct_def(memb->definition);
++		/*
++		 * The canister only declares this structure (it is used through
++		 * pointers only): its layout is not part of the canister's
++		 * interface, so there is nothing to match. Keep the declaration.
++		 */
++		if(!cached_def) {
++			if(getenv("FIPS_MATCH_TRACE"))
++				fprintf(stderr, "match_canister_structs: %s is opaque in the canister\n",
++					memb->definition->name);
++			return 0;
++		}
+ 		memb->definition = cached_def;
+ 
+ 		/* Only unique entries are added to the DB */
+@@ -486,7 +544,6 @@ static int remap_member_def(struct data_member *memb)
+ 		}
+ 	/* Reassign duplicate definition */
+ 	} else if(data_struct_eq(cached_def, memb->definition)) {
+-		free_struct_def(memb->definition);
+ 		memb->definition = cached_def;
+ 	}
+ 
+diff --git a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/match_canister_structs.c b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/match_canister_structs.c
+index 5a2b4b8b668d71e581caf4bf5cb730810dd82313..4977f5256f042d7f8bcde1d7fe8d74c9258e9605 100644
+--- a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/match_canister_structs.c
++++ b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/match_canister_structs.c
+@@ -101,6 +101,87 @@ static int validate_offsets(tree type, struct data_structure *canister_def)
+ 	return 0;
+ }
+ 
++/*
++ * Bitfields: GCC gives a bitfield FIELD_DECL an unnamed integer type of its
++ * width ("<unnamed-unsigned:4>"); DWARF names the declared type ("u32") and
++ * gives its size. Compare declared type, its size and the width instead.
++ */
++static unsigned short kernel_bit_size(tree field)
++{
++	tree decl_type;
++	unsigned HOST_WIDE_INT width;
++
++	if (TREE_CODE(field) != FIELD_DECL || !DECL_BIT_FIELD_TYPE(field) ||
++	    !DECL_SIZE(field) || !tree_fits_uhwi_p(DECL_SIZE(field)))
++		return 0;
++
++	decl_type = DECL_BIT_FIELD_TYPE(field);
++	width = tree_to_uhwi(DECL_SIZE(field));
++	if (width == get_type_size(decl_type) * BITS_PER_UNIT)
++		return 0;
++
++	return (unsigned short)width;
++}
++
++/* Size of the field's declared type (for a bitfield: of its storage type) */
++static size_t kernel_field_size(tree field)
++{
++	if (TREE_CODE(field) == FIELD_DECL && DECL_BIT_FIELD_TYPE(field))
++		return get_type_size(DECL_BIT_FIELD_TYPE(field));
++
++	return get_field_size(field);
++}
++
++/*
++ * Arrays of anonymous structures/unions: GCC prints the whole body
++ * ("union {...}[2]"), the canister's debuginfo gives "union [2]". Render the
++ * kernel type the same way; returns false for any other type.
++ */
++static bool anon_aggregate_array_str(tree type, char *buf, int len)
++{
++	tree elem = type;
++	int n;
++
++	while (TREE_CODE(elem) == ARRAY_TYPE)
++		elem = TREE_TYPE(elem);
++	if (elem == type || TYPE_NAME(elem) ||
++	    (TREE_CODE(elem) != RECORD_TYPE && TREE_CODE(elem) != UNION_TYPE))
++		return false;
++
++	n = snprintf(buf, len, "%s ", TREE_CODE(elem) == UNION_TYPE ? "union" : "struct");
++	for (tree t = type; TREE_CODE(t) == ARRAY_TYPE && n < len; t = TREE_TYPE(t)) {
++		tree dom = TYPE_DOMAIN(t);
++
++		if (dom && TYPE_MAX_VALUE(dom) && tree_fits_uhwi_p(TYPE_MAX_VALUE(dom)))
++			n += snprintf(buf + n, len - n, "[%lu]",
++				      (unsigned long)tree_to_uhwi(TYPE_MAX_VALUE(dom)) + 1);
++		else
++			n += snprintf(buf + n, len - n, "[]");
++	}
++
++	return true;
++}
++
++/* Type string of the field's declared type */
++static void kernel_field_type_str(tree field, char *buf, int len)
++{
++	tree type = TREE_CODE(field) == FIELD_DECL ? TREE_TYPE(field) : field;
++
++	if (TREE_CODE(field) == FIELD_DECL && DECL_BIT_FIELD_TYPE(field))
++		get_field_type_str(DECL_BIT_FIELD_TYPE(field), buf, len);
++	else if (!anon_aggregate_array_str(type, buf, len))
++		get_field_type_str(field, buf, len);
++}
++
++static bool struct_has_bitfield(tree type)
++{
++	for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field))
++		if (TREE_CODE(field) == FIELD_DECL && DECL_BIT_FIELD_TYPE(field))
++			return true;
++
++	return false;
++}
++
+ static bool tree_is_void_ptr(tree type)
+ {
+ 	return TREE_CODE(type) == POINTER_TYPE &&
+@@ -140,6 +221,7 @@ static bool __type_comparison(struct kern_iter *kern_iter, struct ds_iter *ds_it
+ 	const char *mismatch_kernel_type, *mismatch_canister_type;
+ 	char stack[TYPE_STACK_MAX_LEN];
+ 	size_t field_size;
++	unsigned short kernel_bits;
+ 
+ 	canister_member = ds_iter_cur_memb(ds_iter);
+ 	kernel_field = kern_iter_cur_memb(kern_iter);
+@@ -147,15 +229,15 @@ static bool __type_comparison(struct kern_iter *kern_iter, struct ds_iter *ds_it
+ 	allowed_mismatch_attr = lookup_attribute(CANISTER_MISMATCH_ATTR,
+ 							DECL_ATTRIBUTES(kernel_field));
+ 
+-	field_size = get_field_size(kernel_field);
++	field_size = kernel_field_size(kernel_field);
++	kernel_bits = kernel_bit_size(kernel_field);
++	kernel_field_type_str(kernel_field, kernel_type_str, sizeof(kernel_type_str));
+ 
+ 	/* Dereference FIELD_DECL */
+ 	kernel_field = TREE_TYPE(kernel_field);
+ 
+ 	ds_iter_print_stack(ds_iter, stack, TYPE_STACK_MAX_LEN);
+ 
+-	get_field_type_str(kernel_field, kernel_type_str, sizeof(kernel_type_str));
+-
+ 	/* Check if allowed type is specified first - this should match correctly */
+ 	if(allowed_mismatch_attr) {
+ 		attr_arg = TREE_VALUE(allowed_mismatch_attr);
+@@ -211,6 +293,15 @@ static bool __type_comparison(struct kern_iter *kern_iter, struct ds_iter *ds_it
+ 		return false;
+ 	}
+ 
++	/* Bitfield width matches? */
++	if (kernel_bits != canister_member->bit_size) {
++		snprintf(err_msg, msg_len,
++			"Bitfield width mismatch:\n%s:\n(kernel) %u bits != %u bits (canister) "
++			"(0: not a bitfield)",
++			stack, kernel_bits, canister_member->bit_size);
++		return false;
++	}
++
+ 	/* Size matches? */
+ 	if(field_size != canister_member->byte_size) {
+ 		snprintf(err_msg, msg_len,
+@@ -414,8 +505,8 @@ static int order_fields(struct data_structure *canister_struct_def, tree type,
+ 		}
+ 
+ 		field_name = get_field_name(field);
+-		field_size = get_field_size(field);
+-		get_field_type_str(field, field_type, sizeof(field_type));
++		field_size = kernel_field_size(field);
++		kernel_field_type_str(field, field_type, sizeof(field_type));
+ 
+ 		if (strcmp(field_name, member->name)) {
+ 			divergence_point = field;
+@@ -594,6 +685,17 @@ static void match_struct(tree type)
+ 	if (!needs_matching(type, canister_struct_def))
+ 		return;
+ 
++	/*
++	 * Re-layout below computes offsets from whole field sizes; it cannot
++	 * place bitfields. Refuse rather than build a mismatching layout.
++	 */
++	if (struct_has_bitfield(type)) {
++		error("struct '%s': differs from the canister and has bitfields, "
++		      "which cannot be re-laid-out to match",
++		      type_name);
++		return;
++	}
++
+ 	if (!struct_in_pad_list(type_name))
+ 		inform(get_type_location(type),
+ 		       "struct '%s': mismatch between kernel/canister versions, "
+@@ -709,6 +811,22 @@ static void destroy_canister_struct_db(void *event_data, void *data)
+ 	free_structure_db();
+ }
+ 
++/* FIPS_MATCH_DUMP=<struct>: print the canister's definition as the plugin sees it */
++static void dump_canister_def(struct data_structure *def, int depth)
++{
++	struct data_member *m;
++
++	if (!def || depth > 4)
++		return;
++	for (int i = 0; i < def->nr_members; i++) {
++		m = &def->members[i];
++		fprintf(stderr, "%*s%s %s off=%d size=%zu bits=%u\n", depth * 2, "",
++			m->type_name, m->name, m->byte_offset, m->byte_size, m->bit_size);
++		if (!m->is_ptr)
++			dump_canister_def(get_nested_structure_def(m), depth + 1);
++	}
++}
++
+ int plugin_init(struct plugin_name_args *plugin_info,
+ 		struct plugin_gcc_version *version)
+ {
+@@ -718,6 +836,16 @@ int plugin_init(struct plugin_name_args *plugin_info,
+ 	if (init_db_from_canister() < 0)
+ 		return -1;
+ 
++	if (getenv("FIPS_MATCH_DUMP")) {
++		const char *n = getenv("FIPS_MATCH_DUMP");
++		struct data_structure *d;
++
++		for (int idx = 0; (d = get_struct_def_by_name_idx(n, strlen(n), idx)); idx++) {
++			fprintf(stderr, "canister struct %s [%d] size=%zu\n", n, idx, d->byte_size);
++			dump_canister_def(d, 1);
++		}
++	}
++
+ 	register_callback(plugin_info->base_name, PLUGIN_BEFORE_STRUCT_LAYOUT,
+ 			  before_struct_layout, NULL);
+ 	register_callback(plugin_info->base_name, PLUGIN_ATTRIBUTES,
+diff --git a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/structure_db.c b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/structure_db.c
+index dc723153f7a8e65b0d7ae8a454a217f5b31bee83..fac07bc06e26877569ed0fac865c0368b3d4a5c6 100644
+--- a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/structure_db.c
++++ b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/structure_db.c
+@@ -25,6 +25,9 @@ static struct struct_db {
+ 	struct hash_table *htable;
+ 	unsigned char *cache;
+ 	size_t cache_sz;
++	/* The mapped cache file (header included) */
++	unsigned char *map;
++	size_t map_sz;
+ } struct_table = { 0 };
+ 
+ 
+@@ -167,12 +170,40 @@ int add_struct_def(struct data_structure *new_struct)
+ 	return ret;
+ }
+ 
++/*
++ * Cache file: struct cache_hdr, then the hash table and the definitions (cache
++ * offsets are relative to the table). It is published with rename(), so a
++ * reader sees a complete file or none, and it is bound to the canister object
++ * it was parsed from. Anything else is ignored and the canister is parsed again.
++ */
++#define CACHE_MAGIC "FCSDB02"
++
++struct cache_hdr {
++	char magic[8];
++	unsigned long long canister_size;
++	long long canister_mtime_sec;
++	long long canister_mtime_nsec;
++	unsigned long long payload_size;
++};
++
++static int canister_identity(struct cache_hdr *hdr)
++{
++	struct stat st;
++
++	if (stat(CANISTER_OBJ_LOC, &st) < 0)
++		return -1;
++	hdr->canister_size = st.st_size;
++	hdr->canister_mtime_sec = st.st_mtim.tv_sec;
++	hdr->canister_mtime_nsec = st.st_mtim.tv_nsec;
++	return 0;
++}
++
+ int get_cached_db(void)
+ {
+ 	int fd;
+-	struct flock lock;
+-	unsigned char *mem_block;
++	unsigned char *map;
+ 	struct stat cache_stat;
++	struct cache_hdr want = { 0 }, *hdr;
+ 
+ 	fd = open(CACHE_LOC, O_RDONLY);
+ 	if (fd < 0) {
+@@ -180,37 +211,38 @@ int get_cached_db(void)
+ 		return -1;
+ 	}
+ 
+-	lock.l_whence = SEEK_SET;
+-	lock.l_len = 0;
+-	lock.l_type = F_RDLCK;
+-	lock.l_start = 0;
+-
+-	/* Try to acquire a read lock - just check if another process is still working on writing */
+-	if(fcntl(fd, F_SETLK, &lock) < 0) {
+-		close(fd);
+-		return 0;
+-	}
+-
+-	/* Unlock, don't need to hold it for mmap. No writes will happen once file is created */
+-	fcntl(fd, F_SETLK, &lock);
+-
+-	if (fstat(fd, &cache_stat) < 0) {
++	if (fstat(fd, &cache_stat) < 0 ||
++	    (size_t)cache_stat.st_size <= sizeof(struct cache_hdr) ||
++	    canister_identity(&want) < 0) {
+ 		close(fd);
+ 		return -1;
+ 	}
+ 
+-	mem_block = mmap(NULL, cache_stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
++	map = mmap(NULL, cache_stat.st_size, PROT_READ, MAP_SHARED, fd, 0);
+ 	close(fd);
+-
+-	if (mem_block == MAP_FAILED) {
++	if (map == MAP_FAILED) {
+ 		perror("Cache present but failed to load");
+ 		return -1;
+ 	}
+ 
++	hdr = (struct cache_hdr *)map;
++	if (memcmp(hdr->magic, CACHE_MAGIC, sizeof(hdr->magic)) ||
++	    hdr->payload_size != cache_stat.st_size - sizeof(*hdr) ||
++	    hdr->canister_size != want.canister_size ||
++	    hdr->canister_mtime_sec != want.canister_mtime_sec ||
++	    hdr->canister_mtime_nsec != want.canister_mtime_nsec) {
++		fprintf(stderr, "Cache at %s does not match %s, ignored\n",
++			CACHE_LOC, CANISTER_OBJ_LOC);
++		munmap(map, cache_stat.st_size);
++		return -1;
++	}
++
+ 	struct_table.cached = true;
+-	struct_table.htable = (struct hash_table *)mem_block;
+-	struct_table.cache = mem_block;
+-	struct_table.cache_sz = cache_stat.st_size;
++	struct_table.htable = (struct hash_table *)(map + sizeof(*hdr));
++	struct_table.cache = map + sizeof(*hdr);
++	struct_table.cache_sz = hdr->payload_size;
++	struct_table.map = map;
++	struct_table.map_sz = cache_stat.st_size;
+ 
+ 	return 0;
+ }
+@@ -230,7 +262,7 @@ int init_struct_db(int nr_structs)
+ void free_structure_db(void)
+ {
+ 	if (struct_table.cached) {
+-		if (munmap(struct_table.cache, struct_table.cache_sz) < 0)
++		if (munmap(struct_table.map, struct_table.map_sz) < 0)
+ 			perror("Failed to unmap cached structure db");
+ 	} else
+ 		hash_table_free(struct_table.htable, free_struct_def);
+@@ -253,14 +285,18 @@ static bool data_mem_eq(struct ds_iter *ds_iter_a, struct ds_iter *ds_iter_b)
+ 	ret += (a->byte_size != b->byte_size);
+ 	ret += (a->byte_offset != b->byte_offset);
+ 	ret += (a->is_ptr != b->is_ptr);
++	ret += (a->bit_size != b->bit_size);
++
++	if (ret)
++		return false;
+ 
++	/* Every push adds a stack entry (NULL at a leaf or loop): pop both below */
+ 	def_a = ds_iter_push(ds_iter_a, false);
+ 	def_b = ds_iter_push(ds_iter_b, false);
+ 
+-	if(ds_iter_is_loop(ds_iter_a) && ds_iter_is_loop(ds_iter_b))
+-		return ret == 0;
+-	else if(!def_a && !def_b)
+-		return ret == 0;
++	if((ds_iter_is_loop(ds_iter_a) && ds_iter_is_loop(ds_iter_b)) ||
++	   (!def_a && !def_b))
++		goto out;
+ 
+ 	/* Allow loops, eventually will either be unequal or both hit loop at the same time */
+ 	if(!def_a && ds_iter_is_loop(ds_iter_a)) {
+@@ -274,6 +310,9 @@ static bool data_mem_eq(struct ds_iter *ds_iter_a, struct ds_iter *ds_iter_b)
+ 	}
+ 
+ 	ret += !__data_struct_eq(ds_iter_a, ds_iter_b);
++out:
++	ds_iter_pop(ds_iter_a);
++	ds_iter_pop(ds_iter_b);
+ 
+ 	return ret == 0;
+ }
+@@ -301,12 +340,21 @@ static bool __data_struct_eq(struct ds_iter *ds_iter_a, struct ds_iter *ds_iter_
+ 	if (ret)
+ 		return false;
+ 
+-	while(ds_iter_next_member(ds_iter_a) && ds_iter_next_member(ds_iter_b)) {
++	/*
++	 * Start at the current (first) member: ds_iter_next_member() advances
++	 * before returning, so a while (next) loop skipped member 0, and a
++	 * one-member structure compared equal to any other of the same name
++	 * and size (e.g. two anonymous structs).
++	 */
++	for (struct data_member *ma = ds_iter_cur_memb(ds_iter_a),
++				*mb = ds_iter_cur_memb(ds_iter_b);
++	     ma && mb;
++	     ma = ds_iter_next_member(ds_iter_a), mb = ds_iter_next_member(ds_iter_b)) {
+ 		if (!data_mem_eq(ds_iter_a, ds_iter_b))
+ 			return false;
+ 	}
+ 
+-	return ret == 0;
++	return true;
+ }
+ 
+ /* Return true if equal, false if not equal. */
+@@ -347,88 +395,65 @@ struct data_structure *def_from_cptr(size_t def_cptr)
+ }
+ 
+ /*
+- * Calculate the total size needed for all dynamically allocated nested data
+- * containers (structs/unions).
++ * Upper bound of the cache heap: the size of every distinct (by pointer)
++ * definition reachable from the table. The cache stores at most one copy of
++ * each of them (fewer where definitions compare equal), so the block cannot
++ * overflow. The previous estimate de-duplicated by content and never reset
++ * its "touched" flag, and could be smaller than what was then copied.
+  */
+-static size_t __calc_nested_member_size(struct data_structure *def, struct list_head *stack_head)
++struct heap_walk {
++	struct data_structure **seen;
++	size_t nr, cap;
++};
++
++static int heap_walk_add(struct heap_walk *w, struct data_structure *def, size_t *sz)
+ {
+-	struct data_structure *nested;
+ 	struct data_member *member;
+-	struct stack_entry *entry, *pos;
+-	bool touched = false;
+-	size_t sz = 0;
+-
+-	for_all_members(def, member)
+-	{
+-		nested = member->definition;
+-		if(!nested)
+-			continue;
+-
+-		list_for_each_entry(pos, stack_head, l_entry) {
+-			if(data_struct_eq(pos->ptr, nested))
+-				touched = true;
+-		}
++	struct data_structure **n;
+ 
+-		if(touched)
+-			continue;
+-
+-		entry = calloc(1, sizeof(struct stack_entry));
+-		if(!entry) {
++	if (!def)
++		return 0;
++	for (size_t i = 0; i < w->nr; i++)
++		if (w->seen[i] == def)
++			return 0;
++	if (w->nr == w->cap) {
++		w->cap = w->cap ? w->cap * 2 : 1024;
++		n = realloc(w->seen, w->cap * sizeof(*n));
++		if (!n) {
+ 			fprintf(stderr, "Memory allocation error\n");
+ 			return -1;
+ 		}
++		w->seen = n;
++	}
++	w->seen[w->nr++] = def;
++	*sz += def->__sz;
+ 
+-		entry->ptr = nested;
+-		list_add_tail(&entry->l_entry, stack_head);
+-
+-		sz += nested->__sz;
+-		sz += __calc_nested_member_size(nested, stack_head);
++	for (int i = 0; i < def->nr_members; i++) {
++		member = &def->members[i];
++		if (heap_walk_add(w, member->definition, sz) < 0)
++			return -1;
+ 	}
+ 
+-	return sz;
++	return 0;
+ }
+ 
+-static size_t calc_heap_sz(void)
++static long calc_heap_sz(void)
+ {
+-	struct list_head stack_head;
++	struct heap_walk w = { 0 };
+ 	struct data_structure *def;
+-	struct stack_entry *entry, *pos, *n;
+ 	size_t heap_sz = 0;
+-	size_t ret = 0;
++	int ret = 0;
+ 
+-	INIT_LIST_HEAD(&stack_head);
+-
+-	for (int i = 0; i < struct_table.htable->num_entries; i++) {
++	for (int i = 0; i < struct_table.htable->num_entries && !ret; i++) {
+ 		if (entry_is_empty(&struct_table.htable->entries[i]))
+ 			continue;
+ 
+ 		def = (struct data_structure *) struct_table.htable->entries[i].entry;
+-
+-		entry = calloc(1, sizeof(struct stack_entry));
+-		if(!entry) {
+-			fprintf(stderr, "Memory allocation error\n");
+-			return -1;
+-		}
+-
+-		entry->ptr = def;
+-		list_add_tail(&entry->l_entry, &stack_head);
+-
+-		heap_sz += def->__sz;
+-		ret = __calc_nested_member_size(def, &stack_head);
+-		if(ret < 0)
+-			break;
+-		heap_sz += ret;
+-	}
+-
+-	list_for_each_entry_safe(pos, n, &stack_head, l_entry) {
+-		list_del(&pos->l_entry);
+-		free(pos);
++		ret = heap_walk_add(&w, def, &heap_sz);
+ 	}
++	free(w.seen);
+ 
+-	if(ret < 0)
+-		return ret;
+-
+-	return heap_sz;
++	return ret < 0 ? -1 : (long)heap_sz;
+ }
+ 
+ /* Step through all definitions in the cache. Returns offset of cached definition if match is found */
+@@ -454,7 +479,7 @@ static size_t find_definition_in_cache(struct data_structure *target,
+ /* For each member of the data structure, add it to the cache and re-point the pointers. */
+ static size_t add_nested_members_to_cache(unsigned char *cache, size_t cur_ptr,
+ 					  struct data_structure *def,
+-					  size_t table_sz)
++					  size_t table_sz, size_t cache_sz)
+ {
+ 	struct data_structure *nested, *cached;
+ 	struct data_member *member;
+@@ -476,13 +501,17 @@ static size_t add_nested_members_to_cache(unsigned char *cache, size_t cur_ptr,
+ 			continue;
+ 		}
+ 
++		if (cur_ptr + nested->__sz > cache_sz)
++			return (size_t)-1;
+ 		memcpy(cache + cur_ptr, nested, nested->__sz);
+ 		member->definition_cptr = cur_ptr;
+ 		cur_ptr += nested->__sz;
+ 
+ 		/* Get the cached version */
+ 		nested = (struct data_structure*) (cache + member->definition_cptr);
+-		cur_ptr = add_nested_members_to_cache(cache, cur_ptr, nested, table_sz);
++		cur_ptr = add_nested_members_to_cache(cache, cur_ptr, nested, table_sz, cache_sz);
++		if (cur_ptr == (size_t)-1)
++			return cur_ptr;
+ 	}
+ 
+ 	return cur_ptr;
+@@ -504,13 +533,15 @@ static size_t add_nested_members_to_cache(unsigned char *cache, size_t cur_ptr,
+  */
+ int cache_structure_db(void)
+ {
+-	FILE *cache;
+-	struct flock lock;
+-	size_t ret;
++	FILE *cache = NULL;
++	struct cache_hdr hdr = { 0 };
++	char tmp_loc[sizeof(CACHE_LOC) + 32];
++	long ret = 0;
+ 	size_t cached_offset = 0;
+-	unsigned char *mem_block;
++	unsigned char *mem_block = NULL;
+ 	size_t cur_ptr = 0;
+-	size_t table_sz = 0, heap_sz = 0;
++	size_t table_sz = 0;
++	long heap_sz = 0;
+ 	struct data_structure *def;
+ 	struct hash_table *cached_table;
+ 	struct data_member *member;
+@@ -521,22 +552,10 @@ int cache_structure_db(void)
+ 	if (struct_table.cached)
+ 		return 0;
+ 
+-	cache = fopen(CACHE_LOC, "wb");
+-	if (!cache) {
+-		perror("Failed to open cache location");
++	if (canister_identity(&hdr) < 0)
+ 		return -1;
+-	}
+-
+-	lock.l_whence = SEEK_SET;
+-	lock.l_len = 0;
+-	lock.l_type = F_WRLCK;
+-	lock.l_start = 0;
+-
+-	/* Acquire exclusive lock or return if someone already locked it */
+-	if(fcntl(fileno(cache), F_SETLK, &lock) < 0) {
+-		fclose(cache);
+-		return 0;
+-	}
++	memcpy(hdr.magic, CACHE_MAGIC, sizeof(hdr.magic));
++	snprintf(tmp_loc, sizeof(tmp_loc), "%s.tmp.%ld", CACHE_LOC, (long)getpid());
+ 
+ 	/* Measure size needed for memory block */
+ 	table_sz = sizeof(struct hash_table) +
+@@ -581,6 +600,10 @@ int cache_structure_db(void)
+ 			continue;
+ 		}
+ 
++		if (cur_ptr + def->__sz > table_sz + heap_sz) {
++			cur_ptr = (size_t)-1;
++			break;
++		}
+ 		cached_table->entries[i].cache_ptr = cur_ptr;
+ 		memcpy(mem_block + cur_ptr, def, def->__sz);
+ 		cur_ptr += def->__sz;
+@@ -588,32 +611,42 @@ int cache_structure_db(void)
+ 		cur_ptr = add_nested_members_to_cache(
+ 			mem_block, cur_ptr,
+ 			(struct data_structure *)(mem_block + cur_ptr - def->__sz),
+-			table_sz
++			table_sz, table_sz + heap_sz
+ 		);
++		if (cur_ptr == (size_t)-1)
++			break;
+ 	}
+ 
+-	if (cur_ptr > table_sz + heap_sz) {
++	if (cur_ptr == (size_t)-1 || cur_ptr > table_sz + heap_sz) {
+ 		fprintf(stderr, "Memory error: Cache overflow\n");
+ 		ret = -1;
+ 		goto finish;
+ 	}
+ 
+-	ret = fwrite(mem_block, table_sz + heap_sz, 1, cache);
+-	if (ret <= 0) {
++	hdr.payload_size = table_sz + heap_sz;
++	cache = fopen(tmp_loc, "wb");
++	if (!cache ||
++	    fwrite(&hdr, sizeof(hdr), 1, cache) != 1 ||
++	    fwrite(mem_block, table_sz + heap_sz, 1, cache) != 1) {
+ 		perror("Failed to write structure DB to cache");
+ 		ret = -1;
+ 	}
++	if (cache && fclose(cache) != 0)
++		ret = -1;
++	cache = NULL;
++	if (ret >= 0 && rename(tmp_loc, CACHE_LOC) < 0) {
++		perror("Failed to publish structure DB cache");
++		ret = -1;
++	}
+ 
+ finish:
+-	lock.l_type = F_UNLCK;
+-	fcntl(fileno(cache), F_SETLK, &lock);
+-	fclose(cache);
+-
+-	/* Delete file on error - outside of lock... */
+-	if(ret < 0)
+-		remove(CACHE_LOC);
++	if (cache)
++		fclose(cache);
++	if (ret < 0)
++		remove(tmp_loc);
+ 
+ 	free(mem_block);
++	struct_table.cache = NULL;
+ 
+-	return (int)ret;
++	return ret < 0 ? -1 : 0;
+ }
+diff --git a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/structure_db.h b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/structure_db.h
+index 14df6485ee3e6154cb7a7e058ebdacf84f6c209a..dc950e4258c1fa6c08f2d949f7e7bfbf8e03f2a9 100644
+--- a/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/structure_db.h
++++ b/scripts/gcc-plugins/fips_canister_plugins/match_canister_structs/structure_db.h
+@@ -7,6 +7,9 @@ extern "C" {
+ #endif
+ #include <stdbool.h>
+ 
++/* The canister object, relative to the kernel build directory */
++#define CANISTER_OBJ_LOC "crypto/fips_canister.o"
++
+ /* Structure/union member definition */
+ struct data_member {
+ 	char name[64];
+@@ -16,6 +19,12 @@ struct data_member {
+ 	int byte_offset;
+ 	/* 0 if ptr, 1 otherwise */
+ 	char is_ptr;
++	/*
++	 * Width in bits of a bitfield member, 0 for any other member (and for a
++	 * bitfield as wide as its declared type). type_name and byte_size are
++	 * those of the declared type.
++	 */
++	unsigned short bit_size;
+ 
+ 	/* Handle nested unions/structures */
+ 	struct data_structure *definition;

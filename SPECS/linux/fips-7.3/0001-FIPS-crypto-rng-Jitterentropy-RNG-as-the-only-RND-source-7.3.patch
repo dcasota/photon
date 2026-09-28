@@ -1,0 +1,57 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10002: 0001-FIPS-crypto-rng-Jitterentropy-RNG-as-the-only-RND-source.patch (clean)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/rng.c b/crypto/rng.c
+index 828b0d8074738d18c267746d7c485d03e4414e19..f0fbcd5829d376c7ac4ac46e9272a8c513a9330f 100644
+--- a/crypto/rng.c
++++ b/crypto/rng.c
+@@ -19,6 +19,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
++#include <linux/fips.h>
+ #include <net/netlink.h>
+ 
+ #include "internal.h"
+@@ -27,6 +28,25 @@ static DEFINE_MUTEX(crypto_default_rng_lock);
+ static struct crypto_rng *crypto_default_rng;
+ static int crypto_default_rng_refcnt;
+ 
++static int get_jent_random_bytes(u8 * buf, unsigned int slen)
++{
++	struct crypto_rng *jitter_entropy =
++		crypto_alloc_rng("jitterentropy_rng", 0, 0);
++	int ret = 0;
++
++	if (IS_ERR_OR_NULL(jitter_entropy)) {
++		pr_err("RNG: Failed to allocated Jitter entropy RNG\n");
++		return -ENOENT;
++	}
++	ret = crypto_rng_get_bytes(jitter_entropy, buf, slen);
++	if (ret) {
++		pr_err("RNG: Failed to read from Jitter entropy RNG\n");
++		return -EAGAIN;
++	}
++	crypto_free_rng(jitter_entropy);
++	jitter_entropy = NULL;
++	return 0;
++}
+ int crypto_rng_reset(struct crypto_rng *tfm, const u8 *seed, unsigned int slen)
+ {
+ 	u8 *buf = NULL;
+@@ -37,7 +57,11 @@ int crypto_rng_reset(struct crypto_rng *tfm, const u8 *seed, unsigned int slen)
+ 		if (!buf)
+ 			return -ENOMEM;
+ 
+-		err = get_random_bytes_wait(buf, slen);
++		if (fips_enabled) {
++			err = get_jent_random_bytes(buf, slen);
++		} else {
++			err = get_random_bytes_wait(buf, slen);
++		}
+ 		if (err)
+ 			goto out;
+ 		seed = buf;

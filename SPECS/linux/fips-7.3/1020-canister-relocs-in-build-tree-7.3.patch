@@ -1,0 +1,27 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] canister: generate canister_relocs.c in the build tree, not the source tree
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 63057260a2a7e0fa705472d0ed88b608e68b472e..0cf2f683455effac74b13605ea9a917eeebe43c6 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -285,14 +285,14 @@ $(foreach o,$(x86-hwaccelerated-y),$(eval AFLAGS_x86-$(o) += -DFIPS_CANISTER))
+ $(foreach o,$(lib-crypto-x86-y),$(eval AFLAGS_lib-crypto-x86-$(o) += -DFIPS_CANISTER))
+ $(foreach o,$(lib-crypto-x86-y),$(eval OBJECT_FILES_NON_STANDARD_lib-crypto-x86-$(o) := y))
+ 
+-$(src)/canister_relocs.c: $(obj)/canister.o $(obj)/gen_canister_relocs
++$(obj)/canister_relocs.c: $(obj)/canister.o $(obj)/gen_canister_relocs
+ 	$(call cmd,gencr)
+ clean-files += canister_relocs.c
+ clean-files += fips_canister-kallsyms
+ # Make savecmd_ happy for proper incremental build
+ targets += canister_relocs.o $(addprefix x86-,$(x86-hwaccelerated-y)) \
+ 	   $(addprefix lib-crypto-,$(lib-crypto-y)) $(addprefix lib-crypto-x86-,$(lib-crypto-x86-y))
+-$(obj)/canister_markers.lds: $(src)/canister_relocs.c
++$(obj)/canister_markers.lds: $(obj)/canister_relocs.c
+ 
+ clean-files += canister_markers.lds
+ 

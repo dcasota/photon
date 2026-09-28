@@ -1,0 +1,123 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10117: 0001-crypto-track-external-requests-to-jitterentropy_rng.patch (rebased on the 7.x HMAC-SHA512 DRBG)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/algif_rng.c b/crypto/algif_rng.c
+index bd522915d56d71e9c826f7f4a4e4bcb67be50a79..29d8d742d0fa1323f106ed6398d5948ece7a149c 100644
+--- a/crypto/algif_rng.c
++++ b/crypto/algif_rng.c
+@@ -221,6 +221,8 @@ static void *rng_bind(const char *name)
+ 		return ERR_CAST(rng);
+ 	}
+ 
++	rng->base.external = true;
++
+ 	pctx->drng = rng;
+ 	return pctx;
+ }
+diff --git a/crypto/drbg.c b/crypto/drbg.c
+index d66c7211d6bb0e70f486cf525bcf1ccc12b0831b..619775462b28eecc9086cb13557797816f419cd7 100644
+--- a/crypto/drbg.c
++++ b/crypto/drbg.c
+@@ -131,6 +131,7 @@ struct drbg_state {
+ 	size_t reseed_ctr;
+ 	bool instantiated;
+ 	struct crypto_rng *jent;
++	bool external;			/* request came from user space */
+ 	const u8 *test_entropy;
+ 	size_t test_entropylen;
+ };
+@@ -426,6 +427,17 @@ static void drbg_kcapi_set_entropy(struct crypto_rng *tfm,
+ 	mutex_unlock(&drbg->drbg_mutex);
+ }
+ 
++/*
++ * Pass the caller's origin (kernel or user space) through to the jitterentropy
++ * tfm this DRBG seeds from. Called with drbg_mutex held.
++ */
++static void drbg_track_external(struct drbg_state *drbg, struct crypto_rng *tfm)
++{
++	drbg->external = crypto_rng_tfm(tfm)->external;
++	if (drbg->jent)
++		drbg->jent->base.external = drbg->external;
++}
++
+ /* Seed (i.e. instantiate) or re-seed the DRBG. */
+ static int drbg_kcapi_seed(struct crypto_rng *tfm,
+ 			   const u8 *pers, unsigned int pers_len)
+@@ -437,6 +449,8 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
+ 	pr_devel("DRBG: Initializing DRBG\n");
+ 	guard(mutex)(&drbg->drbg_mutex);
+ 
++	drbg_track_external(drbg, tfm);
++
+ 	if (drbg->instantiated)
+ 		return drbg_seed(drbg, pers, pers_len, /* reseed= */ true);
+ 
+@@ -462,6 +476,7 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
+ 				return ret;
+ 			pr_info("DRBG: Continuing without Jitter RNG\n");
+ 		}
++		drbg_track_external(drbg, tfm);
+ 	}
+ 
+ 	ret = drbg_seed(drbg, pers, pers_len, /* reseed= */ false);
+@@ -497,6 +512,7 @@ static int drbg_kcapi_generate(struct crypto_rng *tfm,
+ 		int err;
+ 
+ 		mutex_lock(&drbg->drbg_mutex);
++		drbg_track_external(drbg, tfm);
+ 		err = drbg_generate(drbg, dst, n, src, slen);
+ 		mutex_unlock(&drbg->drbg_mutex);
+ 		if (err < 0)
+diff --git a/crypto/rng.c b/crypto/rng.c
+index f0fbcd5829d376c7ac4ac46e9272a8c513a9330f..724fd32c7fe5a7fa9328cb54d965eee8aec11ba4 100644
+--- a/crypto/rng.c
++++ b/crypto/rng.c
+@@ -28,7 +28,7 @@ static DEFINE_MUTEX(crypto_default_rng_lock);
+ static struct crypto_rng *crypto_default_rng;
+ static int crypto_default_rng_refcnt;
+ 
+-static int get_jent_random_bytes(u8 * buf, unsigned int slen)
++static int get_jent_random_bytes(u8 * buf, unsigned int slen, bool external)
+ {
+ 	struct crypto_rng *jitter_entropy =
+ 		crypto_alloc_rng("jitterentropy_rng", 0, 0);
+@@ -38,9 +38,11 @@ static int get_jent_random_bytes(u8 * buf, unsigned int slen)
+ 		pr_err("RNG: Failed to allocated Jitter entropy RNG\n");
+ 		return -ENOENT;
+ 	}
++	jitter_entropy->base.external = external;
+ 	ret = crypto_rng_get_bytes(jitter_entropy, buf, slen);
+ 	if (ret) {
+ 		pr_err("RNG: Failed to read from Jitter entropy RNG\n");
++		crypto_free_rng(jitter_entropy);
+ 		return -EAGAIN;
+ 	}
+ 	crypto_free_rng(jitter_entropy);
+@@ -58,7 +60,8 @@ int crypto_rng_reset(struct crypto_rng *tfm, const u8 *seed, unsigned int slen)
+ 			return -ENOMEM;
+ 
+ 		if (fips_enabled) {
+-			err = get_jent_random_bytes(buf, slen);
++			err = get_jent_random_bytes(buf, slen,
++						    crypto_rng_tfm(tfm)->external);
+ 		} else {
+ 			err = get_random_bytes_wait(buf, slen);
+ 		}
+diff --git a/include/linux/crypto.h b/include/linux/crypto.h
+index b7c97f1c47c9244a67ad2cc5e85eab40550ba813..39c4744301a9d8f9e53bdbd4956a87f8d98b6563 100644
+--- a/include/linux/crypto.h
++++ b/include/linux/crypto.h
+@@ -420,6 +420,9 @@ struct crypto_tfm {
+ 
+ 	struct crypto_alg *__crt_alg;
+ 
++	/* Is this owned by a userspace process? */
++	bool external;
++
+ 	void *__crt_ctx[] CRYPTO_MINALIGN_ATTR;
+ };
+ 

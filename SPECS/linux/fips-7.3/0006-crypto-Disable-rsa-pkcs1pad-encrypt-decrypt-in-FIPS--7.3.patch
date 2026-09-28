@@ -1,0 +1,42 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10106: 0006-crypto-Disable-rsa-pkcs1pad-encrypt-decrypt-in-FIPS-.patch (rebased: 7.x pkcs1pad is encryption only)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/rsa-pkcs1pad.c b/crypto/rsa-pkcs1pad.c
+index 50bdb18e7b48375d1640c69725f72350db889b8b..b5a3926c9d5bc076262505e5bebd452f5e59ed3c 100644
+--- a/crypto/rsa-pkcs1pad.c
++++ b/crypto/rsa-pkcs1pad.c
+@@ -15,6 +15,7 @@
+ #include <linux/module.h>
+ #include <linux/random.h>
+ #include <linux/scatterlist.h>
++#include <linux/fips.h>
+ 
+ struct pkcs1pad_ctx {
+ 	struct crypto_akcipher *child;
+@@ -132,6 +133,11 @@ static int pkcs1pad_encrypt(struct akcipher_request *req)
+ 	int err;
+ 	unsigned int i, ps_end;
+ 
++	if (fips_enabled) {
++		pr_warn_once("rsa pkcs1pad encrypt is not allowed in fips mode.\n");
++		return -EINVAL;
++	}
++
+ 	if (!ctx->key_size)
+ 		return -EINVAL;
+ 
+@@ -246,6 +252,11 @@ static int pkcs1pad_decrypt(struct akcipher_request *req)
+ 	struct pkcs1pad_request *req_ctx = akcipher_request_ctx(req);
+ 	int err;
+ 
++	if (fips_enabled) {
++		pr_warn_once("rsa pkcs1pad decrypt is not allowed in fips mode.\n");
++		return -EINVAL;
++	}
++
+ 	if (!ctx->key_size || req->src_len != ctx->key_size)
+ 		return -EINVAL;
+ 

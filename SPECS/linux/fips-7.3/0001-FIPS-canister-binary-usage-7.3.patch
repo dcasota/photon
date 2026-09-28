@@ -1,0 +1,317 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10101: 0001-FIPS-canister-binary-usage.patch (rebased for the 7.x crypto layout)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/arch/x86/crypto/Makefile b/arch/x86/crypto/Makefile
+index e04ff8718d6b6483a7f528ab0a93ff1ede54bd28..e7ea9383fbba84b3d8997403526a1069e50d7475 100644
+--- a/arch/x86/crypto/Makefile
++++ b/arch/x86/crypto/Makefile
+@@ -39,13 +39,6 @@ cast6-avx-x86_64-y := cast6-avx-x86_64-asm_64.o cast6_avx_glue.o
+ obj-$(CONFIG_CRYPTO_AEGIS128_AESNI_SSE2) += aegis128-aesni.o
+ aegis128-aesni-y := aegis128-aesni-asm.o aegis128-aesni-glue.o
+ 
+-obj-$(CONFIG_CRYPTO_AES_NI_INTEL) += aesni-intel.o
+-aesni-intel-y := aesni-intel_asm.o aesni-intel_glue.o
+-aesni-intel-$(CONFIG_64BIT) += aes-ctr-avx-x86_64.o \
+-			       aes-gcm-aesni-x86_64.o \
+-			       aes-gcm-vaes-avx2.o \
+-			       aes-gcm-vaes-avx512.o \
+-			       aes-xts-avx-x86_64.o
+ 
+ obj-$(CONFIG_CRYPTO_SM4_AESNI_AVX_X86_64) += sm4-aesni-avx-x86_64.o
+ sm4-aesni-avx-x86_64-y := sm4-aesni-avx-asm_64.o sm4_aesni_avx_glue.o
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 0ae6f01ef7b7b6584d2c9050d16125d99e0410c3..8bfac485a4c15cef86f3215bedfe96973a3d9b31 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -19,7 +19,6 @@ crypto_algapi-y := algapi.o scatterwalk.o $(crypto_algapi-y)
+ obj-$(CONFIG_CRYPTO_ALGAPI2) += crypto_algapi.o
+ 
+ obj-$(CONFIG_CRYPTO_AEAD2) += aead.o
+-obj-$(CONFIG_CRYPTO_GENIV) += geniv.o
+ 
+ crypto_skcipher-y += lskcipher.o
+ crypto_skcipher-y += skcipher.o
+@@ -29,7 +28,6 @@ ifeq ($(CONFIG_BPF_SYSCALL),y)
+ obj-$(CONFIG_CRYPTO_SKCIPHER2) += bpf_crypto_skcipher.o
+ endif
+ 
+-obj-$(CONFIG_CRYPTO_SEQIV) += seqiv.o
+ obj-$(CONFIG_CRYPTO_ECHAINIV) += echainiv.o
+ 
+ crypto_hash-y += ahash.o
+@@ -52,9 +50,10 @@ rsa_generic-y := rsapubkey.asn1.o
+ rsa_generic-y += rsaprivkey.asn1.o
+ rsa_generic-y += rsa.o
+ rsa_generic-y += rsa_helper.o
+-rsa_generic-y += rsa-pkcs1pad.o
+ rsa_generic-y += rsassa-pkcs1.o
+-obj-$(CONFIG_CRYPTO_RSA) += rsa_generic.o
++$(obj)/rsa-pkcs1pad_crypt.o: $(srctree)/crypto/rsa-pkcs1pad.c FORCE
++	$(call if_changed_rule,cc_o_c)
++obj-$(CONFIG_CRYPTO_RSA) += rsa-pkcs1pad_crypt.o
+ 
+ $(obj)/ecdsasignature.asn1.o: $(obj)/ecdsasignature.asn1.c $(obj)/ecdsasignature.asn1.h
+ $(obj)/ecdsa-x962.o: $(obj)/ecdsasignature.asn1.h
+@@ -62,7 +61,6 @@ ecdsa_generic-y += ecdsa.o
+ ecdsa_generic-y += ecdsa-x962.o
+ ecdsa_generic-y += ecdsa-p1363.o
+ ecdsa_generic-y += ecdsasignature.asn1.o
+-obj-$(CONFIG_CRYPTO_ECDSA) += ecdsa_generic.o
+ 
+ obj-$(CONFIG_CRYPTO_MLDSA) += mldsa.o
+ 
+@@ -72,35 +70,26 @@ obj-$(CONFIG_CRYPTO_ACOMP2) += crypto_acompress.o
+ 
+ cryptomgr-y := algboss.o testmgr.o
+ 
+-obj-$(CONFIG_CRYPTO_MANAGER2) += cryptomgr.o
+ obj-$(CONFIG_CRYPTO_USER) += crypto_user.o
+-obj-$(CONFIG_CRYPTO_CMAC) += cmac.o
+-obj-$(CONFIG_CRYPTO_HMAC) += hmac.o
+ obj-$(CONFIG_CRYPTO_XCBC) += xcbc.o
+ obj-$(CONFIG_CRYPTO_NULL) += crypto_null.o
+ obj-$(CONFIG_CRYPTO_MD4) += md4.o
+ obj-$(CONFIG_CRYPTO_MD5) += md5.o
+ obj-$(CONFIG_CRYPTO_RMD160) += rmd160.o
+ obj-$(CONFIG_CRYPTO_SHA1) += sha1.o
+-obj-$(CONFIG_CRYPTO_SHA256) += sha256.o
+-obj-$(CONFIG_CRYPTO_SHA512) += sha512.o
+-obj-$(CONFIG_CRYPTO_SHA3) += sha3.o
+ obj-$(CONFIG_CRYPTO_SM3) += sm3.o
+ obj-$(CONFIG_CRYPTO_STREEBOG) += streebog_generic.o
+ obj-$(CONFIG_CRYPTO_WP512) += wp512.o
+ CFLAGS_wp512.o := $(call cc-option,-fno-schedule-insns)  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79149
+ obj-$(CONFIG_CRYPTO_BLAKE2B) += blake2b.o
+ obj-$(CONFIG_CRYPTO_ECB) += ecb.o
+-obj-$(CONFIG_CRYPTO_CBC) += cbc.o
+-obj-$(CONFIG_CRYPTO_CTS) += cts.o
+ obj-$(CONFIG_CRYPTO_LRW) += lrw.o
+-obj-$(CONFIG_CRYPTO_XTS) += xts.o
+-obj-$(CONFIG_CRYPTO_CTR) += ctr.o
+ obj-$(CONFIG_CRYPTO_XCTR) += xctr.o
+ obj-$(CONFIG_CRYPTO_HCTR2) += hctr2.o
+ obj-$(CONFIG_CRYPTO_ADIANTUM) += adiantum.o
+-obj-$(CONFIG_CRYPTO_GCM) += gcm.o
+-obj-$(CONFIG_CRYPTO_CCM) += ccm.o
++$(obj)/gcm_rfc4543.o: $(srctree)/crypto/gcm.c FORCE
++	$(call if_changed_rule,cc_o_c)
++obj-$(CONFIG_CRYPTO_GCM) += gcm_rfc4543.o
+ obj-$(CONFIG_CRYPTO_CHACHA20POLY1305) += chacha20poly1305.o
+ obj-$(CONFIG_CRYPTO_AEGIS128) += aegis128.o
+ aegis128-y := aegis128-core.o
+@@ -132,7 +121,6 @@ obj-$(CONFIG_CRYPTO_TWOFISH) += twofish_generic.o
+ obj-$(CONFIG_CRYPTO_TWOFISH_COMMON) += twofish_common.o
+ obj-$(CONFIG_CRYPTO_SERPENT) += serpent_generic.o
+ CFLAGS_serpent_generic.o := $(call cc-option,-fsched-pressure)  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79149
+-obj-$(CONFIG_CRYPTO_AES) += aes.o
+ obj-$(CONFIG_CRYPTO_SM4) += sm4.o
+ obj-$(CONFIG_CRYPTO_SM4_GENERIC) += sm4_generic.o
+ obj-$(CONFIG_CRYPTO_CAMELLIA) += camellia_generic.o
+@@ -160,7 +148,6 @@ obj-$(CONFIG_CRYPTO_LZ4HC) += lz4hc.o
+ obj-$(CONFIG_CRYPTO_XXHASH) += xxhash_generic.o
+ obj-$(CONFIG_CRYPTO_842) += 842.o
+ obj-$(CONFIG_CRYPTO_RNG2) += rng.o
+-obj-$(CONFIG_CRYPTO_DRBG) += drbg.o
+ obj-$(CONFIG_CRYPTO_JITTERENTROPY_TESTINTERFACE) += jitterentropy-testing.o
+ obj-$(CONFIG_CRYPTO_BENCHMARK) += tcrypt.o
+ obj-$(CONFIG_CRYPTO_USER_API) += af_alg.o
+@@ -169,7 +156,6 @@ obj-$(CONFIG_CRYPTO_USER_API_SKCIPHER) += algif_skcipher.o
+ obj-$(CONFIG_CRYPTO_USER_API_RNG) += algif_rng.o
+ obj-$(CONFIG_CRYPTO_USER_API_AEAD) += algif_aead.o
+ obj-$(CONFIG_CRYPTO_ZSTD) += zstd.o
+-obj-$(CONFIG_CRYPTO_ECC) += ecc.o
+ obj-$(CONFIG_CRYPTO_ESSIV) += essiv.o
+ 
+ # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=124949
+@@ -179,7 +165,6 @@ endif
+ 
+ ecdh_generic-y += ecdh.o
+ ecdh_generic-y += ecdh_helper.o
+-obj-$(CONFIG_CRYPTO_ECDH) += ecdh_generic.o
+ 
+ $(obj)/ecrdsa_params.asn1.o: $(obj)/ecrdsa_params.asn1.c $(obj)/ecrdsa_params.asn1.h
+ $(obj)/ecrdsa_pub_key.asn1.o: $(obj)/ecrdsa_pub_key.asn1.c $(obj)/ecrdsa_pub_key.asn1.h
+@@ -203,3 +188,114 @@ obj-$(CONFIG_CRYPTO_SIMD) += crypto_simd.o
+ obj-$(CONFIG_CRYPTO_KDF800108_CTR) += kdf_sp800108.o
+ 
+ obj-$(CONFIG_CRYPTO_KRB5) += krb5/
++obj-$(CONFIG_CRYPTO_FIPS) += fips_canister_wrapper.o fips_canister.o
++obj-$(CONFIG_CRYPTO_FIPS) += fips_canister_wrapper_internal.o
++
++# Everything the canister links in must be built in, and the self-tests must run.
++ifdef CONFIG_CRYPTO_FIPS
++ifneq ($(CONFIG_CRYPTO_FIPS),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_FIPS=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_AEAD)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_AEAD=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_AEAD2)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_AEAD2=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_GENIV)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_GENIV=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_SEQIV)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_SEQIV=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_RSA)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_RSA=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_MANAGER)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_MANAGER=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_MANAGER2)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_MANAGER2=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_SELFTESTS)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_SELFTESTS=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_HMAC)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_HMAC=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_SHA256)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_SHA256=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_SHA512)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_SHA512=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_AES)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_AES=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_CBC)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_CBC=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_XTS)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_XTS=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_CTR)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_CTR=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_DRBG)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_DRBG=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_ECC)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_ECC=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_ECDH)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_ECDH=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_AES_NI_INTEL)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_AES_NI_INTEL=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_CMAC)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_CMAC=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_CTS)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_CTS=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_ECDSA)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_ECDSA=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_CCM)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_CCM=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_GCM)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_GCM=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_SHA3)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_SHA3=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_AES)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_AES=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_AES_ARCH)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_AES_ARCH=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_SHA256)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_SHA256=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_SHA256_ARCH)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_SHA256_ARCH=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_SHA512)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_SHA512=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_SHA512_ARCH)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_SHA512_ARCH=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_SHA3)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_SHA3=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_GF128HASH)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_GF128HASH=y)
++endif
++ifneq ($(subst Y,y,$(CONFIG_CRYPTO_LIB_GF128HASH_ARCH)),y)
++  $(error FIPS canister requires CONFIG_CRYPTO_LIB_GF128HASH_ARCH=y)
++endif
++endif
+diff --git a/init/main.c b/init/main.c
+index 31f2bf54976ab91f49dd30d99cc8fa965acd6033..1660fb9b4f4269646c70d6b919a73b1069ac97f7 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -832,6 +832,8 @@ static int __init early_randomize_kstack_offset(char *buf)
+ early_param("randomize_kstack_offset", early_randomize_kstack_offset);
+ #endif
+ 
++extern int fips_integrity_init(void);
++
+ static void __init print_unknown_bootoptions(void)
+ {
+ 	char *unknown_options;
+@@ -1038,6 +1040,8 @@ void start_kernel(void)
+ 	/* Architectural and non-timekeeping rng init, before allocator init */
+ 	random_init_early(command_line);
+ 
++	fips_integrity_init();
++
+ 	/*
+ 	 * These use large bootmem allocations and must precede
+ 	 * initalization of page allocator
+diff --git a/lib/crypto/Makefile b/lib/crypto/Makefile
+index ca068df1f71f2666930d0d5b79087812f6703c3c..ca90d15c2c574cf182a9c175a290a7dc6b403f7e 100644
+--- a/lib/crypto/Makefile
++++ b/lib/crypto/Makefile
+@@ -21,7 +21,6 @@ libcryptoutils-y				:= memneq.o utils.o
+ 
+ ################################################################################
+ 
+-obj-$(CONFIG_CRYPTO_LIB_AES) += libaes.o
+ libaes-y := aes.o
+ ifeq ($(CONFIG_CRYPTO_LIB_AES_ARCH),y)
+ CFLAGS_aes.o += -I$(src)/$(SRCARCH)
+@@ -154,7 +153,6 @@ libdes-y					:= des.o
+ 
+ ################################################################################
+ 
+-obj-$(CONFIG_CRYPTO_LIB_GF128HASH) += libgf128hash.o
+ libgf128hash-y := gf128hash.o
+ ifeq ($(CONFIG_CRYPTO_LIB_GF128HASH_ARCH),y)
+ CFLAGS_gf128hash.o += -I$(src)/$(SRCARCH)
+@@ -296,7 +294,6 @@ endif # CONFIG_CRYPTO_LIB_SHA1_ARCH
+ 
+ ################################################################################
+ 
+-obj-$(CONFIG_CRYPTO_LIB_SHA256) += libsha256.o
+ libsha256-y := sha256.o
+ ifeq ($(CONFIG_CRYPTO_LIB_SHA256_ARCH),y)
+ CFLAGS_sha256.o += -I$(src)/$(SRCARCH)
+@@ -325,7 +322,6 @@ endif # CONFIG_CRYPTO_LIB_SHA256_ARCH
+ 
+ ################################################################################
+ 
+-obj-$(CONFIG_CRYPTO_LIB_SHA512) += libsha512.o
+ libsha512-y := sha512.o
+ ifeq ($(CONFIG_CRYPTO_LIB_SHA512_ARCH),y)
+ CFLAGS_sha512.o += -I$(src)/$(SRCARCH)
+@@ -352,7 +348,6 @@ endif # CONFIG_CRYPTO_LIB_SHA512_ARCH
+ 
+ ################################################################################
+ 
+-obj-$(CONFIG_CRYPTO_LIB_SHA3) += libsha3.o
+ libsha3-y := sha3.o
+ 
+ ifeq ($(CONFIG_CRYPTO_LIB_SHA3_ARCH),y)

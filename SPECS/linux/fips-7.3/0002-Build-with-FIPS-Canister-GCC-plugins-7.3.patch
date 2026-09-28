@@ -1,0 +1,134 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10201: 0002-Build-with-FIPS-Canister-GCC-plugins.patch (rebased)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/rsa.c b/crypto/rsa.c
+index 6c7734083c986af7890ddf346675fdedfa9f64f5..b4a4bf5c29df5917190f0d4a9c42ab5d4b412501 100644
+--- a/crypto/rsa.c
++++ b/crypto/rsa.c
+@@ -270,9 +270,11 @@ static int rsa_set_pub_key(struct crypto_akcipher *tfm, const void *key,
+ 			   unsigned int keylen)
+ {
+ 	struct rsa_mpi_key *mpi_key = akcipher_tfm_ctx(tfm);
+-	struct rsa_key raw_key = {0};
++	struct rsa_key raw_key;
+ 	int ret;
+ 
++	memset(&raw_key, 0, sizeof(struct rsa_key));
++
+ 	/* Free the old MPI key if any */
+ 	rsa_free_mpi_key(mpi_key);
+ 
+@@ -309,9 +311,11 @@ static int rsa_set_priv_key(struct crypto_akcipher *tfm, const void *key,
+ 			    unsigned int keylen)
+ {
+ 	struct rsa_mpi_key *mpi_key = akcipher_tfm_ctx(tfm);
+-	struct rsa_key raw_key = {0};
++	struct rsa_key raw_key;
+ 	int ret;
+ 
++	memset(&raw_key, 0, sizeof(struct rsa_key));
++
+ 	/* Free the old MPI key if any */
+ 	rsa_free_mpi_key(mpi_key);
+ 
+diff --git a/drivers/char/tpm/tpm2-sessions.c b/drivers/char/tpm/tpm2-sessions.c
+index cf8f1fd6790ba6765c2c8406623e0177c0bcb75a..efe7ececf2a652946c3d2fe638748194f459357e 100644
+--- a/drivers/char/tpm/tpm2-sessions.c
++++ b/drivers/char/tpm/tpm2-sessions.c
+@@ -489,7 +489,7 @@ static int tpm_buf_append_salt(struct tpm_buf *buf, struct tpm_chip *chip,
+ 	struct kpp_request *req;
+ 	DECLARE_CRYPTO_WAIT(wait);
+ 	struct scatterlist s[2], d[1];
+-	struct ecdh p = {0};
++	struct ecdh p = {.key = 0, .key_size = 0};
+ 	u8 encoded_key[EC_PT_SZ], *x, *y;
+ 	unsigned int buf_len;
+ 	int rc;
+diff --git a/drivers/crypto/virtio/virtio_crypto_akcipher_algs.c b/drivers/crypto/virtio/virtio_crypto_akcipher_algs.c
+index 9078f22978b7be8dcde633bb2b6a923da77c231a..d1f93dd6fec31919370fae7b0e31286fe81e4300 100644
+--- a/drivers/crypto/virtio/virtio_crypto_akcipher_algs.c
++++ b/drivers/crypto/virtio/virtio_crypto_akcipher_algs.c
+@@ -348,12 +348,14 @@ static int virtio_crypto_rsa_set_key(struct crypto_akcipher *tfm,
+ 	struct virtio_crypto *vcrypto;
+ 	struct virtio_crypto_ctrl_header header;
+ 	struct virtio_crypto_akcipher_session_para para;
+-	struct rsa_key rsa_key = {0};
++	struct rsa_key rsa_key;
+ 	int node = virtio_crypto_get_current_node();
+ 	uint32_t keytype;
+ 	int ret;
+ 	MPI n;
+ 
++	memset(&rsa_key, 0, sizeof(struct rsa_key));
++
+ 	if (private) {
+ 		keytype = VIRTIO_CRYPTO_AKCIPHER_KEY_TYPE_PRIVATE;
+ 		ret = rsa_parse_priv_key(&rsa_key, key, keylen);
+diff --git a/include/crypto/hash.h b/include/crypto/hash.h
+index e474f8461ea1990ee2f5357b33c4d67bd6551a7a..5b1feb6b0f6f1b8873788357966c6ad9fcbc5d66 100644
+--- a/include/crypto/hash.h
++++ b/include/crypto/hash.h
+@@ -193,8 +193,18 @@ struct shash_desc {
+  * containing a 'struct s390_sha_ctx'.
+  */
+ #define SHA3_224_S390_DESCSIZE	HASH_STATE_AND_BLOCK(S390_SHA_CTX_SIZE, 144)
++/*
++ * The FIPS canister struct plugins pad struct shash_desc by 8 bytes; the
++ * nested descriptor inside an hmac() context grows by the same amount.
++ */
++#if defined(CONFIG_GCC_PLUGIN_PAD_CANISTER_STRUCTS) || \
++    defined(CONFIG_GCC_PLUGIN_MATCH_CANISTER_STRUCTS)
++#define HASH_CANISTER_DESC_PAD	8
++#else
++#define HASH_CANISTER_DESC_PAD	0
++#endif
+ #define HASH_MAX_DESCSIZE	(sizeof(struct shash_desc) + \
+-				 SHA3_224_S390_DESCSIZE)
++				 SHA3_224_S390_DESCSIZE + HASH_CANISTER_DESC_PAD)
+ #define MAX_SYNC_HASH_REQSIZE	(sizeof(struct ahash_request) + \
+ 				 HASH_MAX_DESCSIZE)
+ 
+diff --git a/include/crypto/internal/ecc.h b/include/crypto/internal/ecc.h
+index d67fe13a543aa1bfbdba969fcf781085038bcbf5..09ff60f35db1b37c701bdae4ef80fe18255b32a0 100644
+--- a/include/crypto/internal/ecc.h
++++ b/include/crypto/internal/ecc.h
+@@ -40,7 +40,7 @@
+ 
+ #define ECC_MAX_BYTES (ECC_MAX_DIGITS << ECC_DIGITS_TO_BYTES_SHIFT)
+ 
+-#define ECC_POINT_INIT(x, y, ndigits)	(struct ecc_point) { x, y, ndigits }
++#define ECC_POINT_INIT(_x, _y, _ndigits)	(struct ecc_point) { .x = _x, .y = _y, .ndigits = _ndigits }
+ 
+ /*
+  * The integers r and s making up the signature are expected to be
+diff --git a/include/linux/crypto.h b/include/linux/crypto.h
+index 39c4744301a9d8f9e53bdbd4956a87f8d98b6563..e9f22004fb90e31217b1373e9c19f0b7173d11f8 100644
+--- a/include/linux/crypto.h
++++ b/include/linux/crypto.h
+@@ -371,7 +371,9 @@ struct crypto_wait {
+  */
+ #define DECLARE_CRYPTO_WAIT(_wait) \
+ 	struct crypto_wait _wait = { \
+-		COMPLETION_INITIALIZER_ONSTACK((_wait).completion), 0 }
++		.completion = COMPLETION_INITIALIZER_ONSTACK((_wait).completion), \
++		.err = 0 \
++	}
+ 
+ /*
+  * Async ops completion helper functioons
+diff --git a/net/bluetooth/ecdh_helper.c b/net/bluetooth/ecdh_helper.c
+index 1938e5559d886d301450b56015ac213b9bfb346f..8fc4f55f498a507ebabdaefc1c8ad2b41811f4d3 100644
+--- a/net/bluetooth/ecdh_helper.c
++++ b/net/bluetooth/ecdh_helper.c
+@@ -100,7 +100,7 @@ int set_ecdh_privkey(struct crypto_kpp *tfm, const u8 private_key[32])
+ 	u8 *buf, *tmp = NULL;
+ 	unsigned int buf_len;
+ 	int err;
+-	struct ecdh p = {0};
++	struct ecdh p = {.key = 0, .key_size = 0};
+ 
+ 	if (private_key) {
+ 		tmp = kmalloc(32, GFP_KERNEL);
