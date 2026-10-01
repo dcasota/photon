@@ -22,6 +22,7 @@ Patch: 0006-stig-drop-redundant-packages.patch
 Patch: 0007-installer-seed-locale.conf-before-package-install.patch
 Patch: 0008-isoBuilder-put-installer-requestable-packages-on-media.patch
 Patch: 0009-installer-restrict-sshd-to-FIPS-approved-algorithms.patch
+Patch: 0010-isoBuilder-build-the-BIOS-El-Torito-image-with-the-theme.patch
 
 BuildRequires: python3-devel
 BuildRequires: python3-pyinstaller
@@ -78,6 +79,7 @@ rm -rf %{buildroot}
 %changelog
 * Wed Sep 02 2026 Daniel Casota <dcasota@gmail.com> 2.9-2
 - Restrict sshd to FIPS-approved algorithms when FIPS is enabled, so the installed system stays reachable over SSH
+- Build the BIOS El Torito image with the png and tga loaders, so BIOS boot no longer stops at the theme image
 * Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 2.9-1
 - Upgrade to v2.9, drop the upstreamed mkpasswd patch, rebase 0002 onto the v2.9 context, switch to unnumbered Patch:, and put installer-requestable packages on the media
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.8-2
