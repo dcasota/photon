@@ -6,7 +6,7 @@
 Summary:        Main C library
 Name:           glibc
 Version:        2.43
-Release:        7%{?dist}
+Release:        8%{?dist}
 URL:            http://www.gnu.org/software/libc
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -89,6 +89,8 @@ These is gconv modules for iconv() and iconv tools.
 Summary:    tools for glibc
 Group:      Applications/System
 Requires:   %{name} = %{version}-%{release}
+# mtrace is a Perl script
+Requires:   perl
 
 %description tools
 Extra tools for glibc.
@@ -264,6 +266,15 @@ grep "^FAIL: nptl/tst-eintr1" tests.sum >/dev/null && n=$((n+1)) ||:
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
 
+# A package that installs or removes a shared object in a trusted directory
+# gets it into, or out of, the linker cache whether or not its own spec runs
+# ldconfig: once per transaction, after every package of it.
+%transfiletriggerin -P 2000000 -- /lib /lib64 /usr/lib /usr/lib64
+/sbin/ldconfig
+
+%transfiletriggerpostun -P 2000000 -- /lib /lib64 /usr/lib /usr/lib64
+/sbin/ldconfig
+
 %posttrans iconv
 %{_sbindir}/iconvconfig
 
@@ -359,6 +370,8 @@ fi
 %defattr(-,root,root)
 
 %changelog
+* Fri Oct 02 2026 Daniel Casota <dcasota@gmail.com> 2.43-8
+- Refresh linker cache via file trigger; glibc-tools requires perl
 * Mon Aug 17 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.43-7
 - sync with 2.43 branch
 * Sat Jun 20 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.43-6
