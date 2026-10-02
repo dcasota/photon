@@ -4,7 +4,7 @@
 Summary:    Package manager
 Name:       rpm
 Version:    6.1.0
-Release:    3%{?dist}
+Release:    4%{?dist}
 URL:        http://rpm.org
 Group:      Applications/System
 Vendor:     VMware, Inc.
@@ -248,7 +248,6 @@ rm -rf %{buildroot}
 %{_libdir}/%{name}-plugins/prioreset.so
 %{_libdir}/rpm-plugins/fapolicyd.so
 %exclude %{_libdir}/%{name}-plugins/dbus_announce.so
-%{_libdir}/rpm-plugins/selinux.so
 %{_libdir}/rpm-plugins/unshare.so
 %{_datadir}/dbus-1/system.d/org.rpm.conf
 
@@ -269,6 +268,8 @@ rm -rf %{buildroot}
 %{_mandir}/man8/rpmkeys.8.gz
 %{_mandir}/man8/%{name}.8.gz
 %{_mandir}/man8/%{name}-plugin*
+%exclude %{_mandir}/man8/%{name}-plugin-selinux.8*
+%exclude %{_mandir}/man8/%{name}-plugin-systemd-inhibit.8*
 %{_mandir}/man1/rpmsort.1*
 
 %files libs
@@ -299,6 +300,8 @@ rm -rf %{buildroot}
 %{_bindir}/rpmuncompress
 %{_bindir}/rpm-setup-autosign
 %{_rpmmacrodir}/*
+%exclude %{_rpmmacrodir}/macros.transaction_selinux
+%exclude %{_rpmmacrodir}/macros.transaction_systemd_inhibit
 %{rpmhome}/find-lang.sh
 %{rpmhome}/find-provides
 %{rpmhome}/find-requires
@@ -356,14 +359,18 @@ rm -rf %{buildroot}
 %files plugin-systemd-inhibit
 %defattr(-,root,root)
 %{_libdir}/%{name}-plugins/systemd_inhibit.so
+%{_rpmmacrodir}/macros.transaction_systemd_inhibit
 %{_mandir}/man8/%{name}-plugin-systemd-inhibit.8*
 
 %files plugin-selinux
 %defattr(-,root,root)
 %{_libdir}/%{name}-plugins/selinux.so
+%{_rpmmacrodir}/macros.transaction_selinux
 %{_mandir}/man8/%{name}-plugin-selinux.8.gz
 
 %changelog
+* Fri Oct 02 2026 Daniel Casota <dcasota@gmail.com> 6.1.0-4
+- Ship the SELinux plugin and macros in their subpackages
 * Fri Sep 11 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 6.1.0-3
 - Store build env info in src rpm
 * Thu Sep 03 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 6.1.0-2
