@@ -6,6 +6,8 @@
 %{!?STIG_HARDEN: %global STIG_HARDEN 0}
 
 %global udev_services %{name}-udevd.service %{name}-udev-settle.service %{name}-udev-trigger.service %{name}-udevd-control.socket %{name}-udevd-kernel.socket %{name}-timesyncd.service
+%global journal_remote_units %{name}-journal-gatewayd.service %{name}-journal-gatewayd.socket %{name}-journal-remote.service %{name}-journal-remote.socket %{name}-journal-upload.service
+%global journal_remote_services %{name}-journal-gatewayd.service %{name}-journal-remote.service %{name}-journal-upload.service
 
 Name:           systemd
 URL:            http://www.freedesktop.org/wiki/Software/systemd
@@ -390,6 +392,15 @@ udevadm hwdb --update &>/dev/null || :
 %postun udev
 %systemd_postun_with_restart %{name}-udevd.service
 
+%post journal-remote
+%systemd_post %journal_remote_units
+
+%preun journal-remote
+%systemd_preun %journal_remote_units
+
+%posttrans journal-remote
+%systemd_posttrans_with_restart %journal_remote_services
+
 %include %{SOURCE7}
 
 %files
@@ -508,6 +519,17 @@ udevadm hwdb --update &>/dev/null || :
 %{_systemd_util_dir}/import-pubring.gpg
 %{_systemd_util_dir}/profile.d/70-systemd-shell-extra.sh
 %{_unitdir}/*
+# systemd-nspawn and systemd-journal-remote live in their subpackages; the
+# globs above would otherwise ship their files in this package too.
+%exclude %{_unitdir}/%{name}-nspawn@.service
+%exclude %{_unitdir}/%{name}-journal-gatewayd.service
+%exclude %{_unitdir}/%{name}-journal-gatewayd.socket
+%exclude %{_unitdir}/%{name}-journal-remote.service
+%exclude %{_unitdir}/%{name}-journal-remote.socket
+%exclude %{_unitdir}/%{name}-journal-upload.service
+%exclude %{_systemd_util_dir}/%{name}-journal-gatewayd
+%exclude %{_systemd_util_dir}/%{name}-journal-remote
+%exclude %{_systemd_util_dir}/%{name}-journal-upload
 %{_presetdir}/*
 %{_systemdgeneratordir}/*
 %{_datadir}/bash-completion/*
@@ -661,19 +683,11 @@ udevadm hwdb --update &>/dev/null || :
 %defattr(-,root,root)
 %{_bindir}/%{name}-nspawn
 %{_bindir}/machinectl
-# Below two files are packaged with systemd main package
-# And without it etc/systemd/system won't get created by systemd
-#%%{_systemd_util_dir}/%%{name}-machined
-#%%{_unitdir}/%%{name}-machined.service
+# systemd-machined and what it needs (its D-Bus name and policy, machine.slice
+# and the /var/lib/machines mount) are packaged with the systemd main package:
+# without it etc/systemd/system won't get created by systemd.
 %{_unitdir}/%{name}-nspawn@.service
-%{_unitdir}/dbus-org.freedesktop.machine1.service
-%{_unitdir}/var-lib-machines.mount
-%{_unitdir}/machine.slice
-%{_unitdir}/machines.target.wants
 %{_tmpfilesdir}/%{name}-nspawn.conf
-%{_datadir}/dbus-1/system.d/org.freedesktop.machine1.conf
-%{_datadir}/dbus-1/system-services/org.freedesktop.machine1.service
-%{_datadir}/polkit-1/actions/org.freedesktop.machine1.policy
 
 %files journal-remote
 %defattr(-,root,root)
@@ -700,7 +714,7 @@ udevadm hwdb --update &>/dev/null || :
 
 %changelog
 * Sun Nov 01 2026 Daniel Casota <dcasota@gmail.com> 257.13-7
-- Fix render/systemd-journal groups; repair the STIG build variant
+- Fix groups, STIG variant; ship subpackage files once
 * Sat Oct 31 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 257.13-6
 - Add RPM file triggers so units marked by %%systemd_postun_with_restart
   are actually restarted at transaction end
