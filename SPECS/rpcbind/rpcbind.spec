@@ -1,8 +1,8 @@
 Summary:         RPC program number mapper
 Name:            rpcbind
-Version:         1.2.6
-Release:         6%{?dist}
-URL:             http://nfsv4.bullopensource.org
+Version:         1.3.1
+Release:         1%{?dist}
+URL:             https://sourceforge.net/projects/rpcbind
 Group:           Applications/Daemons
 Vendor:          VMware, Inc.
 Distribution:    Photon
@@ -23,7 +23,6 @@ Requires:        libtirpc
 Requires:        systemd
 Requires(pre): /usr/sbin/useradd /usr/sbin/groupadd
 Requires(pre):   systemd-rpm-macros
-Requires(post):  /usr/bin/chown
 
 %description
 The rpcbind program is a replacement for portmap.
@@ -76,9 +75,6 @@ rm -rf %{buildroot}/*
 
 %post
 /sbin/ldconfig
-if [ $1 -eq 1 ]; then
-  chown -v root:sys %{_sharedstatedir}/%{name}
-fi
 %systemd_post %{name}.socket %{name}.service
 
 %postun
@@ -91,12 +87,15 @@ fi
 %{_sbindir}/*
 %{_bindir}/*
 %{_mandir}/man8/*
-%dir %{_localstatedir}/lib/%{name}
+# rpcbind drops to the rpc user and keeps its warm-start state here
+%dir %attr(0700,rpc,rpc) %{_sharedstatedir}/%{name}
 %{_unitdir}/*
 %{_presetdir}/50-%{name}.preset
 %{_sysusersdir}/%{name}.conf
 
 %changelog
+* Wed Oct 07 2026 Daniel Casota <dcasota@gmail.com> 1.3.1-1
+- Upgrade to 1.3.1 for security fixes; rpc owns state directory
 * Thu May 08 2025 Mukul Sikka <mukul.sikka@broadcom.com> 1.2.6-6
 - Renaming sysusers to conf to fix auto user creation
 * Wed Dec 11 2024 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 1.2.6-5
