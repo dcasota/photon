@@ -7,7 +7,7 @@
 Summary:        A collection of modular and reusable compiler and toolchain technologies.
 Name:           llvm
 Version:        22.1.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 URL:            https://llvm.org
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -312,6 +312,8 @@ rm -rf %{buildroot}/*
 %{_datadir}/man
 %{_datadir}/scan-build
 %{_datadir}/scan-view
+%{python3_sitelib}/libear
+%{python3_sitelib}/libscanbuild
 
 %files -n clang-devel
 %defattr(-,root,root)
@@ -320,8 +322,6 @@ rm -rf %{buildroot}/*
 %{_libdir}/clang/*
 %{_includedir}/clang
 %{_includedir}/clang-c/
-%{python3_sitelib}/libear
-%{python3_sitelib}/libscanbuild
 
 %files -n libclang
 %{_libdir}/libclang*.so.*
@@ -378,6 +378,8 @@ rm -rf %{buildroot}/*
 %{_libdir}/pkgconfig/LLVMSPIRVLib.pc
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 22.1.0-5
+- Ship libscanbuild and libear with clang
 * Tue Sep 22 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 22.1.0-4
 - Remove stale python3-six dependency
 * Wed Jun 03 2026 Harinadh Dommaraju <Harinadh.Dommaraju@broadcom.com> 22.1.0-3
