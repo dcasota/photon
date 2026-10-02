@@ -3,7 +3,7 @@
 Summary:    Program to generate documenation
 Name:       gtk-doc
 Version:    1.33.2
-Release:    8%{?dist}
+Release:    9%{?dist}
 URL:        http://www.gnu.org/software/%{name}
 Group:      Development/Tools
 Vendor:     VMware, Inc.
@@ -27,6 +27,7 @@ Requires:   libxslt
 Requires:   docbook-xml
 Requires:   docbook-xsl
 Requires:   python3-Pygments
+Requires:   python3-lxml
 Requires:   python3
 Provides:   perl(gtkdoc-common.pl)
 
@@ -56,6 +57,8 @@ cd tests && make check-TESTS %{?_smp_mflags}
 %{_datadir}/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 1.33.2-9
+- Require python3-lxml, which gtkdoc-mkhtml2 imports
 * Wed Jun 03 2026 Harinadh Dommaraju <Harinadh.Dommaraju@broadcom.com> 1.33.2-8
 - Release version bump as part of libxml2/libxslt
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 1.33.2-7

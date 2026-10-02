@@ -3,7 +3,7 @@
 Summary:         Multithreaded IO generation tool
 Name:            fio
 Version:         3.33
-Release:         8%{?dist}
+Release:         9%{?dist}
 Group:           Applications/System
 Vendor:          VMware, Inc.
 Distribution:    Photon
@@ -22,6 +22,9 @@ BuildRequires:   make
 BuildRequires:   libaio-devel
 Requires:        libaio
 Requires:        zlib
+# fio2gnuplot and fio_jsonplus_clat2csv are Python scripts importing six
+Requires:        python3
+Requires:        python3-six
 Recommends:      %{name}-engine-libaio
 Recommends:      %{name}-engine-http
 
@@ -87,6 +90,8 @@ sh ./configure --disable-optimizations --dynamic-libengines
 %{_mandir}/man1/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 3.33-9
+- Require python3 and python3-six for fio2gnuplot and fio_jsonplus_clat2csv
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.33-8
 - Extended to build for subrelease 91 and above
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 3.33-7
