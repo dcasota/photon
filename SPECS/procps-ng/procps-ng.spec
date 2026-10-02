@@ -3,22 +3,19 @@
 Summary:        Programs for monitoring processes
 Name:           procps-ng
 Version:        4.0.6
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            https://sourceforge.net/projects/procps-ng
 Group:          Applications/System
 Vendor:         VMware, Inc.
 Distribution:   Photon
 
-Source0: https://sourceforge.net/projects/procps-ng/files/Production/procps-%{version}.tar.gz
+Source0: https://sourceforge.net/projects/procps-ng/files/Production/%{name}-%{version}.tar.xz
 
 Source1: license.txt
 %include %{SOURCE1}
 
 BuildRequires: ncurses-devel
-BuildRequires: autoconf
-BuildRequires: automake
 BuildRequires: pkg-config
-BuildRequires: libtool
 
 Requires: ncurses
 
@@ -43,14 +40,13 @@ Requires:   %{name} = %{version}-%{release}
 These are the additional language files of procps-ng
 
 %prep
-%autosetup -p1 -n procps-%{version}
+%autosetup -p1
 
 %build
 if [ %{_host} != %{_build} ]; then
   export ac_cv_func_malloc_0_nonnull=yes
   export ac_cv_func_realloc_0_nonnull=yes
 fi
-sh autogen.sh
 %configure \
    --docdir=%{_docdir}/%{name}-%{version} \
    --disable-static \
@@ -69,7 +65,8 @@ rm -rf %{buildroot}%{_mandir}/de/ \
        %{buildroot}%{_mandir}/pt_BR/ \
        %{buildroot}%{_mandir}/ro/ \
        %{buildroot}%{_mandir}/sv/ \
-       %{buildroot}%{_mandir}/uk/
+       %{buildroot}%{_mandir}/uk/ \
+       %{buildroot}%{_mandir}/zh_CN/
 
 %find_lang %{name}
 
@@ -101,7 +98,6 @@ rm -rf %{buildroot}
 %{_bindir}/pidwait
 %{_sbindir}/sysctl
 %{_sbindir}/pidof
-%_datadir/locale/*
 %{_docdir}/procps-ng-*/*
 %{_mandir}/man8/*
 %{_mandir}/man1/*
@@ -119,6 +115,8 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 4.0.6-3
+- Build the release tarball; ship translations only in -lang
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 4.0.6-2
 - Extended to build for subrelease 91 and above
 * Thu Feb 26 2026 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 4.0.6-1
