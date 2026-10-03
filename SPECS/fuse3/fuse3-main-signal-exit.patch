@@ -1,0 +1,36 @@
+From: Daniel Casota <dcasota@gmail.com>
+Date: Sat, 3 Oct 2026 02:30:00 +0200
+Subject: [PATCH] fuse_main(): return 0 when a signal stops the file system
+
+fuse_main_real_versioned() turns every nonzero result of fuse_loop() and
+fuse_loop_mt() into 8, so a file system that SIGHUP, SIGINT or SIGTERM
+stopped exits with 8 and systemd marks its service failed on every
+systemctl stop. The loops return 0, -errno, or the positive number of the
+signal that the handlers of fuse_set_signal_handlers() turned into a
+session exit; those three signals are the requested way to stop the file
+system, as fuse_session_loop() documents and test_signals expects.
+
+Treat only a negative result as an error and return 0 otherwise.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+ lib/helper.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/lib/helper.c b/lib/helper.c
+--- a/lib/helper.c
++++ b/lib/helper.c
+@@ -383,8 +383,10 @@
+ 		fuse_loop_cfg_set_max_threads(loop_config, opts.max_threads);
+ 		res = fuse_loop_mt(fuse, loop_config);
+ 	}
+-	if (res)
++	if (res < 0)
+ 		res = 8;
++	else
++		res = 0;
+ 
+ 	fuse_remove_signal_handlers(se);
+ out3:
+-- 
+2.43.0
