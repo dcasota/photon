@@ -2,7 +2,7 @@
 Summary:        Linux kernel packet control tool
 Name:           iptables
 Version:        1.8.13
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            http://www.netfilter.org/projects/iptables
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -95,6 +95,16 @@ install -m 755 %{SOURCE3} %{buildroot}%{_sysconfdir}/systemd/scripts
 install -m 644 %{SOURCE4} %{buildroot}%{_sysconfdir}/systemd/scripts
 install -m 644 %{SOURCE5} %{buildroot}%{_sysconfdir}/systemd/scripts
 
+# The commands below are links that alternatives (%%post) owns and points
+# at the -nft variants; upstream's install made them links to the excluded
+# xtables-legacy-multi. Package them as %%ghost, as the alternatives do.
+for t in iptables ip6tables ebtables arptables; do
+  for s in "" -save -restore; do
+    rm -f %{buildroot}%{_sbindir}/${t}${s}
+    touch %{buildroot}%{_sbindir}/${t}${s}
+  done
+done
+
 %{_fixperms} %{buildroot}/*
 
 %post
@@ -142,7 +152,12 @@ rm -rf %{buildroot}/*
 %config(noreplace) %{_sysconfdir}/systemd/scripts/ip6save
 %config(noreplace) %{_sysconfdir}/ethertypes
 %{_bindir}/*
-%{_sbindir}/*
+%{_sbindir}/{ip,ip6}tables-apply
+%{_sbindir}/{ip,ip6}tables{,-restore}-translate
+%{_sbindir}/{arp,eb}tables-translate
+%{_sbindir}/nfbpf_compile
+%{_sbindir}/xtables-monitor
+%ghost %{_sbindir}/{ip,ip6,eb,arp}tables{,-save,-restore}
 %{_libdir}/%{name}/*
 %{_unitdir}/%{name}.service
 %{_mandir}/man1/*
@@ -180,6 +195,8 @@ rm -rf %{buildroot}/*
 %{_mandir}/man3/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 1.8.13-4
+- Package the commands that alternatives manages as ghost files
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 1.8.13-3
 - Extended to build for subrelease 91 and above
 * Thu Apr 09 2026 Brennan Lamoreaux <brennan.lamoreaux@broadcom.com> 1.8.13-2
