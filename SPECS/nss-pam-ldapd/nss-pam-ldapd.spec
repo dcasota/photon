@@ -2,7 +2,7 @@
 
 Name:           nss-pam-ldapd
 Version:        0.9.12
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        nsswitch module which uses directory servers
 URL:            https://github.com/arthurdejong/nss-pam-ldapd
 Group:          System Environment/Security
@@ -17,6 +17,8 @@ Source3: %{name}.sysusers
 
 Source4: license.txt
 %include %{SOURCE4}
+
+Patch0: nslcd-fix-shutdown-race.patch
 
 BuildRequires: openldap-devel
 BuildRequires: krb5-devel
@@ -98,6 +100,8 @@ rm -rf %{buildroot}/*
 %attr(0775,nslcd,root) /run/nslcd
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 0.9.12-12
+- nslcd: fix the shutdown abort on FD_SET(-1)
 * Tue Feb 24 2026 Oliver Kurth <oliver.kurth@broadcom.com> 0.9.12-11
 - Add missing shadow dependency for user creation
 * Thu May 08 2025 Mukul Sikka <mukul.sikka@broadcom.com> 0.9.12-10
