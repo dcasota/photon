@@ -69,7 +69,7 @@ PYTHONPATH=./ py.test3
 
 %changelog
 * Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 3.0.3-7
-- Require python3-docopt, python3-Pygments and python3-six, which pyvim imports (its requires.txt lists them with prompt_toolkit and pyflakes)
+- Require python3-docopt, python3-Pygments and python3-six
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.0.3-6
 - Extended to build for subrelease 91 and above
 * Fri May 15 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.0.3-5
