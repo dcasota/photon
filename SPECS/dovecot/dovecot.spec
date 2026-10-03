@@ -3,7 +3,7 @@
 Summary:        Secure IMAP and POP3 server
 Name:           dovecot
 Version:        2.4.5
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            https://dovecot.org/
 Group:          System Environment/Daemons
 Vendor:         VMware, Inc.
@@ -32,6 +32,12 @@ Requires(pre):  systemd-rpm-macros
 Requires(pre):  /usr/sbin/useradd /usr/sbin/groupadd
 # /var/mail must be 1775 root:mail (sticky) so dovecot-lda can deliver
 Requires:       filesystem >= 1.1-11
+# dovecot-sysreport (set -e) runs ps auxwww and uptime, then tar -czf:
+# GNU tar runs gzip for -z, toybox tar compresses by itself, toybox ps
+# rejects auxwww
+Requires:       procps-ng
+Requires:       (tar or toybox)
+Requires:       (gzip or toybox)
 
 Obsoletes: procmail
 
@@ -132,6 +138,8 @@ rm -rf %{buildroot}%{_mandir}
 %{_libdir}/dovecot/dovecot-config
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 2.4.5-2
+- Require procps-ng, tar and gzip for dovecot-sysreport
 * Mon Aug 31 2026 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 2.4.5-1
 - Upgrade to v2.4.5
 * Sun Jun 14 2026 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 2.3.21.1-4
