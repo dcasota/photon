@@ -1,7 +1,7 @@
 Summary:        The Common UNIX Printing System
 Name:           cups
 Version:        2.4.18
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            https://openprinting.github.io/cups
 Group:          System Environment/Libraries
 Vendor:         VMware, Inc.
@@ -21,6 +21,7 @@ BuildRequires:  krb5-devel
 BuildRequires:  libusb-devel
 BuildRequires:  openssl-devel
 BuildRequires:  systemd-devel
+BuildRequires:  systemd-rpm-macros
 
 Requires:       libusb
 Requires:       dbus
@@ -28,6 +29,7 @@ Requires:       gnutls
 Requires:       krb5
 Requires:       zlib
 Requires:       Linux-PAM
+%{?systemd_requires}
 Requires:       shadow
 
 %description
@@ -58,6 +60,10 @@ find %{buildroot} -name '*.desktop' -delete
 find %{buildroot} -name '*.png' -delete
 
 %ldconfig_scriptlets
+
+%preun
+# stop what runs, so an erase leaves no cupsd and no active system-cups.slice
+%systemd_preun cups.service cups.socket cups.path cups-lpd.socket system-cups.slice
 
 %check
 make %{?_smp_mflags} check
@@ -98,6 +104,8 @@ rm -rf %{buildroot}/*
 %{_libdir}/pkgconfig/cups.pc
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 2.4.18-2
+- Stop the systemd units on erase
 * Tue Apr 14 2026 Brennan Lamoreaux <brennan.lamoreaux@broadcom.com> 2.4.18-1
 - Update to 2.4.18
 - Fix CVE-2026-27447, CVE-2026-34978, CVE-2026-34979, CVE-2026-34980, CVE-2026-34990, CVE-2026-39314

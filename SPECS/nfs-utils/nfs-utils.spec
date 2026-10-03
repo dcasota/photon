@@ -3,7 +3,7 @@
 Summary:          NFS client utils
 Name:             nfs-utils
 Version:          2.9.1
-Release:          4%{?dist}
+Release:          5%{?dist}
 URL:              http://sourceforge.net/projects/nfs
 Group:            Applications/Nfs-utils-client
 Vendor:           VMware, Inc.
@@ -145,7 +145,9 @@ make check %{?_smp_mflags}
 %systemd_post nfs-server.service
 
 %preun
-%systemd_preun nfs-server.service
+# every unit the package ships that can be running, so an erase leaves no
+# daemon (rpc.statd) running and no nfsd or rpc_pipefs mount behind
+%systemd_preun nfs-server.service nfs-mountd.service nfs-idmapd.service rpc-statd.service rpc-statd-notify.service rpc-svcgssd.service nfs-client.service nfs-client.target rpc_pipefs.target var-lib-nfs-rpc_pipefs.mount proc-fs-nfsd.mount
 
 %postun
 /sbin/ldconfig
@@ -191,6 +193,8 @@ rm -rf %{buildroot}/*
 %{_bindir}/rpcgen
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 2.9.1-5
+- Stop every unit of the package on erase
 * Thu Aug 06 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.9.1-4
 - Remove rpcsvc-proto dependency
 - Use built-in rpcsvc-proto
