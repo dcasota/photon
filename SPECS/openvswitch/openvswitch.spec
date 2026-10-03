@@ -3,7 +3,7 @@
 Summary:        Open vSwitch daemon/database/utilities
 Name:           openvswitch
 Version:        3.0.2
-Release:        9%{?dist}
+Release:        10%{?dist}
 URL:            http://www.openvswitch.org/
 Group:          System Environment/Daemons
 Vendor:         VMware, Inc.
@@ -36,6 +36,10 @@ Requires:       python3
 Requires:       python3-libs
 Requires:       python3-xml
 Requires:       gawk
+# ovs-tcpdump, ovs-dpctl-top, ovs-l3ping and the other Python utilities
+# import the ovs (and ovstest) modules; ovs-dpctl-top draws with curses
+Requires:       python3-openvswitch = %{version}-%{release}
+Requires:       python3-curses
 
 %description
 Open vSwitch provides standard network bridging functions and
@@ -84,6 +88,23 @@ make DESTDIR=%{buildroot} install %{_smp_mflags}
 find %{buildroot}/%{_libdir} -name '*.la' -delete
 mkdir -p %{buildroot}/%{python3_sitelib}
 cp -a %{buildroot}/%{_datadir}/openvswitch/python/ovs %{buildroot}/%{python3_sitelib}
+cp -a %{buildroot}/%{_datadir}/openvswitch/python/ovstest %{buildroot}/%{python3_sitelib}
+# The build substitutes @VERSION@ in python/ovs only, not in ovstest.
+sed -i 's/@VERSION@/%{version}/' \
+    %{buildroot}/%{_datadir}/openvswitch/python/ovstest/args.py \
+    %{buildroot}/%{python3_sitelib}/ovstest/args.py
+# Fail the build if a placeholder is left (grep status 1 = no match); a
+# leading "!" would not do it, because errexit ignores negated commands.
+rc=0
+grep -rl '@VERSION@' %{buildroot}/%{_datadir}/openvswitch/python/ovstest \
+    %{buildroot}/%{python3_sitelib}/ovstest || rc=$?
+if [ "${rc}" -ne 1 ]; then
+    echo "error: ovstest still carries @VERSION@ (grep status ${rc})" >&2
+    exit 1
+fi
+# ovs-test is still Python 2 code upstream (print statements) and cannot
+# run with any Python that Photon OS ships.
+rm %{buildroot}/%{_bindir}/ovs-test
 
 mkdir -p %{buildroot}/%{_libdir}/systemd/system
 install -p -D -m 0644 rhel/usr_share_openvswitch_scripts_systemd_sysconfig.template %{buildroot}/%{_sysconfdir}/sysconfig/openvswitch
@@ -151,6 +172,8 @@ make -k check |& tee %{_specdir}/%{name}-check-log || %{nocheck} %{_smp_mflags}
 %{_mandir}/man5/ovsdb.local-config.5.gz
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 3.0.2-10
+- Require the Python modules; ship ovstest; drop ovs-test
 * Tue Sep 22 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 3.0.2-9
 - Remove stale python3-six dependency
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.0.2-8
