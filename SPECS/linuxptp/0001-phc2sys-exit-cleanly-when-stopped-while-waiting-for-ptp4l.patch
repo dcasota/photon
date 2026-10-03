@@ -1,0 +1,80 @@
+From: Daniel Casota <dcasota@gmail.com>
+Date: Sat, 3 Oct 2026 04:34:03 +0200
+Subject: [PATCH] phc2sys: exit cleanly when stopped while waiting for ptp4l
+
+phc2sys.service (OPTIONS="-a -r") waits for ptp4l before it does anything
+("Waiting for ptp4l..."). Stopping it in that state always failed: SIGTERM
+interrupts poll() in pmc_agent's run_pmc(), which logs "poll failed" at
+error priority and returns RUN_PMC_INTR, auto_init_ports() treats the
+-EINTR as fatal, and phc2sys exits with status 255, so systemd records the
+unit as failed (Result=exit-code). The same applies to the -w wait in the
+non-automatic mode.
+
+pmc_agent.c: a poll() interrupted by a signal (SIGTERM on stop) is not a
+failure, so do not log "poll failed" for EINTR.
+
+phc2sys.c: an -EINTR while waiting for ptp4l returns only when the stop was
+requested (is_running() is false), and main() then exits with 0: stopped
+while waiting for ptp4l is a clean exit. Any other error, or an interrupt
+while still running, ends as before.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+ phc2sys.c   | 12 +++++++++---
+ pmc_agent.c |  3 ++-
+ 2 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/phc2sys.c b/phc2sys.c
+--- a/phc2sys.c
++++ b/phc2sys.c
+@@ -944,7 +944,7 @@ static int auto_init_ports(struct domain *domain)
+ 		}
+ 		if (err == -ETIMEDOUT) {
+ 			pr_notice("Waiting for ptp4l...");
+-		} else {
++		} else if (err != -EINTR || is_running()) {
+ 			return -1;
+ 		}
+ 	}
+@@ -1480,8 +1480,11 @@ int main(int argc, char *argv[])
+ 			if (init_pmc_node(cfg, domains[i].agent, uds_local,
+ 					  phc2sys_recv_subscribed, &domains[i]))
+ 				goto end;
+-			if (auto_init_ports(&domains[i]) < 0)
++			if (auto_init_ports(&domains[i]) < 0) {
++				if (!is_running())
++					r = 0;
+ 				goto end;
++			}
+ 		}
+ 		r = do_loop(domains, n_domains);
+ 		goto end;
+@@ -1518,8 +1521,11 @@ int main(int argc, char *argv[])
+ 
+ 		while (is_running()) {
+ 			r = run_pmc_wait_sync(domains[0].agent, 1000);
+-			if (r < 0)
++			if (r < 0) {
++				if (!is_running())
++					r = 0;
+ 				goto end;
++			}
+ 			if (r > 0)
+ 				break;
+ 			else
+diff --git a/pmc_agent.c b/pmc_agent.c
+--- a/pmc_agent.c
++++ b/pmc_agent.c
+@@ -136,7 +136,8 @@ static int run_pmc(struct pmc_agent *node, int timeout, int ds_id,
+ 
+ 		cnt = poll(pollfd, N_FD, timeout);
+ 		if (cnt < 0) {
+-			pr_err("poll failed");
++			if (errno != EINTR)
++				pr_err("poll failed");
+ 			return RUN_PMC_INTR;
+ 		}
+ 		if (!cnt) {
+-- 
+2.53.0
+
