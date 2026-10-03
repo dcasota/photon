@@ -1,7 +1,7 @@
 Summary:        Linux SyncE implementation
 Name:           synce4l
 Version:        1.0.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Group:          Productivity/Networking/Other
 URL:            https://github.com/intel/synce4l
 Vendor:         VMware, Inc.
@@ -13,6 +13,8 @@ Source1: %{name}.service
 
 Source2: license.txt
 %include %{SOURCE2}
+
+Patch0: 0001-synce4l-fix-infinite-loop-in-dpll_mon_destroy-without-DPLL.patch
 
 BuildRequires:  ethtool
 BuildRequires:  systemd-devel
@@ -70,6 +72,8 @@ rm -rf %{buildroot}
 %{_mandir}/man8/%{name}.8.gz
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 1.0.0-3
+- Backport the dpll_mon_destroy() endless loop fix
 * Thu Dec 12 2024 Dweep Advani <dweep.advani@broadcom.com> 1.0.0-2
 - Release bump for SRP compliance
 * Wed Jan 24 2024 Ankit Jain <ankit-aj.jain@broadcom.com> 1.0.0-1

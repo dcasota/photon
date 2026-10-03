@@ -1,0 +1,34 @@
+From 90574c90739c9963f3664f7ce2876d44c6b7a5e4 Mon Sep 17 00:00:00 2001
+From: Katarzyna Wieczerzycka <katarzyna.wieczerzycka@intel.com>
+Date: Wed, 6 May 2026 14:05:49 +0200
+Subject: [PATCH] synce4l: fix infinite loop in dpll_mon_destroy() without DPLL
+
+Fix an infinite loop by setting the STOPPING state only if the dpll_mon
+thread was actually created, which is indicated by state >=
+DPLL_MON_STATE_INIT_READY.
+
+On kernels without DPLL API support, nl_dpll_mon_socket_create() fails and
+dpll_mon_init() returns before the dpll_mon thread is created.
+dpll_mon_destroy() then sets the state to STOPPING and waits for the
+non-existent thread to change the state to STOPPED, resulting in an infinite
+loop.
+
+Signed-off-by: Katarzyna Wieczerzycka <katarzyna.wieczerzycka@intel.com>
+---
+ dpll_mon.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/dpll_mon.c b/dpll_mon.c
+index 36aa559..457226d 100644
+--- a/dpll_mon.c
++++ b/dpll_mon.c
+@@ -878,7 +878,8 @@ void dpll_mon_destroy(struct dpll_mon *dm)
+ #ifdef UNIT_TESTS
+ 	dpll_mon_state_set(dm, DPLL_MON_STATE_STOPPED);
+ #else
+-	dpll_mon_state_set(dm, DPLL_MON_STATE_STOPPING);
++	if (dm->state >= DPLL_MON_STATE_INIT_READY)
++		dpll_mon_state_set(dm, DPLL_MON_STATE_STOPPING);
+ #endif
+ 	while (dm->state == DPLL_MON_STATE_STOPPING)
+ 		usleep(THREAD_STOP_SLEEP_USEC);
