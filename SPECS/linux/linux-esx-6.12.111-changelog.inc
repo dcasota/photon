@@ -1,6 +1,6 @@
 %changelog
 * Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 6.12.111-4
-- Share canister/.config handling via canister_config.inc
+- Share canister_config.inc; %%ghost the files depmod generates
 * Wed Sep 30 2026 Srinidhi Rao <srinidhi.rao@broadcom.com> 6.12.111-3
 - Fix jent mem free.
 * Mon Sep 28 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 6.12.111-2
