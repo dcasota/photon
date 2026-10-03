@@ -1,6 +1,6 @@
 %changelog
 * Fri Oct 23 2026 Daniel Casota <dcasota@gmail.com> 6.12.113-6
-- Share canister/.config handling via canister_config.inc
+- Share canister_config.inc; %%ghost the files depmod generates
 * Fri Oct 23 2026 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 6.12.113-5
 - Fixes CVE-2026-80738, CVE-2026-89654
 * Fri Oct 23 2026 Brennan Lamoreaux <brennan.lamoreaux@broadcom.com> 6.12.113-4
