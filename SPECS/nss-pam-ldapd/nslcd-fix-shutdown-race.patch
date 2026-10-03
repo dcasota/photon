@@ -1,0 +1,90 @@
+From: Daniel Casota <dcasota@gmail.com>
+Date: Sat, 3 Oct 2026 03:59:28 +0200
+Subject: [PATCH] nslcd: fix the abort on shutdown
+
+Stopping nslcd always ended with SIGABRT ("*** bit out of range 0 -
+FD_SETSIZE on fd_set ***: terminated"): the main thread set
+nslcd_serversocket to -1 after closing it while worker threads were still
+in their accept loop, and the next FD_SET() in a worker hit the
+_FORTIFY_SOURCE check.
+
+Backport of the two shutdown fixes released in nss-pam-ldapd 0.9.13:
+
+  b7841fc5647fafcea9258e13190ee2058dd4e7b0
+  "Do not pass invalid file descriptor to FD_ISSET()"
+  https://github.com/arthurdejong/nss-pam-ldapd/commit/b7841fc5647fafcea9258e13190ee2058dd4e7b0
+  (byte-identical apart from line offsets)
+
+  ed4041ca4cd8a7642340b791f3782d2df52c1a8e
+  "Do not try to kill thread that was successfully joined"
+  https://github.com/arthurdejong/nss-pam-ldapd/commit/ed4041ca4cd8a7642340b791f3782d2df52c1a8e
+  (adapted)
+
+Upstream's second commit tests pthread_timedjoin_np() == -1 and errno
+against EBUSY, but the function returns an error number, never -1, and
+does not set errno, so its "still running" message never fires. Here the
+result is checked directly; ETIMEDOUT is the value it returns when the
+thread is still running after the existing 3 s shutdown deadline.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+ nslcd/nslcd.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/nslcd/nslcd.c b/nslcd/nslcd.c
+--- a/nslcd/nslcd.c
++++ b/nslcd/nslcd.c
+@@ -200,13 +200,6 @@ static void sig_handler(int signum)
+ /* do some cleaning up before terminating */
+ static void exithandler(void)
+ {
+-  /* close socket if it's still in use */
+-  if (nslcd_serversocket >= 0)
+-  {
+-    if (close(nslcd_serversocket))
+-      log_log(LOG_WARNING, "problem closing server socket (ignored): %s",
+-              strerror(errno));
+-  }
+   /* remove existing named socket */
+   if (unlink(NSLCD_SOCKET) < 0)
+   {
+@@ -687,6 +680,7 @@ int main(int argc, char *argv[])
+   sigset_t signalmask, oldmask;
+ #ifdef HAVE_PTHREAD_TIMEDJOIN_NP
+   struct timespec ts;
++  int rc;
+ #endif /* HAVE_PTHREAD_TIMEDJOIN_NP */
+   /* block all these signals so our worker threads won't handle them */
+   sigemptyset(&signalmask);
+@@ -891,7 +885,6 @@ int main(int argc, char *argv[])
+               i, strerror(errno));
+   /* close server socket to trigger failures in threads waiting on accept() */
+   close(nslcd_serversocket);
+-  nslcd_serversocket = -1;
+   /* if we can, wait a few seconds for the threads to finish */
+ #ifdef HAVE_PTHREAD_TIMEDJOIN_NP
+   ts.tv_sec = time(NULL) + 3;
+@@ -900,10 +893,18 @@ int main(int argc, char *argv[])
+   for (i = 0; i < nslcd_cfg->threads; i++)
+   {
+ #ifdef HAVE_PTHREAD_TIMEDJOIN_NP
+-    pthread_timedjoin_np(nslcd_threads[i], NULL, &ts);
+-#endif /* HAVE_PTHREAD_TIMEDJOIN_NP */
++    rc = pthread_timedjoin_np(nslcd_threads[i], NULL, &ts);
++    if (rc != 0)
++    {
++      if (rc != ETIMEDOUT)
++        log_log(LOG_ERR, "thread %d cannot be joined (ignoring): %s",
++                i, strerror(rc));
++      log_log(LOG_ERR, "thread %d is still running, shutting down anyway", i);
++    }
++#else
+     if (pthread_kill(nslcd_threads[i], 0) == 0)
+       log_log(LOG_ERR, "thread %d is still running, shutting down anyway", i);
++#endif /* HAVE_PTHREAD_TIMEDJOIN_NP */
+   }
+   /* we're done */
+   return EXIT_SUCCESS;
+-- 
+2.53.0
+
