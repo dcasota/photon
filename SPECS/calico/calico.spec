@@ -145,7 +145,7 @@ cp -r confd/etc/ %{buildroot}%{_sysconfdir}
 
 %changelog
 * Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 3.32.0-2
-- Build every component with its version: calico-node, calico-felix, the kube-controllers controller and confd printed an empty one
+- Build every component with its version
 * Thu May 21 2026 Mukul Sikka <mukul.sikka@broadcom.com> 3.32.0-1
 - Update calico to 3.32.0
 * Wed Feb 04 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.31.0-2
