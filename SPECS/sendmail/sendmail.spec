@@ -3,7 +3,7 @@
 Summary:          Commonly used Mail transport agent (MTA)
 Name:             sendmail
 Version:          8.18.1.10
-Release:          5%{?dist}
+Release:          6%{?dist}
 URL:              http://www.sendmail.org
 Group:            Email/Server/Library
 Vendor:           VMware, Inc.
@@ -49,6 +49,7 @@ of email from systems to network and is not just a mail client.
 %build
 cat >> devtools/Site/site.config.m4 << "EOF"
 APPENDDEF(`confENVDEF',`-DSTARTTLS -DSASL -DLDAPMAP -DNETINET6')
+APPENDDEF(`confMAPDEF', `-DNDBM')
 APPENDDEF(`confLIBS', `-lssl -lcrypto -lsasl2 -lldap -llber -lgdbm_compat -lgdbm')
 APPENDDEF(`confINCDIRS', `-I/usr/include/sasl')
 APPENDDEF(`confLIBS', `-lresolv')
@@ -105,6 +106,16 @@ install -v -m644 %{name}/newaliases.1 %{buildroot}%{_mandir}/man1
 install -v -m644 vacation/vacation.1 %{buildroot}%{_mandir}/man1
 
 mkdir -p %{buildroot}%{_unitdir} %{buildroot}%{_sysconfdir}/sysconfig
+install -v -m700 -d %{buildroot}%{_var}/spool/mqueue
+
+cat > %{buildroot}%{_sysconfdir}/mail/aliases <<- "EOF"
+postmaster: root
+MAILER-DAEMON: root
+EOF
+
+cat > %{buildroot}%{_sysconfdir}/mail/local-host-names <<- "EOF"
+# local-host-names - other names this host receives mail for, one per line
+EOF
 
 cat > %{buildroot}%{_sysconfdir}/sysconfig/%{name} <<- "EOF"
 DAEMON=yes
@@ -136,24 +147,10 @@ make -C test check %{?_smp_mflags}
 %sysusers_create_compat %{SOURCE1}
 
 chmod -v 1775 %{_var}/mail
-install -v -m700 -d %{_var}/spool/mqueue
 
 %post
-if [ $1 -eq 1 ] ; then
-  echo $(hostname -f) > %{_sysconfdir}/mail/local-host-names
-  cat > %{_sysconfdir}/mail/aliases << "EOF"
-postmaster: root
-MAILER-DAEMON: root
-EOF
-  /bin/newaliases
-
-  cd %{_sysconfdir}/mail
-  m4 m4/cf.m4 %{name}.mc > %{name}.cf
-  m4 m4/cf.m4 submit.mc > submit.cf
-fi
-
-chmod 700 %{_var}/spool/clientmqueue
-chown smmsp:smmsp %{_var}/spool/clientmqueue
+# also on upgrade: releases before 8.18.1.10-6 could not build the database
+/bin/newaliases
 
 %systemd_post %{name}.service
 
@@ -162,23 +159,26 @@ chown smmsp:smmsp %{_var}/spool/clientmqueue
 
 %postun
 if [ $1 -eq 0 ] ; then
-  rm -rf %{_sysconfdir}/mail
+  rm -f %{_sysconfdir}/mail/aliases.dir %{_sysconfdir}/mail/aliases.pag
 fi
 %systemd_postun_with_restart %{name}.service
 
 %files
 %config(noreplace)%{_sysconfdir}/mail/%{name}.mc
-%{_sysconfdir}/mail/%{name}.cf
-%{_sysconfdir}/mail/submit.cf
+%config(noreplace) %{_sysconfdir}/mail/%{name}.cf
+%config(noreplace) %{_sysconfdir}/mail/submit.cf
 %config(noreplace)%{_sysconfdir}/mail/submit.mc
-%{_sysconfdir}/mail/feature/*
-%{_sysconfdir}/mail/hack/*
-%{_sysconfdir}/mail/m4/*
-%{_sysconfdir}/mail/mailer/*
-%{_sysconfdir}/mail/ostype/*
-%{_sysconfdir}/mail/sh/*
-%{_sysconfdir}/mail/siteconfig/*
-%{_sysconfdir}/mail/domain/*
+%config(noreplace) %{_sysconfdir}/mail/aliases
+%config(noreplace) %{_sysconfdir}/mail/local-host-names
+%dir %{_sysconfdir}/mail
+%{_sysconfdir}/mail/feature
+%{_sysconfdir}/mail/hack
+%{_sysconfdir}/mail/m4
+%{_sysconfdir}/mail/mailer
+%{_sysconfdir}/mail/ostype
+%{_sysconfdir}/mail/sh
+%{_sysconfdir}/mail/siteconfig
+%{_sysconfdir}/mail/domain
 %{_sysconfdir}/mail/README
 %{_sysconfdir}/mail/helpfile
 %{_sysconfdir}/mail/%{name}.schema
@@ -187,7 +187,8 @@ fi
 %{_bindir}/*
 %{_sbindir}/*
 %{_datadir}/*
-%{_var}/spool/*
+%dir %attr(0700,smmsp,smmsp) %{_var}/spool/clientmqueue
+%dir %attr(0700,root,root) %{_var}/spool/mqueue
 %{_unitdir}/%{name}.service
 %{_sysconfdir}/sysconfig/%{name}
 %exclude %dir %{_libdir}/debug
@@ -197,6 +198,8 @@ fi
 %exclude %{_sysconfdir}/mail/cf/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 8.18.1.10-6
+- Build NDBM aliases on upgrade; package config, keep on erase
 * Sun Jun 14 2026 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 8.18.1.10-5
 - Use Dovecot LDA for local mail delivery instead of procmail
 * Mon May 11 2026 Alexey Makhalov <alexey.makhalov@broadcom.com> 8.18.1.10-4
