@@ -3,7 +3,7 @@
 Summary:        File System in Userspace (FUSE) utilities
 Name:           fuse3
 Version:        3.18.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Url:            https://github.com/libfuse/libfuse
 Group:          System Environment/Base
 Vendor:         VMware, Inc.
@@ -13,6 +13,8 @@ Source0:        https://github.com/libfuse/libfuse/archive/fuse-%{version}.tar.g
 
 Source1: license.txt
 %include %{SOURCE1}
+
+Patch0: fuse3-main-signal-exit.patch
 
 # To break circualr dependency with e2fsprogs
 %define ExtraBuildRequires meson, systemd-devel
@@ -53,7 +55,7 @@ Conflicts:      %{name} < 3.18.2
 %{summary}
 
 %prep
-%autosetup -n fuse-%{version}
+%autosetup -p1 -n fuse-%{version}
 
 %build
 export LANG=en_US.UTF-8
@@ -100,6 +102,8 @@ rm -r %{buildroot}%{_sysconfdir}/init.d
 %{_datadir}/man/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 3.18.2-4
+- fuse_main(): return 0 when a signal stops the filesystem
 * Fri Jun 12 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.18.2-3
 - Add Obsoletes entries for fuse-devel
 * Fri Jun 05 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.18.2-2
