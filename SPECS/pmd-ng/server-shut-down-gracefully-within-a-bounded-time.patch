@@ -1,0 +1,210 @@
+From: Daniel Casota <dcasota@gmail.com>
+Date: Wed, 7 Oct 2026 21:00:00 +0200
+Subject: [PATCH] server: shut down gracefully within a bounded time
+
+Run() shuts the HTTP server down on SIGTERM or SIGINT. Serve() then returns
+http.ErrServerClosed, which runUnixDomainHttpServer() and
+runVSockHttpServer() pass to log.Fatal(), so every ordinary stop of
+photon-mgmtd ends with status 1 and systemd marks the unit failed:
+
+  level=info msg="Signal received='terminated'. Shutting down photon-mgmtd ..."
+  level=fatal msg="http: Server closed"
+  photon-mgmtd.service: Main process exited, code=exited, status=1/FAILURE
+
+Treat http.ErrServerClosed as the clean end of every server, and fail with
+the error on anything else; runWebHttpServer() ignored the results of
+ListenAndServe() and ListenAndServeTLS(), so a port already in use ended the
+daemon with status 0 and no message.
+
+Serve() returns as soon as Shutdown() starts, not when it has finished, so
+Run() must also wait for the shutdown: otherwise main() returns and the
+process exits while Shutdown() still drains the open requests, which are cut
+off. Run() now waits for it and returns the error of the server it ran.
+
+The signal handler could also run before any server existed: a signal
+during NewRouter() made Shutdown() dereference the still nil httpSrv and
+the daemon panicked with status 2. Run() now creates the server before it
+starts the handler and the run functions only configure it; a signal that
+arrives first marks it shut down, Serve() then returns ErrServerClosed at
+once and the daemon exits 0.
+
+Shutdown() used a context without a deadline, so a client that never
+finished its request kept the daemon alive until systemd killed it. Bound
+it: shutdownTimeout is 30 s, one deadline for all connections together, so
+the worst case does not grow with their number. It stays below systemd's
+DefaultTimeoutStopSec of 90 s, so the daemon itself reports the timeout
+("Failed to shut down within 30s") and exits 1 before systemd sends SIGKILL.
+
+Measured on the web listener with a request whose body never completes:
+exit 1 after 30.0 s with that message; without open requests the stop takes
+milliseconds and exits 0; with NewRouter() delayed by 500 ms (test-only
+injection) a SIGTERM at 250 ms exits 0 instead of panicking. The race
+detector (go build -race) reports nothing in any of these runs.
+
+pmd-next-gen is archived upstream (github.com/vmware/pmd-next-gen, last
+release v0.1); this is a Photon OS patch, not a backport.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+ pkg/server/http_server.go | 74 ++++++++++++++++++++++++++-------------------
+ 1 file changed, 42 insertions(+), 32 deletions(-)
+
+diff --git a/pkg/server/http_server.go b/pkg/server/http_server.go
+--- a/pkg/server/http_server.go
++++ b/pkg/server/http_server.go
+@@ -6,12 +6,14 @@
+ import (
+ 	"context"
+ 	"crypto/tls"
++	"errors"
+ 	"net"
+ 	"net/http"
+ 	"os"
+ 	"os/signal"
+ 	"path"
+ 	"syscall"
++	"time"
+ 
+ 	"github.com/gorilla/mux"
+ 	log "github.com/sirupsen/logrus"
+@@ -32,6 +34,8 @@
+ 
+ var httpSrv *http.Server
+ 
++const shutdownTimeout = 30 * time.Second
++
+ func NewRouter() *mux.Router {
+ 	r := mux.NewRouter()
+ 	s := r.PathPrefix("/api/v1").Subrouter()
+@@ -58,13 +62,11 @@
+ 		r.Use(UnixDomainPeerCredential)
+ 	}
+ 
+-	httpSrv = &http.Server{
+-		Handler: r,
+-		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+-			file, _ := c.(*net.UnixConn).File()
+-			credentials, _ := unix.GetsockoptUcred(int(file.Fd()), unix.SOL_SOCKET, unix.SO_PEERCRED)
+-			return context.WithValue(ctx, credentialsContextKey, credentials)
+-		},
++	httpSrv.Handler = r
++	httpSrv.ConnContext = func(ctx context.Context, c net.Conn) context.Context {
++		file, _ := c.(*net.UnixConn).File()
++		credentials, _ := unix.GetsockoptUcred(int(file.Fd()), unix.SOL_SOCKET, unix.SO_PEERCRED)
++		return context.WithValue(ctx, credentialsContextKey, credentials)
+ 	}
+ 
+ 	log.Infof("Starting photon-mgmtd... Listening on unix domain socket='%s' in HTTP mode pid=%d", conf.UnixDomainSocketPath, os.Getpid())
+@@ -81,14 +83,14 @@
+ 		return err
+ 	}
+ 
+-	log.Fatal(httpSrv.Serve(unixListener))
++	if err := httpSrv.Serve(unixListener); err != nil && !errors.Is(err, http.ErrServerClosed) {
++		log.Fatal(err)
++	}
+ 	return nil
+ }
+ 
+ func runVSockHttpServer(c *conf.Config, r *mux.Router) error {
+-	httpSrv = &http.Server{
+-		Handler: r,
+-	}
++	httpSrv.Handler = r
+ 
+ 	log.Infof("Starting photon-mgmtd... Listening on VSOCK")
+ 
+@@ -98,7 +100,9 @@
+ 	}
+ 	defer l.Close()
+ 
+-	log.Fatal(httpSrv.Serve(l))
++	if err := httpSrv.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
++		log.Fatal(err)
++	}
+ 	return nil
+ }
+ 
+@@ -115,25 +119,25 @@
+ 			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+ 			PreferServerCipherSuites: false,
+ 		}
+-		httpSrv = &http.Server{
+-			Addr:         ip + ":" + port,
+-			Handler:      r,
+-			TLSConfig:    cfg,
+-			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+-		}
++		httpSrv.Addr = ip + ":" + port
++		httpSrv.Handler = r
++		httpSrv.TLSConfig = cfg
++		httpSrv.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler))
+ 
+ 		log.Infof("Starting photon-mgmtd ... Listening on %s:%s in HTTPS mode pid=%d", ip, port, os.Getpid())
+ 
+-		httpSrv.ListenAndServeTLS(path.Join(conf.ConfPath, conf.TLSCert), path.Join(conf.ConfPath, conf.TLSKey))
+-	} else {
+-		httpSrv = &http.Server{
+-			Addr:    ip + ":" + port,
+-			Handler: r,
++		if err := httpSrv.ListenAndServeTLS(path.Join(conf.ConfPath, conf.TLSCert), path.Join(conf.ConfPath, conf.TLSKey)); err != nil && !errors.Is(err, http.ErrServerClosed) {
++			log.Fatal(err)
+ 		}
++	} else {
++		httpSrv.Addr = ip + ":" + port
++		httpSrv.Handler = r
+ 
+ 		log.Infof("Starting photon-mgmtd... Listening on %s:%s in HTTP mode pid=%d", ip, port, os.Getpid())
+ 
+-		httpSrv.ListenAndServe()
++		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
++			log.Fatal(err)
++		}
+ 	}
+ 
+ 	return nil
+@@ -146,28 +150,34 @@
+ 	ctx, cancel := context.WithCancel(context.Background())
+ 	defer cancel()
+ 
++	httpSrv = &http.Server{}
++	shutdownDone := make(chan struct{})
+ 	go func() {
++		defer close(shutdownDone)
+ 		select {
+ 		case sig := <-sigs:
+ 			log.Printf("Signal received='%v'. Shutting down photon-mgmtd ...", sig)
+ 
+-			if err := httpSrv.Shutdown(ctx); err != nil {
+-				os.Exit(1)
++			sctx, scancel := context.WithTimeout(context.Background(), shutdownTimeout)
++			defer scancel()
++			if err := httpSrv.Shutdown(sctx); err != nil {
++				log.Fatalf("Failed to shut down within %v: %v", shutdownTimeout, err)
+ 			}
+-
+-			cancel()
+ 		case <-ctx.Done():
+ 		}
+ 	}()
+ 
++	var err error
+ 	r := NewRouter()
+ 	if c.Network.ListenUnixSocket {
+-		runUnixDomainHttpServer(c, r)
++		err = runUnixDomainHttpServer(c, r)
+ 	} else if c.Network.ListenVSock {
+-		runVSockHttpServer(c, r)
++		err = runVSockHttpServer(c, r)
+ 	} else {
+-		runWebHttpServer(c, r)
++		err = runWebHttpServer(c, r)
+ 	}
+ 
+-	return nil
++	cancel()
++	<-shutdownDone
++	return err
+ }
+-- 
+2.43.0
