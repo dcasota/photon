@@ -1,7 +1,7 @@
 Name:          dwarves
 Summary:       Debugging Information Manipulation Tools (pahole & friends)
 Version:       1.24
-Release:       5%{?dist}
+Release:       6%{?dist}
 Group:         Development/Tools
 Vendor:        VMware, Inc.
 Distribution:  Photon
@@ -19,6 +19,9 @@ Patch5: 0001-dwarves-Zero-initialize-struct-cu-in-cu__new-to-prev.patch
 %if 0%{photon_subrelease} >= 91
 Patch6: 0001-pahole-Fix-discarded-qualifiers-for-strchr-strstr.patch
 %endif
+Patch7: 0001-dtagnames-cus__load_files-requires-a-non-NULL-conf_load.patch
+Patch8: 0001-prefcnt-cus__load_files-requires-a-non-NULL-conf_load.patch
+Patch9: 0001-syscse-cus__load_files-requires-a-non-NULL-conf_load.patch
 BuildRequires: gcc
 BuildRequires: cmake
 BuildRequires: zlib-devel
@@ -26,6 +29,8 @@ BuildRequires: elfutils-devel
 Requires:      elfutils
 Requires:      elfutils-libelf
 Requires:      zlib
+# btfdiff compares the two pahole outputs with diff
+Requires:      diffutils
 Requires:      %{name}-libs = %{version}-%{release}
 
 %description
@@ -107,6 +112,8 @@ rm -rf %{buildroot}
 %{_datadir}/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 1.24-6
+- Backport dtagnames, prefcnt, syscse crash fixes; require diffutils
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 1.24-5
 - version bump after glibc is upgraded in 91
 *  Tue Apr 14 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 1.24-4
