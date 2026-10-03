@@ -1,7 +1,7 @@
 Summary:          Connection pooler for PostgreSQL.
 Name:             pgbouncer
-Version:          1.17.0
-Release:          7%{?dist}
+Version:          1.26.0
+Release:          1%{?dist}
 URL:              https://wiki.postgresql.org/wiki/PgBouncer
 Group:            Application/Databases.
 Vendor:           VMware, Inc.
@@ -20,6 +20,8 @@ BuildRequires:    systemd
 BuildRequires:    systemd-devel
 BuildRequires:    c-ares-devel
 BuildRequires:    pkg-config
+BuildRequires:    python3
+BuildRequires:    go-md2man
 
 Requires:         c-ares
 Requires:         libevent
@@ -34,18 +36,33 @@ Pgbouncer is a light-weight, robust connection pooler for PostgreSQL.
 %autosetup -p1
 
 %build
-%configure --with-cares
+# Since 1.25 the release tarball no longer carries the man pages and make
+# renders them with pandoc, which Photon OS does not ship: render the same
+# filtered markdown with go-md2man, converting pandoc's title line into
+# go-md2man's .TH form; make then finds them up to date.
+pushd doc
+PACKAGE_VERSION=%{version} python3 filter.py frag-usage-man.md usage.md > %{name}_1.md
+PACKAGE_VERSION=%{version} python3 filter.py frag-config-man.md config.md > %{name}_5.md
+for s in 1 5; do
+  sed -i "1s/^%% \([A-Z.]*\)(${s}) %{version} | \(.*\)\$/%% \1 ${s} \"\" \"PgBouncer %{version}\" \"\2\"/" %{name}_${s}.md
+  head -n 1 %{name}_${s}.md | grep -Eqx "%% [A-Z.]+ ${s} \"\" \"PgBouncer %{version}\" \"[^\"]+\""
+  go-md2man -in %{name}_${s}.md -out %{name}.${s}
+done
+popd
+
+%configure --with-cares --with-systemd
 %make_build
 
 %install
 %make_install %{?_smp_mflags}
 install -vdm 744 %{buildroot}%{_var}/log/pgbouncer
-install -vdm 755 %{buildroot}%{_var}/run/pgbouncer
 install -p -d %{buildroot}%{_sysconfdir}/
 install -p -d %{buildroot}%{_sysconfdir}/sysconfig
 install -p -m 644 etc/pgbouncer.ini %{buildroot}%{_sysconfdir}/
-mkdir -p %{buildroot}%{_sysconfdir}/systemd/system/
-install -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/systemd/system/%{name}.service
+# auth_file of the default pgbouncer.ini: no users until the admin adds them
+install -d -m 750 %{buildroot}%{_sysconfdir}/%{name}
+touch %{buildroot}%{_sysconfdir}/%{name}/userlist.txt
+install -p -D -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/%{name}.service
 install -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysusersdir}/%{name}.conf
 
 %if 0%{?with_check}
@@ -63,26 +80,42 @@ if [ $1 -eq 1 ] ; then
   chown -R %{name}:%{name} \
            %{_var}/log/%{name}
 fi
+%systemd_post %{name}.service
+
+%preun
+%systemd_preun %{name}.service
 
 %postun
 if [ $1 -eq 0 ] ; then
   rm -rf %{_var}/log/%{name} \
          %{_var}/run/%{name}
 fi
+%systemd_postun_with_restart %{name}.service
+
+%posttrans
+# Up to 1.17.0-7 the unit was installed in /etc/systemd/system, so an enabled
+# service's wants link points at a file the upgrade removed: enable it again.
+wants=%{_sysconfdir}/systemd/system/multi-user.target.wants/%{name}.service
+if [ -L "${wants}" ] && [ ! -e "${wants}" ]; then
+  systemctl reenable %{name}.service || :
+fi
 
 %files
 %defattr(-,root,root,-)
 %{_bindir}/*
-%{_sysconfdir}/systemd/system/%{name}.service
+%{_unitdir}/%{name}.service
 %config(noreplace) %{_sysconfdir}/%{name}.ini
+%dir %attr(0750,root,%{name}) %{_sysconfdir}/%{name}
+%config(noreplace) %attr(0640,root,%{name}) %{_sysconfdir}/%{name}/userlist.txt
 %{_mandir}/man1/%{name}.*
 %{_mandir}/man5/%{name}.*
 %{_docdir}/pgbouncer/*
 %{_sysusersdir}/%{name}.conf
-%dir %attr(-,%{name},%{name}) %{_var}/run/%{name}
 %dir %attr(-,%{name},%{name}) %{_var}/log/%{name}
 
 %changelog
+* Wed Oct 07 2026 Daniel Casota <dcasota@gmail.com> 1.26.0-1
+- Upgrade to 1.26.0 for 9 CVEs; systemd Type=notify unit
 * Mon Jun 02 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.17.0-7
 - Fix spec issues
 * Thu May 08 2025 Mukul Sikka <mukul.sikka@broadcom.com> 1.17.0-6
