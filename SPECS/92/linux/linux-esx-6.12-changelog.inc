@@ -1,6 +1,6 @@
 %changelog
 * Fri Oct 30 2026 Daniel Casota <dcasota@gmail.com> 6.12.114-2
-- Share canister/.config handling via canister_config.inc
+- Share canister_config.inc; %%ghost the files depmod generates
 * Wed Oct 28 2026 Brennan Lamoreaux <brennan.lamoreaux@broadcom.com> 6.12.114-1
 - Update to version 6.12.114
 * Wed Oct 28 2026 Brennan Lamoreaux <brennan.lamoreaux@broadcom.com> 6.12.113-6
