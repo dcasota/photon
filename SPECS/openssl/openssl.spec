@@ -3,7 +3,7 @@
 Summary:        Management tools and libraries relating to cryptography
 Name:           openssl
 Version:        3.5.9
-Release:        2%{?dist}
+Release:        3%{?dist}
 URL:            http://www.openssl.org
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -159,7 +159,9 @@ rm -rf %{buildroot}/*
 %config(noreplace) %{_sysconfdir}/ssl/openssl.cnf
 %config(noreplace) %{_sysconfdir}/ssl/user.cnf
 %{_sysconfdir}/ssl/provider_default.cnf
-%{_sysconfdir}/ssl/distro.cnf
+# openssl-fips-provider's scriptlets and this package's post scriptlet switch the
+# provider includes in distro.cnf: its content follows the FIPS provider
+%verify(not md5 size mtime) %{_sysconfdir}/ssl/distro.cnf
 %{_sysconfdir}/ssl/certs
 %{_sysconfdir}/ssl/ct_log_list.cnf
 %{_sysconfdir}/ssl/ct_log_list.cnf.dist
@@ -194,6 +196,8 @@ rm -rf %{buildroot}/*
 %{_mandir}/man7/*
 
 %changelog
+* Sat Oct 10 2026 Daniel Casota <dcasota@gmail.com> 3.5.9-3
+- Do not verify the content of distro.cnf
 * Wed Oct 07 2026 Srinidhi Rao <srinidhi.rao@broadcom.com> 3.5.9-2
 - Set TLS Group config for default and fips providers.
 * Tue Oct 06 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.5.9-1
