@@ -1,0 +1,138 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daniel Casota <dcasota@gmail.com>
+Date: Mon, 31 Aug 2026 00:00:00 +0000
+Subject: [PATCH] generate_initrd: release the DHCP leases before rebooting
+ into the installed system
+
+After a successful ISO install the launcher ran "shutdown -r now" and
+the installer environment kept its DHCP leases. Its client identifier
+(an RFC 4361 IAID+DUID) derives from the installer's machine-id, which
+the installed system does not share. A DHCP server that binds a lease to
+the client identifier - the VMware Workstation NAT DHCP server does -
+then keeps the address of that MAC for the installer: it offers the
+installed system the same address and NAKs its request until the
+installer's lease runs out, so the installed system boots without IPv4
+for up to the lease time and systemd-networkd-wait-online fails. Seen
+with a 30-minute lease: the installer's lease ran its full term, and the
+installed system got the address only after it had expired.
+
+systemd-networkd sends a DHCPv4 RELEASE only when it stops a client
+whose .network file enables SendRelease=, and Photon's default
+99-dhcp-en.network sets SendRelease=no so that an installed system keeps
+its address across a reboot. Neither the reboot nor stopping networkd
+releases anything in the installer environment. Bringing the link down
+does not either: the release is then sent on a link that is already
+down.
+
+After a successful install, and only then, the launcher now releases
+every DHCPv4 lease networkd holds, one link at a time:
+
+ - the leased links come from networkd's own link state, so several
+   NICs, VLANs and a network configuration the installer applied are
+   all covered;
+ - each link gets a runtime .network file in /run that matches only that
+   link, disables DHCP and enables SendRelease=; networkd reloads, stops
+   the link's DHCP client and sends the RELEASE while the link is still
+   up and still holds its address;
+ - the release is confirmed from networkd's state (the link runs with
+   that file and holds no lease any more) before the next link follows;
+ - networkd and its sockets are stopped, which also releases any DHCPv6
+   lease (SendRelease= is on by default for DHCPv6), and the system
+   reboots.
+
+Directory and files are created with umask 022, because networkd reads
+them as its own user and the initrd's /etc/profile sets umask 027: with
+that umask the files came out 0640 and networkd refused them ("Permission
+denied"), so nothing was released.
+
+Nothing reaches the installed system. The release is best effort: when
+networkd is not running, a tool is missing, or a link does not confirm
+in time, it does what it can, and the reboot happens in every case. A
+failed install still drops to the debug shell with its leases intact.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ photon_installer/generate_initrd.py | 61 ++++++++++++++++++++++++++++-
+ 1 file changed, 60 insertions(+), 1 deletion(-)
+
+diff --git a/photon_installer/generate_initrd.py b/photon_installer/generate_initrd.py
+index 53b1a54..71532b2 100644
+--- a/photon_installer/generate_initrd.py
++++ b/photon_installer/generate_initrd.py
+@@ -26,6 +26,62 @@ devtmpfs       /dev         devtmpfs mode=0755,nosuid 0   0
+ """
+ 
+ 
++# Shell function for the launcher: releases every DHCPv4 lease networkd holds,
++# one link at a time, then stops networkd. Best effort: the caller reboots
++# whatever it returns.
++RELEASE_DHCP_LEASES = r"""
++release_dhcp_leases() {
++    local links=/run/systemd/netif/links
++    local prefix=/run/systemd/network/00-00-photon-installer-release
++    local state key value idx ifname dev file network lease tries
++    local -a leased=()
++
++    systemctl --quiet is-active systemd-networkd.service 2>/dev/null || return 0
++
++    for state in "$links"/*; do
++        [ -f "$state" ] || continue
++        lease=""
++        while IFS='=' read -r key value; do
++            [ "$key" = DHCP_LEASE ] && lease="$value"
++        done < "$state"
++        [ -n "$lease" ] && leased+=("${state##*/}")
++    done
++
++    for idx in "${leased[@]}"; do
++        ifname=""
++        for dev in /sys/class/net/*; do
++            [ "$(< "$dev/ifindex")" = "$idx" ] && ifname="${dev##*/}"
++        done 2>/dev/null
++        case "$ifname" in
++            "" | *[*?[]*) continue ;;
++        esac
++        file="$prefix-$ifname.network"
++        (umask 022 && mkdir -p "${file%/*}" && printf '[Match]\nName=%s\n\n[Network]\nDHCP=no\n\n[DHCPv4]\nSendRelease=yes\n\n[DHCPv6]\nSendRelease=yes\n' \
++            "$ifname" > "$file") || return 1
++        timeout 30 systemctl reload systemd-networkd.service || return 1
++
++        for (( tries = 0; tries < 100; tries++ )); do
++            network=""
++            lease=""
++            while IFS='=' read -r key value; do
++                case "$key" in
++                    NETWORK_FILE) network="$value" ;;
++                    DHCP_LEASE) lease="$value" ;;
++                esac
++            done 2>/dev/null < "$links/$idx"
++            [ "$network" = "$file" ] && [ -z "$lease" ] && break
++            sleep 0.1
++        done
++        if (( tries == 100 )); then
++            echo "DHCP: $ifname: lease not released in time" >&2
++        fi
++    done
++
++    timeout 30 systemctl stop systemd-networkd.service 'systemd-networkd*.socket'
++}
++"""
++
++
+ class IsoInitrd:
+     def __init__(self, **kwargs):
+         known_kw = [
+@@ -66,8 +122,11 @@ class IsoInitrd:
+         script_content = f"""#!/bin/bash
+             cd /installer
+             ACTIVE_CONSOLE="$(< /sys/devices/virtual/tty/console/active)"
++            {RELEASE_DHCP_LEASES}
+             install() {{
+-            LANG=en_US.UTF-8 photon-installer -i iso -o {install_options_file} -e EULA.txt -t "{self.license_text}" -v {self.photon_release_version} && shutdown -r now
++            LANG=en_US.UTF-8 photon-installer -i iso -o {install_options_file} -e EULA.txt -t "{self.license_text}" -v {self.photon_release_version} || return
++            release_dhcp_leases || echo "DHCP: leases not released" >&2
++            shutdown -r now
+             }}
+             try_run_installer() {{
+             if [ "$ACTIVE_CONSOLE" == "tty0" ]; then
