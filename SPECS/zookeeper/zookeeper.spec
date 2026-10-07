@@ -7,7 +7,7 @@
 Summary:        High-performance coordination service for distributed applications
 Name:           zookeeper
 Version:        3.9.4
-Release:        5%{?dist}
+Release:        6%{?dist}
 URL:            https://zookeeper.apache.org
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -24,6 +24,7 @@ Source5: license.txt
 %include %{SOURCE5}
 
 Patch0: zkSever_remove_cygwin_cypath.patch
+Patch1: ZOOKEEPER-4770-zkSnapshotRecursiveSummaryToolkit-main-class.patch
 
 BuildRequires:  openjdk11
 BuildRequires:  apache-maven
@@ -120,6 +121,8 @@ rm -rf %{buildroot}
 %{_sysusersdir}/%{name}.conf
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 3.9.4-6
+- Backport ZOOKEEPER-4770 toolkit fix; accept JVM exit 143
 * Fri Jun 05 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.9.4-5
 - Workaround hostname command requirement
 * Fri May 22 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.9.4-4
