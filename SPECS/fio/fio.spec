@@ -69,6 +69,9 @@ sh ./configure --disable-optimizations --dynamic-libengines
 
 %install
 %make_install prefix=%{_prefix} mandir=%{_mandir}
+# fiologparser_hist.py imports pandas, which Photon OS does not ship
+rm %{buildroot}%{_bindir}/fiologparser_hist.py \
+   %{buildroot}%{_mandir}/man1/fiologparser_hist.py.1
 
 %files
 %defattr(-,root,root)
@@ -91,7 +94,7 @@ sh ./configure --disable-optimizations --dynamic-libengines
 
 %changelog
 * Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 3.33-9
-- Require python3 and python3-six for fio2gnuplot and fio_jsonplus_clat2csv
+- Require python3-six; drop fiologparser_hist.py, which needs pandas
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.33-8
 - Extended to build for subrelease 91 and above
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 3.33-7
