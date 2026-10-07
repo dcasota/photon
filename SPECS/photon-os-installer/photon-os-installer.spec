@@ -25,6 +25,7 @@ Patch6: 0007-installer-seed-locale.conf-before-package-install.patch
 Patch7: 0008-isoBuilder-put-installer-requestable-packages-on-media.patch
 Patch8: 0009-installer-restrict-sshd-to-FIPS-approved-algorithms.patch
 Patch9: 0011-generate_initrd-release-the-DHCP-leases-before-reboo.patch
+Patch10: 0012-isoInstaller-take-bootmode-and-live-from-the-media-that.patch
 
 BuildRequires: python3-devel
 BuildRequires: python3-pyinstaller
@@ -80,7 +81,7 @@ rm -rf %{buildroot}
 
 %changelog
 * Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 2.8-3
-- Fix install UI, locale, media packages; FIPS sshd; release DHCP
+- Fix install UI, locale, media; FIPS sshd; DHCP release; bootmode
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.8-2
 - Extended to build for subrelease 91 and above
 * Tue Apr 28 2026 Oliver Kurth <oliver.kurth@broadcom.com> 2.8-1
