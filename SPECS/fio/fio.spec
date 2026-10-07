@@ -69,6 +69,9 @@ sh ./configure --disable-optimizations --dynamic-libengines
 
 %install
 %make_install prefix=%{_prefix} mandir=%{_mandir}
+# fiologparser_hist.py imports pandas, which Photon OS does not ship
+rm %{buildroot}%{_bindir}/fiologparser_hist.py \
+   %{buildroot}%{_mandir}/man1/fiologparser_hist.py.1
 
 %files
 %defattr(-,root,root)
