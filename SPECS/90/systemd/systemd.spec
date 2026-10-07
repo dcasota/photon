@@ -64,6 +64,7 @@ Patch13: CVE-2026-29111-4.patch
 Patch14: CVE-2026-40225.patch
 Patch15: CVE-2026-40226-1.patch
 Patch16: CVE-2026-40226-2.patch
+Patch17: sd-dhcp-client-broadcast-DHCPDECLINE-through-a-raw-socket.patch
 
 Requires:       Linux-PAM
 Requires:       bzip2
@@ -707,8 +708,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
-* Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 253.19-17.2.3
-- Define STIG_HARDEN only if unset; default build unchanged
+* Wed Oct 07 2026 Daniel Casota <dcasota@gmail.com> 253.19-17.2.3
+- STIG_HARDEN overridable; DHCPDECLINE via raw socket with RFC options
 * Thu May 21 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-17.2.2
 - Fix CVE-2026-40225, CVE-2026-40226
 * Thu May 14 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-17.2.1
