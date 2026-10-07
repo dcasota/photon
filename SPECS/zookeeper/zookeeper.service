@@ -7,6 +7,8 @@ ConditionPathExists=/etc/zookeeper/zoo.cfg
 Type=forking
 ExecStart=/usr/bin/zkServer.sh start /etc/zookeeper/zoo.cfg
 ExecStop=/usr/bin/zkServer.sh stop
+# zkServer.sh stop ends the JVM with SIGTERM; the JVM exits 128+15
+SuccessExitStatus=143
 User=zookeeper
 Group=hadoop
 RuntimeDirectory=zookeeper
