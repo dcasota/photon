@@ -5,7 +5,7 @@
 Name:           systemd
 URL:            http://www.freedesktop.org/wiki/Software/systemd
 Version:        253.19
-Release:        17.2.3%{?dist}
+Release:        17.2.4%{?dist}
 Summary:        System and Service Manager
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -641,6 +641,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
+* Sat Oct 24 2026 Daniel Casota <dcasota@gmail.com> 253.19-17.2.4
+- Broadcast DHCPDECLINE through a raw socket
 * Mon Oct 12 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-17.2.3
 - Security fixes
 * Thu May 21 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 253.19-17.2.2
