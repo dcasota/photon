@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daniel Casota <dcasota@gmail.com>
+Date: Mon, 31 Aug 2026 00:00:00 +0000
+Subject: [PATCH] isoInstaller: take bootmode and live from the media that
+ booted
+
+An interactive install from the 2.9 ISO on a legacy-BIOS VMware
+Workstation VM finishes and then the firmware finds no bootable disk: the
+GPT holds only the ESP and the root partition, sector 0 carries no boot
+code, /boot/grub2 has no i386-pc directory. The manifest records
+"bootmode": "efi". Since 1e80f1802 ("make EFI the default bootmode option
+also for x86") _add_defaults() sets bootmode to 'efi' when the
+configuration does not name one, the curses UI never names one, and
+nothing looks at the firmware that booted the media. 2.8 defaulted
+x86_64 to 'dualboot', which boots under both firmware types.
+
+The same install also runs with live=False: isoInstaller stamps live
+only on a non-empty kickstart configuration, and the UI configuration
+does not exist yet at that point. So the CD is not ejected (the VM boots
+the ISO again), efibootmgr is not run and /etc/machine-id stays
+uninitialized.
+
+Let the ISO installer hand its media defaults to Installer.configure(),
+which applies them with setdefault() once the configuration exists,
+whether it came from a kickstart or from the UI: live=True, and bootmode
+'efi' when /sys/firmware/efi exists or the machine is aarch64 (which has
+no BIOS boot), 'dualboot' otherwise. A kickstart that names bootmode or
+live keeps its value; image builds that call Installer.configure()
+without defaults are unchanged.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ photon_installer/installer.py    |  6 +++++-
+ photon_installer/isoInstaller.py | 22 ++++++++++++++--------
+ 2 files changed, 19 insertions(+), 9 deletions(-)
+
+diff --git a/photon_installer/installer.py b/photon_installer/installer.py
+index d1b4884..b3d27e6 100644
+--- a/photon_installer/installer.py
++++ b/photon_installer/installer.py
+@@ -172,7 +172,8 @@ class Installer(object):
+     """
+     create, append and validate configuration date - install_config
+     """
+-    def configure(self, install_config, ui_config=None):
++    def configure(self, install_config, ui_config=None, defaults=None):
++        self.media_defaults = dict(defaults or {})
+         # Initialize logger and cmd first
+         if not install_config:
+             # UI installation
+@@ -398,6 +399,9 @@ class Installer(object):
+         """
+         Add default install_config settings if not specified
+         """
++        for key, value in self.media_defaults.items():
++            install_config.setdefault(key, value)
++
+         # set arch to host's one if not defined
+         if install_config.get('arch', None) is None:
+             arch = platform.machine()
+diff --git a/photon_installer/isoInstaller.py b/photon_installer/isoInstaller.py
+index 6d1fcd4..2a9ead2 100644
+--- a/photon_installer/isoInstaller.py
++++ b/photon_installer/isoInstaller.py
+@@ -78,13 +78,12 @@ class IsoInstaller(object):
+         else:
+             install_config = self._load_ks_config_platform(verify=not insecure_installation)
+ 
+-        # 'live' should be True for iso installs. Only stamp it on an actual
+-        # (non-empty) kickstart config. For an interactive install the config
+-        # is empty here and must stay falsy, otherwise installer.configure()
+-        # ('if not install_config and ui_config') skips the UI configurator
+-        # and _check_install_config() fails with "No disk configured".
+-        if install_config and 'live' not in install_config:
+-            install_config['live'] = True
++        # defaults of an installation from this media; installer.configure()
++        # applies them to a kickstart and to the UI configuration alike
++        media_defaults = {
++            'live': True,
++            'bootmode': self._media_bootmode(),
++        }
+ 
+         if insecure_installation and install_config is not None:
+             install_config['insecure_repo'] = True
+@@ -107,11 +106,18 @@ class IsoInstaller(object):
+             installer = Installer(repo_paths=repo_paths, log_path="/var/log",
+                                   photon_release_version=options.photon_release_version)
+ 
+-            installer.configure(install_config, ui_config)
++            installer.configure(install_config, ui_config, media_defaults)
+             installer.execute()
+         except Exception as err:
+             raise Exception(f"Failed with error: {err}")
+ 
++    def _media_bootmode(self):
++        """'efi' when this media was booted through UEFI or runs on aarch64,
++        'dualboot' otherwise."""
++        if os.path.exists('/sys/firmware/efi') or os.uname().machine == 'aarch64':
++            return 'efi'
++        return 'dualboot'
++
+     def _load_ks_config_http(self, url, retries=5, timeout=3, verify=True):
+         # Do 5 trials to get the kick start
+         # TODO: make sure the installer runs after network is up
