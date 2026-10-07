@@ -33,3 +33,5 @@ Patch24: resolve-enforce-the-search-domain-limit-earlier.patch
 Patch25: resolve-limit-the-number-NTAs-to-something-sensible.patch
 Patch26: sd-bus-store-the-strv-size-when-extending-it.patch
 Patch27: sd-json-user-record-store-the-strv-size-when-extending-it.patch
+
+Patch28: sd-dhcp-client-broadcast-DHCPDECLINE-through-a-raw-socket.patch
