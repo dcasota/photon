@@ -1,0 +1,117 @@
+From a517b82e174853717e176a47e918ef5211633be0 Mon Sep 17 00:00:00 2001
+From: Daniel Casota <dcasota@gmail.com>
+Date: Wed, 7 Oct 2026 14:30:00 +0200
+Subject: [PATCH] sd-dhcp-client: broadcast DHCPDECLINE through a raw socket
+ and format it per RFC 2131
+
+systemd-networkd probes a DHCPv4 address with IPv4 ACD before it
+configures it (address_is_ready_to_configure() requires
+ipv4acd_bound()). On a conflict, dhcp4_address_on_conflict() calls
+sd_dhcp_client_send_decline(), which sent the DECLINE through client->fd:
+in the BOUND state that is the UDP socket bound (IP_FREEBIND) to the
+leased address. The address is not on the link, the kernel has no route,
+sendto() fails with ENETUNREACH, and the function returns before the
+client is stopped and restarted. No DHCPDECLINE reaches the server and
+no other address is requested, although SendDecline=yes.
+
+The message was also malformed for RFC 2131 Table 5: the declined
+address was carried in 'ciaddr' instead of the Requested IP Address
+option, the Server Identifier option was missing, and a Parameter
+Request List was appended. dnsmasq, for example, drops a DHCPDECLINE
+without Server Identifier or Requested IP Address (rfc2131.c, case
+DHCPDECLINE).
+
+Open a raw socket for the message and broadcast it like DISCOVER, as
+RFC 2131 section 4.4.4 requires; the raw socket does not depend on the
+declined address being configured. Carry the address in option 50, add
+option 54, keep 'ciaddr' zero, and append the Parameter Request List
+only to DISCOVER and REQUEST. RELEASE handling and the stop-and-restart
+after the DECLINE are unchanged.
+
+Adaptation to systemd 253 of the DECLINE part of upstream commit
+6eaa5ba32231290971823d0ddf73bc712c384bcc ("sd-dhcp-client: several
+fixlets for sending RELEASE or DECLINE", v260)
+https://github.com/systemd/systemd/commit/6eaa5ba32231290971823d0ddf73bc712c384bcc
+and of the on-demand raw socket of dhcp_client_send_raw() from upstream
+commit 16d08897bbe1c6c9357bf1a845dd3efe2a5fd316 ("sd-dhcp-client: open
+socket when necessary and close it when unnecessary", v261)
+https://github.com/systemd/systemd/commit/16d08897bbe1c6c9357bf1a845dd3efe2a5fd316
+Neither cherry-picks onto 253.19; the PRL condition line is
+byte-identical to 6eaa5ba322. Related: systemd issue #39460
+https://github.com/systemd/systemd/issues/39460
+
+The raw socket is opened per DECLINE and closed on return. A failure to
+open it or to send is returned before the stop-and-restart, as upstream
+does, and networkd logs it as "Failed to send DHCP DECLINE, ignoring".
+---
+ src/libsystemd-network/sd-dhcp-client.c | 39 ++++++++++++++++++-------
+ 1 file changed, 28 insertions(+), 11 deletions(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index e482450..91cc82a 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -850,7 +850,7 @@ static int client_message_init(
+            MAY contain the Parameter Request List option. */
+         /* NOTE: in case that there would be an option to do not send
+          * any PRL at all, the size should be checked before sending */
+-        if (!set_isempty(client->req_opts) && type != DHCP_RELEASE) {
++        if (!set_isempty(client->req_opts) && IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST)) {
+                 _cleanup_free_ uint8_t *opts = NULL;
+                 size_t n_opts, i = 0;
+                 void *val;
+@@ -2084,27 +2084,44 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
+         assert_return(sd_dhcp_client_is_running(client), -ESTALE);
+         assert_return(client->lease, -EUNATCH);
+ 
+-        _cleanup_free_ DHCPPacket *release = NULL;
++        _cleanup_free_ DHCPPacket *decline = NULL;
++        _cleanup_close_ int fd = -EBADF;
+         size_t optoffset, optlen;
+         int r;
+ 
+-        r = client_message_init(client, &release, DHCP_DECLINE, &optlen, &optoffset);
++        r = client_message_init(client, &decline, DHCP_DECLINE, &optlen, &optoffset);
+         if (r < 0)
+                 return r;
+ 
+-        release->dhcp.ciaddr = client->lease->address;
+-        memcpy(&release->dhcp.chaddr, client->hw_addr.bytes, client->hw_addr.length);
++        r = dhcp_option_append(&decline->dhcp, optlen, &optoffset, 0,
++                               SD_DHCP_OPTION_REQUESTED_IP_ADDRESS,
++                               4, &client->lease->address);
++        if (r < 0)
++                return r;
+ 
+-        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
++        r = dhcp_option_append(&decline->dhcp, optlen, &optoffset, 0,
++                               SD_DHCP_OPTION_SERVER_IDENTIFIER,
++                               4, &client->lease->server_address);
++        if (r < 0)
++                return r;
++
++        r = dhcp_option_append(&decline->dhcp, optlen, &optoffset, 0,
+                                SD_DHCP_OPTION_END, 0, NULL);
+         if (r < 0)
+                 return r;
+ 
+-        r = dhcp_network_send_udp_socket(client->fd,
+-                                         client->lease->server_address,
+-                                         DHCP_PORT_SERVER,
+-                                         &release->dhcp,
+-                                         sizeof(DHCPMessage) + optoffset);
++        fd = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
++                                          &client->hw_addr, &client->bcast_addr,
++                                          client->arp_type, client->port,
++                                          client->socket_priority_set, client->socket_priority);
++        if (fd < 0)
++                return fd;
++
++        dhcp_packet_append_ip_headers(decline, INADDR_ANY, client->port,
++                                      INADDR_BROADCAST, DHCP_PORT_SERVER,
++                                      sizeof(DHCPPacket) + optoffset, client->ip_service_type);
++
++        r = dhcp_network_send_raw_socket(fd, &client->link, decline, sizeof(DHCPPacket) + optoffset);
+         if (r < 0)
+                 return r;
+ 
