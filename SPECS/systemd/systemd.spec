@@ -53,6 +53,8 @@ Patch: 0002-Fetch-dns-servers-from-environment.patch
 Patch: 0003-systemd-do-not-use-ftrivial-auto-var-init-zero.patch
 Patch: 0004-Remove-unused-default-groups-rules-and-tmpfiles.patch
 Patch: 0005-default-conf-modifications.patch
+Patch: 0006-network-drop-pending-requests.patch
+Patch: 0007-sd-dhcp-client-broadcast-DHCPDECLINE-through-a-raw-socket.patch
 
 # /lib/systemd/system/tmp.mount is owned by this package and is not marked as
 # a config file, so it must be hardened here, at build time. The installer
@@ -709,8 +711,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
-* Mon Aug 31 2026 Daniel Casota <dcasota@gmail.com> 257.13-6
-- Fix groups, STIG variant; ship subpackage files once
+* Wed Oct 07 2026 Daniel Casota <dcasota@gmail.com> 257.13-6
+- Fix groups, STIG variant, subpackage files; networkd pending requests, DHCPDECLINE
 * Mon Jun 08 2026 Bo Gan <bo.gan@broadcom.com> 257.13-5
 - Migrate from pcre to pcre2
 * Wed Jun 03 2026 Harinadh Dommaraju <Harinadh.Dommaraju@broadcom.com> 257.13-4
