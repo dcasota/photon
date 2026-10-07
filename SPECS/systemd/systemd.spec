@@ -55,6 +55,8 @@ Patch: 0002-Fetch-dns-servers-from-environment.patch
 Patch: 0003-systemd-do-not-use-ftrivial-auto-var-init-zero.patch
 Patch: 0004-Remove-unused-default-groups-rules-and-tmpfiles.patch
 Patch: 0005-default-conf-modifications.patch
+Patch: 0006-network-drop-pending-requests.patch
+Patch: 0007-sd-dhcp-client-broadcast-DHCPDECLINE-through-a-raw-socket.patch
 
 # /lib/systemd/system/tmp.mount is owned by this package and is not marked as
 # a config file, so it must be hardened here, at build time. The installer
@@ -714,7 +716,7 @@ udevadm hwdb --update &>/dev/null || :
 
 %changelog
 * Sun Nov 01 2026 Daniel Casota <dcasota@gmail.com> 257.13-7
-- Fix groups, STIG variant; ship subpackage files once
+- Fix groups, STIG variant, subpackage files; backport networkd DHCPv4 fixes
 * Sat Oct 31 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 257.13-6
 - Add RPM file triggers so units marked by %%systemd_postun_with_restart
   are actually restarted at transaction end
