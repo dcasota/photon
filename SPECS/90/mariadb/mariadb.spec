@@ -3,7 +3,7 @@
 Summary:          Database servers made by the original developers of MySQL.
 Name:             mariadb
 Version:          11.4.13
-Release:          0.1%{?dist}
+Release:          0.2%{?dist}
 Group:            Applications/Databases
 Vendor:           VMware, Inc.
 Distribution:     Photon
@@ -141,6 +141,14 @@ install -D -m 644 %{SOURCE2} %{buildroot}%{_presetdir}/50-%{name}.preset
 rm %{buildroot}%{_sbindir}/rcmysql \
    %{buildroot}%{_libdir}/*.a
 
+# These Perl tools connect through DBD::mysql or DBD::MariaDB (DBI->connect
+# with "DBI:mysql:" or "DBI:MariaDB:"), and Photon ships neither driver: they
+# could only fail ("install_driver(mysql) failed: Can't locate DBD/mysql.pm").
+for t in %{name}-setpermission mysql_setpermission %{name}-hotcopy mysqlhotcopy \
+         %{name}-convert-table-format mysql_convert_table_format mytop; do
+  rm %{buildroot}%{_bindir}/${t} %{buildroot}%{_mandir}/man1/${t}.1*
+done
+
 %if 0%{?with_check}
 %check
 make -C %{__cmake_builddir} test %{?_smp_mflags}
@@ -187,7 +195,6 @@ rm -rf %{buildroot}
 %{_bindir}/%{name}-client-test
 %{_bindir}/%{name}-client-test-embedded
 %{_bindir}/%{name}-conv
-%{_bindir}/%{name}-convert-table-format
 %{_bindir}/%{name}-dump
 %{_bindir}/%{name}-dumpslow
 %{_bindir}/%{name}-embedded
@@ -195,14 +202,11 @@ rm -rf %{buildroot}
 %{_bindir}/%{name}-fix-extensions
 %{_bindir}/%{name}-import
 %{_bindir}/%{name}-plugin
-%{_bindir}/%{name}-setpermission
 %{_bindir}/%{name}-show
 %{_bindir}/%{name}-slap
 %{_bindir}/%{name}-test
 %{_bindir}/%{name}-test-embedded
 %{_bindir}/%{name}-upgrade
-%{_bindir}/mariadbd-safe
-%{_bindir}/mariadbd-safe-helper
 %{_bindir}/msql2mysql
 %{_bindir}/mysql
 %{_bindir}/mysql_find_rows
@@ -220,13 +224,10 @@ rm -rf %{buildroot}
 %{_bindir}/mysql_client_test
 %{_bindir}/mysql_client_test_embedded
 %{_bindir}/mysql_config
-%{_bindir}/mysql_convert_table_format
 %{_bindir}/mysql_embedded
 %{_bindir}/mysql_fix_extensions
-%{_bindir}/mysql_setpermission
 %{_bindir}/mysqltest
 %{_bindir}/mysqltest_embedded
-%{_bindir}/mytop
 %{_bindir}/perror
 %{_bindir}/%{name}-waitpid
 %{_datadir}/mysql/charsets/*
@@ -242,13 +243,11 @@ rm -rf %{buildroot}
 %{_mandir}/man1/mysql_client_test.1.gz
 %{_mandir}/man1/mysql_client_test_embedded.1.gz
 %{_mandir}/man1/mysql_config.1.gz
-%{_mandir}/man1/mysql_convert_table_format.1.gz
 %{_mandir}/man1/mysqldump.1.gz
 %{_mandir}/man1/mysqldumpslow.1.gz
 %{_mandir}/man1/mysql_find_rows.1.gz
 %{_mandir}/man1/mysql_fix_extensions.1.gz
 %{_mandir}/man1/mysql_plugin.1.gz
-%{_mandir}/man1/mysql_setpermission.1.gz
 %{_mandir}/man1/mysqlshow.1.gz
 %{_mandir}/man1/mysqlslap.1.gz
 %{_mandir}/man1/mysql-stress-test.pl.1.gz
@@ -267,20 +266,16 @@ rm -rf %{buildroot}
 %{_mandir}/man1/mysql_embedded.1.gz
 %{_mandir}/man1/%{name}-embedded.1.gz
 %{_mandir}/man1/%{name}-conv.1.gz
-%{_mandir}/man1/%{name}-convert-table-format.1.gz
 %{_mandir}/man1/%{name}-dump.1.gz
 %{_mandir}/man1/%{name}-dumpslow.1.gz
 %{_mandir}/man1/%{name}-find-rows.1.gz
 %{_mandir}/man1/%{name}-fix-extensions.1.gz
 %{_mandir}/man1/%{name}-import.1.gz
 %{_mandir}/man1/%{name}-plugin.1.gz
-%{_mandir}/man1/%{name}-setpermission.1.gz
 %{_mandir}/man1/%{name}-show.1.gz
 %{_mandir}/man1/%{name}-slap.1.gz
 %{_mandir}/man1/%{name}-test.1.gz
 %{_mandir}/man1/%{name}-waitpid.1.gz
-%{_mandir}/man1/mariadbd-safe-helper.1.gz
-%{_mandir}/man1/mariadbd-safe.1.gz
 %dir %{_sysconfdir}/my.cnf.d
 %config(noreplace) %{_sysconfdir}/my.cnf.d/s3.cnf
 %config(noreplace) %{_sysconfdir}/my.cnf.d/spider.cnf
@@ -289,9 +284,17 @@ rm -rf %{buildroot}
 %exclude %{_datadir}/mysql/bench
 %exclude %{_datadir}/mysql/test
 %exclude %{_datadir}/doc/%{name}-%{version}/*
+%{_bindir}/my_print_defaults
+%{_bindir}/replace
+%{_mandir}/man1/my_print_defaults.1.gz
+%{_mandir}/man1/replace.1.gz
 
 %files server
 %defattr(-,root,root)
+%{_bindir}/mariadbd-safe
+%{_bindir}/mariadbd-safe-helper
+%{_mandir}/man1/mariadbd-safe-helper.1.gz
+%{_mandir}/man1/mariadbd-safe.1.gz
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
 %config(noreplace) %{_sysconfdir}/my.cnf
 %config(noreplace) %{_sysconfdir}/my.cnf.d/client.cnf
@@ -305,7 +308,6 @@ rm -rf %{buildroot}
 %{_libdir}/mysql/plugin*
 %{_bindir}/%{name}-install-db
 %{_bindir}/%{name}-backup
-%{_bindir}/%{name}-hotcopy
 %{_bindir}/aria_chk
 %{_bindir}/aria_dump_log
 %{_bindir}/aria_ftdump
@@ -331,9 +333,6 @@ rm -rf %{buildroot}
 %{_bindir}/%{name}-upgrade
 %{_bindir}/mysqld_safe_helper
 %{_bindir}/mysqldumpslow
-%{_bindir}/mysqlhotcopy
-%{_bindir}/my_print_defaults
-%{_bindir}/replace
 %{_bindir}/resolve_stack_dump
 %{_bindir}/resolveip
 %{_bindir}/wsrep_sst_common
@@ -372,18 +371,15 @@ rm -rf %{buildroot}
 %{_mandir}/man1/myisam_ftdump.1.gz
 %{_mandir}/man1/myisamlog.1.gz
 %{_mandir}/man1/myisampack.1.gz
-%{_mandir}/man1/my_print_defaults.1.gz
 %{_mandir}/man1/my_safe_process.1.gz
 %{_mandir}/man1/mysqld_multi.1.gz
 %{_mandir}/man1/mysqld_safe.1.gz
 %{_mandir}/man1/mysqld_safe_helper.1.gz
-%{_mandir}/man1/mysqlhotcopy.1.gz
 %{_mandir}/man1/mysqlimport.1.gz
 %{_mandir}/man1/mysql_upgrade.1.gz
 %{_mandir}/man1/mysql_install_db.1.gz
 %{_mandir}/man1/mysql.server.1.gz
 %{_mandir}/man1/%{name}-install-db.1.gz
-%{_mandir}/man1/replace.1.gz
 %{_mandir}/man1/resolveip.1.gz
 %{_mandir}/man1/resolve_stack_dump.1.gz
 %{_mandir}/man1/wsrep_sst_common.1.gz
@@ -396,13 +392,11 @@ rm -rf %{buildroot}
 %{_mandir}/man1/wsrep_sst_rsync_wan.1.gz
 %{_mandir}/man1/%{name}-admin.1.gz
 %{_mandir}/man1/%{name}-backup.1.gz
-%{_mandir}/man1/%{name}-hotcopy.1.gz
 %{_mandir}/man1/%{name}-tzinfo-to-sql.1.gz
 %{_mandir}/man1/%{name}-upgrade.1.gz
 %{_mandir}/man1/%{name}.1.gz
 %{_mandir}/man1/mariadb_config.1.gz
 %{_mandir}/man1/mariadbd-multi.1.gz
-%{_mandir}/man1/mytop.1.gz
 %{_mandir}/man1/%{name}-secure-installation.1.gz
 %{_mandir}/man1/wsrep_sst_backup.1.gz
 %{_mandir}/man8/*
@@ -452,6 +446,8 @@ rm -rf %{buildroot}
 %{_datadir}/mysql/*/errmsg.sys
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 11.4.13-0.2
+- Ship client and server tools with their packages
 * Wed Oct 07 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 11.4.13-0.1
 - Upgrade to v11.4.13
 * Mon May 18 2026 Shivani Agarwal <shivani.agarwal@broadcom.com> 11.4.10-2.1
