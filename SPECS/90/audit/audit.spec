@@ -5,7 +5,7 @@
 Summary:        Kernel Audit Tool
 Name:           audit
 Version:        3.0.9
-Release:        27.1.1%{?dist}
+Release:        27.1.2%{?dist}
 Group:          System Environment/Security
 URL:            http://people.redhat.com/sgrubb/audit
 Vendor:         VMware, Inc.
@@ -170,6 +170,8 @@ systemctl daemon-reload
 %{python3_sitelib}/*
 
 %changelog
+* Mon Oct 05 2026 Daniel Casota <dcasota@gmail.com> 3.0.9-27.1.2
+- audit.STIG.rules: raise the audit backlog to 8192
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.0.9-27.1.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 3.0.9-27.1

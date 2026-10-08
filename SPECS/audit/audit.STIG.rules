@@ -4,9 +4,12 @@
 # First rule - delete all
 -D
 
-# Increase the buffers to survive stress events.
-# Make this bigger for busy systems
--b 640
+# Increase the buffers to survive stress events (8192, as audit's own
+# 10-base-config.rules sample). With 640, one rpm transaction of a few
+# hundred files overflows the queue under the perm_mod rules below and the
+# kernel drops records (audit_lost). -f is left at the kernel default 1
+# (printk): a site that must halt on a lost record sets -f 2 itself.
+-b 8192
 
 # PHTN-50-000003 audit useradd/groupadd commands
 -a always,exit -F path=/usr/sbin/useradd -F perm=x -F key=useradd
