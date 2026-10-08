@@ -3,7 +3,7 @@
 Summary:        Open Source Security Compliance Solution
 Name:           openscap
 Version:        1.3.6
-Release:        15.1.1%{?dist}
+Release:        15.1.2%{?dist}
 URL:            https://www.open-scap.org
 Group:          System Environment/Libraries
 Vendor:         VMware, Inc.
@@ -86,7 +86,8 @@ Python bindings.
     -DCMAKE_INSTALL_PREFIX=%{_prefix} \
     -DCMAKE_INSTALL_LIBDIR:PATH=%{_libdir} \
     -DENABLE_PERL=ON \
-    -DENABLE_SCE=ON
+    -DENABLE_SCE=ON \
+    -DENABLE_OSCAP_UTIL_DOCKER=OFF
 
 %cmake_build
 
@@ -125,6 +126,8 @@ Python bindings.
 %{_libdir}/python%{python3_version}/*
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 1.3.6-15.1.2
+- Build without oscap-docker
 * Sat May 16 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.3.6-15.1.1
 - Bump after moving to SPECS/90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 1.3.6-15.1
