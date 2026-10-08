@@ -3,7 +3,7 @@
 Summary:        Open Source Security Compliance Solution
 Name:           openscap
 Version:        1.3.14
-Release:        1.3%{?dist}
+Release:        1.4%{?dist}
 URL:            https://www.open-scap.org
 Group:          System Environment/Libraries
 Vendor:         VMware, Inc.
@@ -45,6 +45,9 @@ Requires:       libacl
 Requires:       pcre2-libs
 Requires:       xmlsec1
 
+# openscap-python3 carried only oscap-docker's module, which is no longer built
+Obsoletes:      %{name}-python3 < %{version}-%{release}
+
 %description
 SCAP is a multi-purpose framework of specifications that supports automated configuration,
 vulnerability and patch checking, technical control compliance activities, and security measurement.
@@ -67,15 +70,6 @@ Requires:       %{name} = %{version}-%{release}
 %description    perl
 Perl scripts.
 
-%package        python3
-Summary:        %{name} python
-Group:          Development/Libraries
-Requires:       %{name} = %{version}-%{release}
-Requires:       python3
-
-%description    python3
-Python bindings.
-
 %prep
 %autosetup -p1
 
@@ -86,14 +80,13 @@ Python bindings.
     -DCMAKE_INSTALL_LIBDIR:PATH=%{_libdir} \
     -DWITH_PCRE2=ON \
     -DENABLE_PERL=ON \
-    -DENABLE_SCE=ON
+    -DENABLE_SCE=ON \
+    -DENABLE_OSCAP_UTIL_DOCKER=OFF
 
 %cmake_build
 
 %install
 %cmake_install
-
-%{py_byte_compile_and_ghost}
 
 %if 0%{?_with_check}
 %check
@@ -122,11 +115,9 @@ Python bindings.
 %defattr(-,root,root)
 %{_libdir}/perl5/*
 
-%files python3 -f %{py_ghost_filelist}
-%defattr(-,root,root)
-%{python3_sitelib}
-
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 1.3.14-1.4
+- Build without oscap-docker; drop openscap-python3
 * Mon Jun 08 2026 Bo Gan <bo.gan@broadcom.com> 1.3.14-1.3
 - Migrate from pcre to pcre2
 * Wed Jun 03 2026 Harinadh Dommaraju <Harinadh.Dommaraju@broadcom.com> 1.3.14-1.2
