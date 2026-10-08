@@ -3,7 +3,7 @@
 Summary:        Programs for monitoring processes
 Name:           procps-ng
 Version:        4.0.4
-Release:        4.1.1%{?dist}
+Release:        4.1.2%{?dist}
 URL:            https://sourceforge.net/projects/procps-ng
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -96,7 +96,6 @@ rm -rf %{buildroot}
 %{_bindir}/pidwait
 %{_sbindir}/sysctl
 %{_sbindir}/pidof
-%_datadir/locale/*
 %{_docdir}/procps-ng-*/*
 %{_mandir}/man8/*
 %{_mandir}/man1/*
@@ -114,6 +113,8 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 4.0.4-4.1.2
+- Ship the translations only in procps-ng-lang
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 4.0.4-4.1.1
 - Adjusted to build for subrelease 90
 * Thu Feb 26 2026 Guruswamy Basavaiah <guruswamy.basavaiah@broadcom.com> 4.0.4-4.1
