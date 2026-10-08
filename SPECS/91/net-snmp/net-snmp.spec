@@ -6,7 +6,7 @@
 Summary:        Net-SNMP is a suite of applications used to implement SNMP v1, SNMP v2c and SNMP v3 using both IPv4 and IPv6.
 Name:           net-snmp
 Version:        5.9.5.2
-Release:        4.2%{?dist}
+Release:        4.3%{?dist}
 URL:            http://net-snmp.sourceforge.net
 Group:          Productivity/Networking/Other
 Vendor:         VMware, Inc.
@@ -79,6 +79,13 @@ install -m 0644 %{SOURCE2} %{buildroot}%{_unitdir}
 find %{buildroot}%{_libdir}/perl5/ -name Bundle -type d | xargs rm -rf
 find %{buildroot}%{_libdir}/perl5/ -name perllocal.pod | xargs rm -f
 
+# Two Perl tools need modules Photon OS does not ship, and can only fail:
+# tkmib, a Perl/Tk MIB browser ("ERROR:  You don't have the Tk module
+# installed."), and checkbandwidth, which uses Mail::Sender at compile time
+# ("Can't locate Mail/Sender.pm in @INC"). Do not ship them.
+rm %{buildroot}%{_bindir}/tkmib %{buildroot}%{_mandir}/man1/tkmib.1* \
+   %{buildroot}%{_bindir}/checkbandwidth
+
 # store a copy of installed Perl stuff.
 # This is based off the netsnmp github repo - https://github.com/net-snmp/net-snmp/blob/master/dist/net-snmp.spec
 (xxdir=${PWD} && cd %{buildroot} && find usr/lib*/perl5 -type f | sed 's/^/\//' > ${xxdir}/net-snmp-perl-files)
@@ -110,6 +117,12 @@ rm -rf %{buildroot}/*
 %defattr(-,root,root)
 %{_unitdir}/*.service
 %{_bindir}
+# Perl tools built on the NetSNMP modules ship with those modules
+%exclude %{_bindir}/mib2c
+%exclude %{_bindir}/mib2c-update
+%exclude %{_bindir}/snmp-bridge-mib
+# the agent, the trap daemon and the tools resolve names through the MIBs
+%{_datadir}/snmp/mibs
 %{_libdir}/*.so.*
 %{_sbindir}/*
 %{_datadir}/snmp/snmpconf-data/
@@ -123,18 +136,21 @@ rm -rf %{buildroot}/*
 %defattr(-,root,root)
 %{_includedir}
 %exclude %{_libdir}/*.la
-%{_libdir}/perl5
 %{_libdir}/*.so
 %{_libdir}/pkgconfig/*.pc
-%{_datadir}/snmp/mibs
-%{_datadir}/snmp/mib2c*
 %{_mandir}/man3/*
 
 %files perl -f net-snmp-perl-files
+%{_bindir}/mib2c
+%{_bindir}/mib2c-update
+%{_bindir}/snmp-bridge-mib
+%{_datadir}/snmp/mib2c*
 
 %exclude %{_libdir}/perl5/*/*/perllocal.pod
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 5.9.5.2-4.3
+- Ship MIBs with net-snmp, Perl tools with net-snmp-perl
 * Mon Jul 06 2026 Dweep Advani <dweep.advani@broadcom.com> 5.9.5.2-4.2
 - Bump for correcting linker cache for perl 5.42.2
 * Wed May 27 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 5.9.5.2-4.1
