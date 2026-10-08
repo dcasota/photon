@@ -1,0 +1,32 @@
+From: Daniel Casota <dcasota@gmail.com>
+Date: Sat, 3 Oct 2026 04:45:00 +0200
+Subject: [PATCH] grub-kbdcomp: define PACKAGE_NAME and PACKAGE_VERSION
+
+--version prints "$self (${PACKAGE_NAME}) ${PACKAGE_VERSION}", but unlike
+grub-mkconfig.in, grub-kbdcomp.in never sets the two variables, so it
+prints the program name with an empty package and version:
+
+  $ grub2-kbdcomp --version
+  grub2-kbdcomp ()
+
+Define them from configure, as grub-mkconfig.in does.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+ util/grub-kbdcomp.in | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/util/grub-kbdcomp.in b/util/grub-kbdcomp.in
+--- a/util/grub-kbdcomp.in
++++ b/util/grub-kbdcomp.in
+@@ -5,6 +5,8 @@ exec_prefix="@exec_prefix@"
+ bindir="@bindir@"
+ datarootdir="@datarootdir@"
+ datadir="@datadir@"
++PACKAGE_NAME=@PACKAGE_NAME@
++PACKAGE_VERSION=@PACKAGE_VERSION@
+ if [ "x$pkgdatadir" = x ]; then
+     pkgdatadir="${datadir}/@PACKAGE@"
+ fi
+-- 
+2.43.0

@@ -9,3 +9,6 @@ Patch1502: 0002-grub2-emu-fix-if-boot-as-partition.patch
 
 # Skip font file check in sb until we ship them in memdisk
 Patch1503: Revert-kern-efi-sb-Enforce-verification-of-font-file.patch
+
+# --version printed no package name or version
+Patch1504: 0001-grub-kbdcomp-define-PACKAGE_NAME-and-PACKAGE_VERSION.patch

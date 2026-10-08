@@ -5,7 +5,7 @@
 Summary:    GRand Unified Bootloader
 Name:       grub2
 Version:    2.12
-Release:    7%{?dist}
+Release:    8%{?dist}
 URL:        http://www.gnu.org/software/grub
 Group:      Applications/System
 Vendor:     VMware, Inc.
@@ -269,6 +269,8 @@ diff -sr install-for-efi%{_datarootdir} install-for-pc%{_datarootdir}
 %{_datarootdir}/locale/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 2.12-8
+- grub2-kbdcomp: define PACKAGE_NAME and PACKAGE_VERSION for --version
 * Sat Aug 15 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.12-7
 - Fix NULL pointer dereference and out-of-bounds argv access in
   grub-core/lib/cmdline.c
