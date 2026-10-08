@@ -4,7 +4,7 @@
 Summary:        Calico node and documentation for project calico.
 Name:           calico
 Version:        3.31.0
-Release:        2.1%{?dist}
+Release:        2.2%{?dist}
 URL:            https://github.com/projectcalico/calico
 Source0:        https://github.com/projectcalico/calico/archive/refs/tags/%{name}-%{version}.tar.gz
 
@@ -62,29 +62,33 @@ This is a Calico-specific version of confd. It is heavily modified from the orig
 %autosetup -p1 -n calico-%{version}
 
 %build
+# Every component prints its version from the buildinfo package; upstream's
+# lib.Makefile fills it in with -X, from `git describe` (v<version>).
+BUILDINFO="-X github.com/projectcalico/calico/pkg/buildinfo.Version=v%{version}"
+
 #node
 mkdir -p node/dist
-CGO_ENABLED=0 go build -v -o node/dist/calico-node ./node/cmd/calico-node/main.go
+CGO_ENABLED=0 go build -v -o node/dist/calico-node -ldflags "${BUILDINFO}" ./node/cmd/calico-node/main.go
 
 #cni
 mkdir -p cni-plugin/dist
-CGO_ENABLED=0 go build -v -o cni-plugin/dist/calico -ldflags "-X main.VERSION= -s -w" ./cni-plugin/cmd/calico
-CGO_ENABLED=0 go build -v -o cni-plugin/dist/calico-ipam -ldflags "-X main.VERSION= -s -w" ./cni-plugin/cmd/calico
-CGO_ENABLED=0 go build -v -o cni-plugin/dist/install -ldflags "-X main.VERSION= -s -w" ./cni-plugin/cmd/calico
+CGO_ENABLED=0 go build -v -o cni-plugin/dist/calico -ldflags "${BUILDINFO} -s -w" ./cni-plugin/cmd/calico
+CGO_ENABLED=0 go build -v -o cni-plugin/dist/calico-ipam -ldflags "${BUILDINFO} -s -w" ./cni-plugin/cmd/calico
+CGO_ENABLED=0 go build -v -o cni-plugin/dist/install -ldflags "${BUILDINFO} -s -w" ./cni-plugin/cmd/calico
 
 #felix
 mkdir -p felix/dist
 CGO_ENABLED=0 go build -v -o felix/dist/calico-felix -v \
-  -ldflags " -X github.com/projectcalico/felix/buildinfo.GitVersion=<unknown>" \
+  -ldflags "${BUILDINFO}" \
   ./felix/cmd/calico-felix
 
 #k8s-policy
 mkdir -p kube-controllers/dist
-CGO_ENABLED=0 go build -v -o kube-controllers/dist/controller -ldflags "-X main.VERSION=%{version}" ./kube-controllers/cmd/kube-controllers/
+CGO_ENABLED=0 go build -v -o kube-controllers/dist/controller -ldflags "${BUILDINFO}" ./kube-controllers/cmd/kube-controllers/
 
 #confd
 mkdir -p confd/dist
-CGO_ENABLED=0 go build -v -o confd/dist/confd ./confd/
+CGO_ENABLED=0 go build -v -o confd/dist/confd -ldflags "${BUILDINFO}" ./confd/
 
 %install
 #node
@@ -140,6 +144,8 @@ cp -r confd/etc/ %{buildroot}%{_sysconfdir}
 %config(noreplace) %{_sysconfdir}/calico
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 3.31.0-2.2
+- Build every component with its version
 * Tue May 26 2026 Mukul Sikka <mukul.sikka@broadcom.com> 3.31.0-2.1
 - Maintain for photon_subrelease <= 90
 * Wed Feb 04 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.31.0-2

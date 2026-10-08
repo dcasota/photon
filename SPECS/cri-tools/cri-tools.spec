@@ -5,7 +5,7 @@
 Summary:        CRI tools
 Name:           cri-tools
 Version:        1.36.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            https://github.com/kubernetes-incubator/cri-tools
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -33,7 +33,10 @@ rm vendor/github.com/opencontainers/go-digest/CONTRIBUTING.md
 %build
 
 %install
+# The Makefile takes VERSION from `git describe`; %%autosetup -Sgit makes a
+# repository of its own, so that would be its commit hash with -dirty.
 make install %{?_smp_mflags} \
+  VERSION=%{version} \
   BUILD_PATH=%{buildroot} \
   BUILD_BIN_PATH=%{buildroot}%{_bindir} \
 
@@ -51,6 +54,8 @@ make test-e2e %{?_smp_mflags}
 %exclude %{_bindir}/critest
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 1.36.0-2
+- Build crictl and critest with the package version
 * Thu May 21 2026 Mukul Sikka <mukul.sikka@broadcom.com> 1.36.0-1
 - Upgrade to v1.36.0
 * Wed Feb 04 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.34.0-2
