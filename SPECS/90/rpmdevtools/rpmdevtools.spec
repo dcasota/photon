@@ -2,7 +2,7 @@
 
 Name:       rpmdevtools
 Version:    9.6
-Release:    1.1.1%{?dist}
+Release:    1.1.2%{?dist}
 Summary:    RPM Development Tools
 URL:        https://pagure.io/rpmdevtools
 Vendor:         VMware, Inc.
@@ -25,8 +25,12 @@ BuildRequires: python3-devel
 BuildRequires: perl
 BuildRequires: python3-requests
 
+# rpminfo inspects ELF files with readelf and objdump (binutils) and with
+# eu-readelf (elfutils), and exits when any of them is missing
+Requires: binutils
 Requires: curl
 Requires: diffutils
+Requires: elfutils
 Requires: file
 Requires: findutils
 Requires: gawk
@@ -77,6 +81,8 @@ rm -rf %{buildroot}
 %{_datadir}/bash-completion/*
 
 %changelog
+* Fri Oct 09 2026 Daniel Casota <dcasota@gmail.com> 9.6-1.1.2
+- Require binutils and elfutils, whose tools rpminfo runs
 * Sat May 16 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 9.6-1.1.1
 - Bump after moving to SPECS/90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 9.6-1.1
