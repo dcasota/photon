@@ -3,7 +3,7 @@
 Summary:       Linux Containers File System
 Name:          lxcfs
 Version:       5.0.3
-Release:       6%{?dist}
+Release:       7%{?dist}
 URL:           https://linuxcontainers.org/lxcfs/downloads/
 Group:         System Environment/Libraries
 Vendor:        VMware, Inc.
@@ -15,6 +15,7 @@ Source1: license.txt
 %include %{SOURCE1}
 
 Patch0: 0001-lxcfs-meson_build-Fix-service.patch
+Patch1: 0002-lxcfs-service-use-fusermount3.patch
 
 BuildRequires: gcc
 BuildRequires: meson
@@ -66,6 +67,8 @@ rm -rf %{buildroot}
 %dir %{_sharedstatedir}/%{name}
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 5.0.3-7
+- lxcfs.service: unmount with fusermount3, the helper fuse3 ships
 * Thu May 21 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 5.0.3-6
 - Build with fuse3
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 5.0.3-5
