@@ -3,7 +3,7 @@
 Summary:          VerneMQ is a high-performance, distributed MQTT message broker
 Name:             vernemq
 Version:          2.1.0
-Release:          3.0.1%{?dist}
+Release:          3.0.2%{?dist}
 URL:              https://github.com/vernemq/vernemq
 Group:            Applications/System
 Vendor:           VMware, Inc.
@@ -166,6 +166,8 @@ rm -rf %{buildroot}
 %{_sysusersdir}/%{name}.conf
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 2.1.0-3.0.2
+- vernemq.service: a stop ends with run_erl status 1, accept it
 * Tue Aug 18 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.1.0-3.0.1
 - Sub branch for 90
 * Sat Jul 11 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.1.0-3
