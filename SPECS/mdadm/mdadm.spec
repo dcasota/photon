@@ -3,7 +3,7 @@
 Summary:    The mdadm program controls Linux md devices (software RAID arrays)
 Name:       mdadm
 Version:    4.6
-Release:    1%{?dist}
+Release:    2%{?dist}
 URL:        https://git.kernel.org/pub/scm/utils/mdadm/mdadm.git/about
 Group:      Applications/Utilities
 Vendor:     VMware, Inc.
@@ -15,6 +15,8 @@ Source1: license.txt
 %include %{SOURCE1}
 
 BuildRequires: systemd-devel
+BuildRequires: systemd-rpm-macros
+%{?systemd_requires}
 
 %description
 The mdadm program is used to create, manage, and monitor Linux MD (software
@@ -44,6 +46,12 @@ install -Dp -m 755 misc/mdcheck %{buildroot}%{_datadir}/%{name}/mdcheck
 %clean
 rm -rf %{buildroot}/*
 
+%preun
+%systemd_preun mdmonitor.service mdmonitor-oneshot.service mdmonitor-oneshot.timer mdcheck_start.service mdcheck_start.timer mdcheck_continue.service mdcheck_continue.timer
+
+%postun
+%systemd_postun mdmonitor.service mdmonitor-oneshot.service mdmonitor-oneshot.timer mdcheck_start.service mdcheck_start.timer mdcheck_continue.service mdcheck_continue.timer
+
 %files
 %defattr(-,root,root)
 %{_udevrulesdir}/*-md-*
@@ -57,6 +65,8 @@ rm -rf %{buildroot}/*
 %{_datadir}/%{name}/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 4.6-2
+- Stop the systemd units on erase
 * Wed May 06 2026 Keerthana K <keerthana.kalyanasundaram@broadcom.com> 4.6-1
 - Update to v4.6
 * Wed Feb 19 2025 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 4.4-1

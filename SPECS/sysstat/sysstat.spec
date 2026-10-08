@@ -1,7 +1,7 @@
 Summary:        The Sysstat package contains utilities to monitor system performance and usage activity
 Name:           sysstat
 Version:        12.7.2
-Release:        4%{?dist}
+Release:        5%{?dist}
 URL:            http://sebastien.godard.pagesperso-orange.fr/
 Group:          Development/Debuggers
 Vendor:         VMware, Inc.
@@ -13,7 +13,9 @@ Source1: license.txt
 Patch0:         sysstat.sysconfig.in.patch
 Patch1:         0001-Fix-an-overflow-which-is-still-possible-for-some-val.patch
 BuildRequires:  cronie
+BuildRequires:  systemd-rpm-macros
 Requires:       cronie
+%{?systemd_requires}
 Requires(pre):  (coreutils or coreutils-selinux)
 
 %description
@@ -62,10 +64,14 @@ if [[ $1 -eq 2 ]]; then
 fi
 
 %preun
+%systemd_preun sysstat.service sysstat-collect.timer sysstat-summary.timer sysstat-collect.service sysstat-summary.service
 if [[ $1 -eq 0 ]]; then
     # Remove sa logs if removing sysstat completely
     rm -rf %{_var}/log/sa/*
 fi
+
+%postun
+%systemd_postun sysstat.service sysstat-collect.timer sysstat-summary.timer sysstat-collect.service sysstat-summary.service
 
 %files -f %{name}.lang
 %defattr(-,root,root)
@@ -80,6 +86,8 @@ fi
 %{_var}/log/sa
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 12.7.2-5
+- Stop the systemd units on erase
 *   Thu Dec 12 2024 Dweep Advani <dweep.advani@broadcom.com> 12.7.2-4
 -   Release bump for SRP compliance
 *   Wed Oct 16 2024 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> - 12.7.2-3
