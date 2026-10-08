@@ -6,7 +6,7 @@
 Summary:        OpenLdap-2.6.4
 Name:           openldap
 Version:        2.6.4
-Release:        5.1.1%{?dist}
+Release:        5.1.2%{?dist}
 URL:            https://www.openldap.org
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -25,6 +25,7 @@ Source4: license.txt
 # https://www.linuxfromscratch.org/patches/blfs/svn
 Patch0: %{name}-%{version}-consolidated-1.patch
 Patch1: %{name}-add-export-symbols-LDAP_CONNECTIONLESS.patch
+Patch2: %{name}-ITS10130-check-getpassphrase-NULL-returns.patch
 
 Requires: openssl
 Requires: cyrus-sasl
@@ -185,6 +186,8 @@ rm -rf %{buildroot}/*
 %dir %attr(-,ldap,ldap) %{_sharedstatedir}/%{name}
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 2.6.4-5.1.2
+- Backport ITS#10130: tools fail cleanly without a password
 * Fri Jul 10 2026 Dweep Advani <dweep.advani@broadcom.com> 2.6.4-5.1.1
 - Subrelease to 90 while fixing linker cache issue in 91
 * Tue Feb 24 2026 Oliver Kurth <oliver.kurth@broadcom.com> 2.6.4-5
