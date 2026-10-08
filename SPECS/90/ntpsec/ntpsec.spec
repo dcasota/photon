@@ -3,7 +3,7 @@
 Summary:        Improved implementation of Network Time Protocol
 Name:           ntpsec
 Version:        1.2.3
-Release:        6.1.1%{?dist}
+Release:        6.1.2%{?dist}
 Group:          System Environment/NetworkingPrograms
 Vendor:         VMware, Inc.
 Distribution:   Photon
@@ -34,6 +34,9 @@ Requires:       glibc
 Requires:       openssl
 Requires:       libevent
 Requires:       systemd
+# ntpq, ntpdig (and ntpdate through it), ntptrace, ntpviz, ntpwait,
+# ntpsweep and ntpsnmpd import the ntp module
+Requires:       python3-ntp = %{version}-%{release}
 
 Conflicts:      ntp
 
@@ -78,7 +81,7 @@ echo 'ntpd.service' > %{buildroot}%{_libdir}/systemd/ntp-units.d/60-ntpd.list
 
 cat > %{buildroot}/etc/ntp.conf <<- "EOF"
 tinker panic 0
-restrict default kod nomodify notrap nopeer noquery
+restrict default kod nomodify noquery
 restrict 127.0.0.1
 restrict -6 ::1
 driftfile /var/lib/ntp/drift/ntp.drift
@@ -127,6 +130,8 @@ rm -rf %{buildroot}/*
 %{python3_sitearch}/ntp*
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 1.2.3-6.1.2
+- Require python3-ntp; drop ignored restrict flags
 * Thu May 14 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.2.3-6.1.1
 - Bump after moving to SPECS/90
 * Tue Feb 10 2026 Mukul Sikka <mukul.sikka@broadcom.com> 1.2.3-6.1
