@@ -1,7 +1,7 @@
 %global build_if %{photon_subrelease} >= 91
 Name:           apparmor
 Version:        4.1.6
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        AppArmor is an effective and easy-to-use Linux application security system.
 URL:            https://launchpad.net/apparmor
 Vendor:         VMware, Inc.
@@ -15,6 +15,7 @@ Source1: license.txt
 
 Patch0: 0001-apparmor-profile-fix-for-sbin.syslog-ng.patch
 Patch1: 0001-abi-4.0-adjust-for-kernel-6.12-feature-support.patch
+Patch2: 0001-aa-exec-terminate-the-long-option-array.patch
 
 BuildRequires: perl >= 5.42.2
 BuildRequires: python3-devel
@@ -332,6 +333,8 @@ rm -rf %{buildroot}
 %exclude %{perl_archlib}/perllocal.pod
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 4.1.6-5
+- aa-exec: terminate the long option array
 * Wed May 27 2026 Dweep Advani <dweep.advani@broadcom.com> 4.1.6-4
 - Release bump for perl 5.42.2
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 4.1.6-3

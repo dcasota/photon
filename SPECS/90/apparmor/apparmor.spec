@@ -1,7 +1,7 @@
 %global build_if %{photon_subrelease} <= 90
 Name:           apparmor
 Version:        3.1.2
-Release:        17.1.1%{?dist}
+Release:        17.1.2%{?dist}
 Summary:        AppArmor is an effective and easy-to-use Linux application security system.
 URL:            https://launchpad.net/apparmor
 Vendor:         VMware, Inc.
@@ -14,6 +14,7 @@ Source1: license.txt
 %include %{SOURCE1}
 
 Patch0: 0001-apparmor-profile-fix-for-sbin.syslog-ng.patch
+Patch1: 0001-aa-exec-terminate-the-long-option-array.patch
 
 BuildRequires: perl
 BuildRequires: python3-devel
@@ -329,6 +330,8 @@ rm -rf %{buildroot}
 %exclude %{perl_archlib}/perllocal.pod
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 3.1.2-17.1.2
+- aa-exec: terminate the long option array
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.1.2-17.1.1
 - Adjusted to build for subrelease 90
 * Fri Jan 30 2026 Keerthana K <keerthana.kalyanasundaram@broadcom.com> 3.1.2-17.1
