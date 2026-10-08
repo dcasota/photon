@@ -5,7 +5,7 @@
 Summary:        Vendor Package Management for Goland
 Name:           glide
 Version:        0.13.3
-Release:        23.1%{?dist}
+Release:        23.2%{?dist}
 URL:            https://github.com/Masterminds/glide
 Source0:        https://github.com/Masterminds/glide/archive/refs/tags/%{name}-%{version}.tar.gz
 
@@ -49,7 +49,6 @@ export GOPATH="${PWD}"
 export GO111MODULE=auto
 export GOFLAGS=-mod=vendor
 pushd src/%{gopath_comp_glide}
-make install %{?_smp_mflags}
 install -vdm 755 %{buildroot}%{_bindir}
 install -vpm 0755 -t %{buildroot}%{_bindir}/ ./glide
 popd
@@ -59,6 +58,8 @@ popd
 %{_bindir}/glide
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 0.13.3-23.2
+- Install the versioned binary that %%build made
 * Tue May 26 2026 Mukul Sikka <mukul.sikka@broadcom.com> 0.13.3-23.1
 - Maintain for photon_subrelease <= 90
 * Wed Feb 04 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 0.13.3-23
