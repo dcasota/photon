@@ -1,9 +1,26 @@
 %global build_if %{photon_subrelease} >= 92
 
+# The systemd units, grouped by what an upgrade does to them (as upstream's
+# libvirt.spec does): the daemons restart, virtlockd and virtlogd re-exec on
+# reload to keep the locks and logs of running guests, and libvirt-guests and
+# the one-shot units are left alone. %%install fails if this list and the units
+# meson installs ever differ.
+%global libvirt_restart_units libvirtd.service virtproxyd.service virtlxcd.service virtnetworkd.service virtnwfilterd.service virtsecretd.service virtstoraged.service virtvboxd.service
+%global libvirt_reload_units virtlockd.service virtlogd.service
+%global libvirt_socket_units libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket libvirtd-tcp.socket libvirtd-tls.socket virtproxyd.socket virtproxyd-ro.socket virtproxyd-admin.socket virtproxyd-tcp.socket virtproxyd-tls.socket virtlxcd.socket virtlxcd-ro.socket virtlxcd-admin.socket virtnetworkd.socket virtnetworkd-ro.socket virtnetworkd-admin.socket virtnwfilterd.socket virtnwfilterd-ro.socket virtnwfilterd-admin.socket virtsecretd.socket virtsecretd-ro.socket virtsecretd-admin.socket virtstoraged.socket virtstoraged-ro.socket virtstoraged-admin.socket virtvboxd.socket virtvboxd-ro.socket virtvboxd-admin.socket virtlockd.socket virtlockd-admin.socket virtlogd.socket virtlogd-admin.socket
+%global libvirt_other_units libvirt-guests.service virt-secret-init-encryption.service virt-guest-shutdown.target
+%global libvirt_units %{libvirt_socket_units} %{libvirt_restart_units} %{libvirt_reload_units} %{libvirt_other_units}
+
+# Seconds the erase may spend destroying the active virtual networks before
+# the units stop (worst case, independent of the number of networks): one
+# net-destroy stops a dnsmasq and removes a bridge and its firewall rules,
+# well under a second each, so 60 s only bounds a daemon that does not answer.
+%global libvirt_net_teardown_timeout 60
+
 Summary:        Virtualization API library that supports KVM, QEMU, Xen, ESX etc
 Name:           libvirt
 Version:        12.6.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://libvirt.org
 Group:          Virtualization/Libraries
 Vendor:         VMware, Inc.
@@ -58,7 +75,19 @@ Requires:       parted
 Requires:       python3
 Requires:       readline
 Requires:       systemd
+# the network driver runs dnsmasq for every virtual network
+Requires:       dnsmasq
+# the daemons read the host's SMBIOS data with dmidecode
+Requires:       dmidecode
+# libvirt-guests.sh sources gettext.sh
+Requires:       gettext
 Requires(pre):  shadow
+Requires(post):   systemd
+Requires(preun):  systemd
+# timeout bounds the network teardown on erase
+Requires(preun):  coreutils
+Requires(postun): systemd
+Requires(posttrans): systemd
 
 %description
 Libvirt is collection of software that provides a convenient way to manage
@@ -170,6 +199,15 @@ CONFIGURE_OPTS=(
 %{meson_install}
 install -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysusersdir}/%{name}.conf
 
+# the scriptlets must handle exactly the units meson installed
+built_units=$(cd %{buildroot}%{_unitdir} && ls -1 *.service *.socket *.target | sort)
+listed_units=$(printf '%s\n' %{libvirt_units} | sort)
+if [ "${built_units}" != "${listed_units}" ]; then
+  echo "systemd units installed but not in libvirt_units, or listed but not installed:"
+  printf '%s\n' ${built_units} ${listed_units} | sort | uniq -u
+  exit 1
+fi
+
 %if 0%{?with_check}
 %check
 %meson_test
@@ -181,9 +219,67 @@ rm -rf %{buildroot}/*
 %pre
 %sysusers_create_compat %{SOURCE2}
 
-%post -p /sbin/ldconfig
+%post
+/sbin/ldconfig
+%systemd_post %{libvirt_units}
 
-%postun -p /sbin/ldconfig
+%preun
+if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
+  # A virtual network outlives the daemon that started it (KillMode=process):
+  # stopping the units below would leave its bridge, its firewall rules and
+  # its dnsmasq running from deleted files. Destroy the active networks
+  # first, through the daemon that manages them.
+  active_networks=0
+  for status in %{_rundir}/%{name}/network/*.xml; do
+    [ -e "${status}" ] && active_networks=1
+    break
+  done
+  if [ ${active_networks} -eq 1 ]; then
+    # One deadline for the whole teardown, whatever the number of networks:
+    # a wedged daemon must not hang the erase.
+    deadline=$(( $(date +%%s) + %{libvirt_net_teardown_timeout} ))
+    warn() {
+      echo "libvirt: $*" >&2
+      echo "$*" | systemd-cat -t libvirt-erase -p warning || :
+    }
+    bounded() {
+      left=$(( deadline - $(date +%%s) ))
+      if [ ${left} -le 0 ]; then
+        warn "network teardown exceeded %{libvirt_net_teardown_timeout} s, skipped: $*"
+        return 1
+      fi
+      timeout ${left} "$@"
+    }
+    if systemctl -q is-active libvirtd.service; then
+      uri='network:///system?mode=legacy'
+    else
+      uri='network:///system?mode=direct'
+      bounded systemctl start virtnetworkd.service || warn "could not start virtnetworkd.service"
+    fi
+    networks=$(bounded virsh -q -c "${uri}" net-list --name) || warn "could not list the active networks through ${uri}"
+    printf '%%s\n' "${networks}" | while IFS= read -r net; do
+      [ -n "${net}" ] || continue
+      bounded virsh -q -c "${uri}" net-destroy "${net}" || warn "could not destroy network ${net}; its bridge and dnsmasq may remain"
+    done
+  fi
+fi
+%systemd_preun %{libvirt_units}
+
+%postun
+/sbin/ldconfig
+if [ $1 -eq 0 ] && [ -d /run/systemd/system ]; then
+  systemctl daemon-reload || :
+fi
+
+%posttrans
+# After an install or upgrade, restart what runs: the daemons would otherwise
+# keep running the replaced binaries. Done here, like upstream's libvirt.spec,
+# so that it does not depend on the scriptlets of the version upgraded from.
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload || :
+  systemctl try-restart %{libvirt_restart_units} || :
+  systemctl try-reload-or-restart %{libvirt_reload_units} || :
+fi
 
 %files
 %defattr(-,root,root)
@@ -205,9 +301,13 @@ rm -rf %{buildroot}/*
 %{_libexecdir}/%{name}*
 %exclude %{_libexecdir}/%{name}-ssh-proxy
 %{_libexecdir}/virt-login-shell-helper
-%{_sysconfdir}/%{name}/nwfilter/
+# libvirt rewrites the filters and the default network (it adds their UUIDs)
+# when it loads them: an upgrade must keep those files, or the daemon restarted
+# after it finds the running network under another UUID
+%dir %{_sysconfdir}/%{name}/nwfilter
+%config(noreplace) %{_sysconfdir}/%{name}/nwfilter/*.xml
 %{_sysconfdir}/%{name}/qemu/networks/autostart/default.xml
-%{_sysconfdir}/%{name}/qemu/networks/default.xml
+%config(noreplace) %{_sysconfdir}/%{name}/qemu/networks/default.xml
 %{_sysconfdir}/logrotate.d/*
 %{_sysusersdir}/%{name}*.conf
 
@@ -235,6 +335,8 @@ rm -rf %{buildroot}/*
 %{_datadir}/polkit-1/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 12.6.0-2
+- Require dnsmasq, dmidecode, gettext; add systemd scriptlets
 * Thu Aug 20 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 12.6.0-1
 - Upgrade to v12.6.0
 - Remove rpcsvc-proto dependency
