@@ -4,7 +4,7 @@
 Summary:        The Linux PTP Project
 Name:           linuxptp
 Version:        4.2
-Release:        2.1.1%{?dist}
+Release:        2.1.2%{?dist}
 Group:          Productivity/Networking/Other
 Url:            http://linuxptp.sourceforge.net/
 Source0:        %{name}-%{version}.tgz
@@ -17,6 +17,8 @@ Source6:        ts2phc
 
 Source7: license.txt
 %include %{SOURCE7}
+
+Patch0: 0001-phc2sys-exit-cleanly-when-stopped-while-waiting-for-ptp4l.patch
 Vendor:         VMware, Inc.
 Distribution:   Photon
 BuildRequires:  ethtool
@@ -109,6 +111,8 @@ rm -rf %{buildroot}
 %{_mandir}/man8/tz2alt.8.gz
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 4.2-2.1.2
+- phc2sys: exit cleanly when stopped while waiting for ptp4l
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 4.2-2.1.1
 - Adjusted to build for subrelease 90
 *   Thu Oct 30 2025 Ajay Kaher <ajay.kaher@broadcom.com> 4.2-2.1
