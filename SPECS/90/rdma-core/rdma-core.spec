@@ -3,7 +3,7 @@
 Summary:        RDMA Core Userspace Libraries and Daemons
 Name:           rdma-core
 Version:        42.0
-Release:        5.1.1%{?dist}
+Release:        5.1.2%{?dist}
 Group:          Applications/System
 URL:            https://github.com/linux-rdma/rdma-core
 Vendor:         VMware, Inc.
@@ -186,7 +186,7 @@ easy, object-oriented access to IB verbs.
         -DCMAKE_INSTALL_MANDIR:PATH=%{_mandir} \
         -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
         -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR:PATH=%{_unitdir} \
-        -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_libexecdir}/systemd \
+        -DCMAKE_INSTALL_SYSTEMD_BINDIR:PATH=%{_systemd_util_dir} \
         -DCMAKE_INSTALL_INITDDIR:PATH=%{_initddir} \
         -DCMAKE_INSTALL_RUNDIR:PATH=%{_rundir} \
         -DCMAKE_INSTALL_DOCDIR:PATH=%{_docdir}/%{name}-%{version} \
@@ -208,6 +208,17 @@ cd %{__cmake_builddir}
 # Remove init.d scripts
 rm -rf %{buildroot}%{_sysconfdir}/rc.d \
        %{buildroot}%{_sbindir}/srp_daemon.sh
+
+# rdma-load-modules@.service loads these lists with systemd-modules-load,
+# which logs an error for every module the running kernel does not have.
+# Photon OS's kernels are built without iSER, IPoIB and the OPA VNIC
+# (CONFIG_INFINIBAND_ISER, CONFIG_INFINIBAND_IPOIB and
+# CONFIG_INFINIBAND_OPA_VNIC are not set): comment those entries out.
+for m in rdma.conf:ib_iser infiniband.conf:ib_ipoib opa.conf:ib_ipoib opa.conf:opa_vnic; do
+  f=%{buildroot}%{_sysconfdir}/rdma/modules/${m%%:*}
+  sed -i "s/^${m#*:}$/# ${m#*:} (not built by Photon OS's kernels)/" ${f}
+  grep -qx "# ${m#*:} (not built by Photon OS's kernels)" ${f}
+done
 
 %if 0%{?with_check}
 %check
@@ -522,6 +533,8 @@ cd %{__cmake_builddir} && make %{?_smp_mflags} check
 %{python3_sitearch}/pyverbs
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 42.0-5.1.2
+- Fix the modules-load path; skip modules Photon lacks
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 42.0-5.1.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 42.0-5.1
