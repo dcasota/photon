@@ -6,7 +6,7 @@
 Summary:        Cassandra is a highly scalable, eventually consistent, distributed, structured key-value store
 Name:           cassandra
 Version:        4.0.10
-Release:        11%{?dist}
+Release:        12%{?dist}
 URL:            http://cassandra.apache.org/
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -82,12 +82,32 @@ mkdir -p %{buildroot}%{_localstatedir}/opt/%{name}/data \
 cp -pr conf/* %{buildroot}%{_sysconfdir}/%{name}
 
 rm -f bin/cqlsh bin/cqlsh.py
+# bin/stop-server is an example to read and adapt ("please read the
+# stop-server script before use"), with no #! line: not a command for
+# /usr/bin, where it would claim the generic name stop-server.
+mv bin/stop-server stop-server.example
 mv bin/%{name} %{buildroot}%{_sbindir}
 mv bin/%{name}.in.sh %{buildroot}%{_datadir}/%{name}/
+# Every script sources this include and, unless the environment says
+# otherwise, takes CASSANDRA_HOME from its own location (/usr/bin/..) and
+# CASSANDRA_CONF from $CASSANDRA_HOME/conf. Default to where this package
+# installs them; /etc/profile.d/%{name}.sh exports the same paths for login
+# shells only.
+sed -i \
+    -e 's|^    CASSANDRA_HOME="`dirname "$0"`/.."$|    CASSANDRA_HOME="%{_localstatedir}/opt/%{name}"|' \
+    -e 's|^    CASSANDRA_CONF="$CASSANDRA_HOME/conf"$|    CASSANDRA_CONF="%{_sysconfdir}/%{name}"|' \
+    %{buildroot}%{_datadir}/%{name}/%{name}.in.sh
+grep -q '^    CASSANDRA_HOME="%{_localstatedir}/opt/%{name}"$' %{buildroot}%{_datadir}/%{name}/%{name}.in.sh
+grep -q '^    CASSANDRA_CONF="%{_sysconfdir}/%{name}"$' %{buildroot}%{_datadir}/%{name}/%{name}.in.sh
+# tools/bin has its own cassandra.in.sh, which takes CASSANDRA_HOME from
+# /usr/bin/../.. and CASSANDRA_CONF from there: in /usr/bin, every script
+# would source it before the one above and find none of its classes. The tools
+# use the one above; their jars go to lib with the others.
+rm tools/bin/%{name}.in.sh
 cp -p bin/* tools/bin/* %{buildroot}%{_bindir}/
 cp -r lib build %{buildroot}%{_localstatedir}/opt/%{name}/
 
-cp -p build/tools/lib/stress.jar build/apache-%{name}-%{version}.jar %{buildroot}%{_localstatedir}/opt/%{name}/lib
+cp -p build/tools/lib/stress.jar build/tools/lib/fqltool.jar build/apache-%{name}-%{version}.jar %{buildroot}%{_localstatedir}/opt/%{name}/lib
 
 install -p -D -m 644 %{SOURCE1}  %{buildroot}%{_unitdir}/%{name}.service
 install -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysusersdir}/%{name}.conf
@@ -121,6 +141,7 @@ source %{_sysconfdir}/profile.d/%{name}.sh
 %files
 %defattr(-,root,root)
 %doc README.asc CHANGES.txt NEWS.txt conf/cqlshrc.sample LICENSE.txt NOTICE.txt
+%doc stop-server.example
 %dir %{_localstatedir}/opt/%{name}
 %{_bindir}/*
 %{_datadir}/%{name}
@@ -134,6 +155,8 @@ source %{_sysconfdir}/profile.d/%{name}.sh
 %exclude %{_localstatedir}/opt/%{name}/build/lib
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 4.0.10-12
+- Fix the tools' home paths; ship fqltool.jar in lib
 * Sat Aug 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 4.0.10-11
 - Extend to build for 91 and above
 * Tue Aug 11 2026 Ankit Jain <ankit-aj.jain@broadcom.com> 4.0.10-10
