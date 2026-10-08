@@ -4,7 +4,7 @@
 Summary:        Contains the GNU compiler collection
 Name:           gcc
 Version:        12.5.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 URL:            http://gcc.gnu.org
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -27,6 +27,10 @@ Requires:       libgcc-atomic = %{version}-%{release}
 Requires:       libgfortran-devel = %{version}-%{release}
 Requires:       libquadmath-devel = %{version}-%{release}
 Requires:       gmp
+# The driver runs as and ld for every object it produces, and links against
+# the C library's startup files and headers.
+Requires:       binutils
+Requires:       glibc-devel
 
 %if 0%{?with_check}
 BuildRequires:  dejagnu
@@ -328,6 +332,8 @@ GFORTRAN_SUM_FILE=host-%{_host}/gcc/testsuite/gfortran/gfortran.sum
 %endif
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 12.5.0-2
+- Require binutils and glibc-devel
 * Sat Aug 08 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 12.5.0-1
 - Upgrade to 12.5
 - Move libssp into the libssp subpackage
