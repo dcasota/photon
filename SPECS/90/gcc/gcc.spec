@@ -5,7 +5,7 @@
 Summary:        Contains the GNU compiler collection
 Name:           gcc
 Version:        12.2.0
-Release:        9.1.1%{?dist}
+Release:        9.1.2%{?dist}
 URL:            http://gcc.gnu.org
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -24,6 +24,10 @@ Requires:       libgcc-devel = %{version}-%{release}
 Requires:       libgomp-devel = %{version}-%{release}
 Requires:       libgcc-atomic = %{version}-%{release}
 Requires:       gmp
+# The driver runs as and ld for every object it produces, and links against
+# the C library's startup files and headers.
+Requires:       binutils
+Requires:       glibc-devel
 
 %if 0%{?with_check}
 BuildRequires:  autogen
@@ -251,6 +255,8 @@ GFORTRAN_SUM_FILE=host-%{_host}/gcc/testsuite/gfortran/gfortran.sum
 %{_lib64dir}/libgomp.spec
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 12.2.0-9.1.2
+- Require binutils and glibc-devel
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 12.2.0-9.1.1
 - Adjusted to build for subrelease 90
 * Thu Mar 19 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 12.2.0-9.1
