@@ -3,7 +3,7 @@
 Summary:       Modular initramfs image creation utility
 Name:          mkinitcpio
 Version:       34
-Release:       4.1.1%{?dist}
+Release:       4.1.2%{?dist}
 URL:           https://projects.archlinux.org/mkinitcpio.git/
 Group:         System Environment/Development
 Vendor:        VMware, Inc.
@@ -37,6 +37,9 @@ for i in "hooks/*" init shutdown; do
   sed -i "s/\#\!\/usr\/bin\/ash/\#\!\/bin\/bash/" $i
 done
 sed -i "s/a2x/a2x3 --verbose --no-xmllint/" Makefile
+# The Makefile reads the version from VERSION, which only a release tarball
+# carries, else from git describe; the snapshot tarball has neither.
+echo %{version} > VERSION
 
 %make_build
 
@@ -54,6 +57,8 @@ sed -i "s/a2x/a2x3 --verbose --no-xmllint/" Makefile
 %{_datadir}/*
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 34-4.1.2
+- Build with the version: mkinitcpio and lsinitcpio printed none
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 34-4.1.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 34-4.1
