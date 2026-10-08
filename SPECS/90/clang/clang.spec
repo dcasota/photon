@@ -5,7 +5,7 @@
 Summary:        C, C++, Objective C and Objective C++ front-end for the LLVM compiler.
 Name:           clang
 Version:        18.1.8
-Release:        2.1.1%{?dist}
+Release:        2.1.2%{?dist}
 URL:            http://clang.llvm.org
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -100,6 +100,8 @@ rm -rf %{buildroot}/*
 %{_libexecdir}/*
 %{_libdir}/*.so.*
 %{_datadir}/*
+%{python3_sitelib}/libear
+%{python3_sitelib}/libscanbuild
 
 %files devel
 %defattr(-,root,root)
@@ -107,10 +109,10 @@ rm -rf %{buildroot}/*
 %{_libdir}/cmake/*
 %{_libdir}/clang/*
 %{_includedir}/*
-%{python3_sitelib}/libear
-%{python3_sitelib}/libscanbuild
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 18.1.8-2.1.2
+- Ship libscanbuild and libear with clang
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 18.1.8-2.1.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 18.1.8-2.1
