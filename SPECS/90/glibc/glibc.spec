@@ -6,7 +6,7 @@
 Summary:        Main C library
 Name:           glibc
 Version:        2.36
-Release:        23.1.2%{?dist}
+Release:        23.1.3%{?dist}
 URL:            http://www.gnu.org/software/libc
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -268,6 +268,15 @@ grep "^FAIL: nptl/tst-eintr1" tests.sum >/dev/null && n=$((n+1)) ||:
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
 
+# A package that installs or removes a shared object in a trusted directory
+# gets it into, or out of, the linker cache whether or not its own spec runs
+# ldconfig: once per transaction, after every package of it.
+%transfiletriggerin -P 2000000 -- /lib /lib64 /usr/lib /usr/lib64
+/sbin/ldconfig
+
+%transfiletriggerpostun -P 2000000 -- /lib /lib64 /usr/lib /usr/lib64
+/sbin/ldconfig
+
 %posttrans iconv
 %{_sbindir}/iconvconfig
 
@@ -366,6 +375,8 @@ fi
 %defattr(-,root,root)
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 2.36-23.1.3
+- Refresh the linker cache with a file trigger
 * Fri May 22 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.36-23.1.2
 - Sync with branch, fix cves
 - Fix CVE-2026-5928, CVE-2026-5450
