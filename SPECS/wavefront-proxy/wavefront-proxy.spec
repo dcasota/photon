@@ -2,7 +2,7 @@
 Summary:          lightweight java application to send metrics to.
 Name:             wavefront-proxy
 Version:          13.4
-Release:          6%{?dist}
+Release:          7%{?dist}
 URL:              https://github.com/wavefrontHQ/java
 Group:            Development/Tools
 Vendor:           VMware, Inc.
@@ -45,6 +45,9 @@ After=network.target
 PIDFile=/var/run/%{name}.pid
 ExecStart=/usr/bin/java -Xmx4G -Xms1G -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager -Dlog4j.configurationFile=/etc/wavefront/%{name}/log4j2.xml -jar "/opt/wavefront-push-agent.jar" -f /etc/wavefront/%{name}/wavefront.conf
 ExecStop=/bin/kill -HUP \$MAINPID
+# the JVM ends with 128 + signal after running its shutdown hooks: 129 for
+# the SIGHUP above, 143 for systemd's SIGTERM
+SuccessExitStatus=129 143
 Restart=on-failure
 
 [Install]
@@ -127,6 +130,8 @@ rm -rf %{buildroot}/*
 %{_sysusersdir}/%{name}.conf
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 13.4-7
+- wavefront-proxy.service: a stop ends with status 129, accept it
 * Thu Aug 21 2025 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 13.4-6
 - Disable jacoco plugin
 - Update license
