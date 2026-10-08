@@ -3,7 +3,7 @@
 Summary:        Improved implementation of Network Time Protocol
 Name:           ntpsec
 Version:        1.2.3
-Release:        17%{?dist}
+Release:        18%{?dist}
 Group:          System Environment/NetworkingPrograms
 Vendor:         VMware, Inc.
 Distribution:   Photon
@@ -37,6 +37,9 @@ Requires:       libevent
 Requires:       libcap-libs
 Requires:       systemd
 Requires:       %{name}-minimal = %{version}-%{release}
+# ntpq, ntpdig (and ntpdate through it), ntptrace, ntpviz, ntpwait,
+# ntpsweep and ntpsnmpd import the ntp module
+Requires:       python3-ntp = %{version}-%{release}
 
 Provides: ntp
 Obsoletes: ntp
@@ -91,7 +94,7 @@ echo 'ntpd.service' > %{buildroot}%{_libdir}/systemd/ntp-units.d/60-ntpd.list
 
 cat > %{buildroot}/etc/ntp.conf <<- "EOF"
 tinker panic 0
-restrict default kod nomodify notrap nopeer noquery
+restrict default kod nomodify noquery
 restrict 127.0.0.1
 restrict -6 ::1
 driftfile /var/lib/ntp/ntp.drift
@@ -124,7 +127,7 @@ rm -rf %{buildroot}/*
 %dir %{_sysconfdir}/logrotate.d
 %attr(644,root,root) %config(noreplace) %{_sysconfdir}/ntp.conf
 %attr(644,root,root) %config(noreplace) %{_sysconfdir}/logrotate.d/ntpsec.conf
-%attr(644,ntp,ntp) %{_sharedstatedir}/ntp/ntp.drift
+%ghost %attr(644,ntp,ntp) %{_sharedstatedir}/ntp/ntp.drift
 %exclude %{_bindir}/ntptime
 %{_bindir}/ntp*
 %{_sbindir}/ntp*
@@ -145,6 +148,8 @@ rm -rf %{buildroot}/*
 %{python3_sitearch}/ntp*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 1.2.3-18
+- Require python3-ntp; drop ignored restrict flags; ghost driftfile
 * Sat Aug 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 1.2.3-17
 - Extend to build for 91 and above
 * Mon Aug 03 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.2.3-16
