@@ -4,7 +4,7 @@
 Summary:       jq is a lightweight and flexible command-line JSON processor.
 Name:          jq
 Version:       1.8.1
-Release:       4%{?dist}
+Release:       5%{?dist}
 Group:         Applications/System
 Vendor:        VMware, Inc.
 URL:           https://github.com/stedolan/jq
@@ -55,6 +55,10 @@ rm -d vendor/oniguruma
 # The vendor/oniguruma is not populated in the source tarball, populate it here.
 tar -xf %{SOURCE1}
 mv oniguruma-%{onig_ver} vendor/oniguruma
+# configure.ac takes the version from scripts/version, which asks git; the
+# source tree is not a git checkout, so jq would report "jq-" with no version.
+sed -i 's|m4_esyscmd_s(\[scripts/version\])|[%{version}]|' configure.ac
+grep -q '^m4_define(\[jq_version\], \[%{version}\])' configure.ac
 
 %build
 autoreconf -fiv
@@ -95,6 +99,8 @@ rm -rf %{buildroot}/*
 %{_includedir}/*
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 1.8.1-5
+- Report the version: jq --version printed "jq-"
 * Tue Jun 16 2026 Mukul Sikka <mukul.sikka@broadcom.com> 1.8.1-4
 - Fix CVE-2026-40612, CVE-2026-41256, CVE-2026-41257, CVE-2026-43894,
 - CVE-2026-43895, CVE-2026-43896, CVE-2026-44777

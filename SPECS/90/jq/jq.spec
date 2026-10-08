@@ -3,7 +3,7 @@
 Summary:       jq is a lightweight and flexible command-line JSON processor.
 Name:          jq
 Version:       1.8.1
-Release:       2.1%{?dist}
+Release:       2.2%{?dist}
 Group:         Applications/System
 Vendor:        VMware, Inc.
 URL:           https://github.com/stedolan/jq
@@ -42,6 +42,10 @@ Development files for jq
 
 %prep
 %autosetup -p1 -n %{name}-%{name}-%{version}
+# configure.ac takes the version from scripts/version, which asks git; the
+# source tree is not a git checkout, so jq would report "jq-" with no version.
+sed -i 's|m4_esyscmd_s(\[scripts/version\])|[%{version}]|' configure.ac
+grep -q '^m4_define(\[jq_version\], \[%{version}\])' configure.ac
 
 %build
 autoreconf -fiv
@@ -76,6 +80,8 @@ rm -rf %{buildroot}/*
 %{_includedir}/*
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 1.8.1-2.2
+- Report the version: jq --version printed "jq-"
 * Mon Jun 01 2026 Bo Gan <bo.gan@broadcom.com> 1.8.1-2.1
 - Bump after moving to SPECS/90
 * Fri Apr 17 2026 Mukul Sikka <mukul.sikka@broadcom.com> 1.8.1-2
