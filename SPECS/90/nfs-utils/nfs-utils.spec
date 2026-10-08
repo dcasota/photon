@@ -3,7 +3,7 @@
 Summary:          NFS client utils
 Name:             nfs-utils
 Version:          2.6.2
-Release:          11.1.1%{?dist}
+Release:          11.1.2%{?dist}
 URL:              http://sourceforge.net/projects/nfs
 Group:            Applications/Nfs-utils-client
 Vendor:           VMware, Inc.
@@ -135,7 +135,9 @@ make check %{?_smp_mflags}
 %systemd_post nfs-server.service
 
 %preun
-%systemd_preun nfs-server.service
+# every unit the package ships that can be running, so an erase leaves no
+# daemon (rpc.statd) running and no nfsd or rpc_pipefs mount behind
+%systemd_preun nfs-server.service nfs-mountd.service nfs-idmapd.service rpc-statd.service rpc-statd-notify.service rpc-svcgssd.service nfs-client.service nfs-client.target rpc_pipefs.target var-lib-nfs-rpc_pipefs.mount proc-fs-nfsd.mount
 
 %postun
 /sbin/ldconfig
@@ -178,6 +180,8 @@ rm -rf %{buildroot}/*
 %{_libdir}/libnfsidmap.so
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 2.6.2-11.1.2
+- Stop every unit of the package on erase
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.6.2-11.1.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 2.6.2-11.1
