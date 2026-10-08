@@ -3,7 +3,7 @@
 Name:           WALinuxAgent
 Summary:        The Windows Azure Linux Agent
 Version:        2.9.1.1
-Release:        2.1.1%{?dist}
+Release:        2.1.2%{?dist}
 Group:          System/Daemons
 Url:            https://github.com/Azure/WALinuxAgent
 Vendor:         VMware, Inc.
@@ -55,6 +55,10 @@ mkdir -p %{buildroot}%{_var}/log \
          %{buildroot}%{_var}/log
 
 mkdir -p -m 0700 %{buildroot}%{_sharedstatedir}/waagent
+
+# waagent2.0 is upstream's legacy agent for distributions still on Python 2;
+# it does not compile with Python 3 and nothing here runs it.
+rm %{buildroot}%{_bindir}/waagent2.0
 touch %{buildroot}%{_var}/opt/waagent/log/waagent.log
 ln -sfv /opt/waagent/log/waagent.log %{buildroot}%{_var}/log/waagent.log
 
@@ -75,7 +79,6 @@ rm -rf %{buildroot}
 %{_unitdir}/*
 %defattr(0644,root,root,0755)
 %attr(0755,root,root) %{_bindir}/waagent
-%attr(0755,root,root) %{_bindir}/waagent2.0
 %config(noreplace) %{_sysconfdir}/waagent.conf
 %dir %{_var}/opt/waagent/log
 %{_var}/log/waagent.log
@@ -84,6 +87,8 @@ rm -rf %{buildroot}
 %{python3_sitelib}/*
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 2.9.1.1-2.1.2
+- Do not ship waagent2.0, the legacy Python 2 agent
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.9.1.1-2.1.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 2.9.1.1-2.1
