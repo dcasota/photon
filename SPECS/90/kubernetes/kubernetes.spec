@@ -15,7 +15,7 @@
 Summary:        Kubernetes cluster management
 Name:           kubernetes
 Version:        1.34.1
-Release:        2.1%{?dist}
+Release:        2.2%{?dist}
 URL:            https://github.com/kubernetes/kubernetes/archive/v%{version}.tar.gz
 Group:          Development/Tools
 Vendor:         VMware, Inc.
@@ -102,7 +102,11 @@ make WHAT="cmd/cloud-controller-manager" %{?_smp_mflags}
 
 pushd build/pause
 mkdir -p bin
-gcc -Os -Wall -Werror -static -o bin/pause-%{archname} linux/pause.c
+# pause.c prints VERSION, which build/pause/Makefile sets from its TAG
+# (-DVERSION=v$(TAG)-$(REV), REV from git); without it the binary says HEAD.
+pause_tag=$(sed -n 's/^TAG ?= *//p' Makefile)
+test -n "${pause_tag}"
+gcc -Os -Wall -Werror -static -DVERSION=v${pause_tag} -o bin/pause-%{archname} linux/pause.c
 strip bin/pause-%{archname}
 popd
 
@@ -246,6 +250,8 @@ fi
 %{_bindir}/pause-%{archname}
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 1.34.1-2.2
+- Build pause with its version from build/pause/Makefile
 * Tue May 26 2026 Mukul Sikka <mukul.sikka@broadcom.com> 1.34.1-2.1
 - Maintain for photon_subrelease <= 90
 * Wed Feb 04 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.34.1-2
