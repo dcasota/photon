@@ -2,7 +2,7 @@
 Summary:        Tool for static C/C++ code analysis
 Name:           cppcheck
 Version:        2.9.3
-Release:        4.1%{?dist}
+Release:        4.2%{?dist}
 URL:            https://cppcheck.sourceforge.io
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -32,6 +32,8 @@ errors in the code (i.e. have zero false positives).
 %package addons
 Summary: Add-ons package for Cppcheck.
 Requires: python3
+# cppcheck-htmlreport highlights sources with pygments
+Requires: python3-Pygments
 Requires: %{name} = %{version}-%{release}
 
 %description addons
@@ -67,6 +69,8 @@ make checkcfg %{?_smp_mflags}
 %{_datadir}/%{name}/addons/*
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 2.9.3-4.2
+- cppcheck-addons: require python3-Pygments for cppcheck-htmlreport
 * Wed Jun 03 2026 Harinadh Dommaraju <Harinadh.Dommaraju@broadcom.com> 2.9.3-4.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 2.9.3-4

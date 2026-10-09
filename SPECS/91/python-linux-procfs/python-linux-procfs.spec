@@ -6,7 +6,7 @@
 
 Name:           python3-linux-procfs
 Version:        0.7.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Group:          Development/Languages/Python
 Vendor:         VMware, Inc.
 Distribution:   Photon
@@ -28,6 +28,7 @@ BuildRequires: python3-six
 %endif
 
 Requires:      python3
+Requires:      python3-six
 
 %description
 Abstractions to extract information from the Linux kernel /proc files.
@@ -54,6 +55,8 @@ LANG=en_US.UTF-8 python3 bitmasklist_test.py
 %license COPYING
 
 %changelog
+* Fri Oct 09 2026 Daniel Casota <dcasota@gmail.com> 0.7.0-6
+- Require python3-six, which the procfs module imports
 * Mon May 18 2026 Brennan Lamoreaux <brennan.lamoreaux@broadcom.com> 0.7.0-5
 - Remove deprecated python3-defusedxml from BuildRequires
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 0.7.0-4

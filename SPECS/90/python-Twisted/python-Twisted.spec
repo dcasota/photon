@@ -6,7 +6,7 @@
 Summary:        An asynchronous networking framework written in Python
 Name:           python3-Twisted
 Version:        24.7.0
-Release:        1.1.1%{?dist}
+Release:        1.1.2%{?dist}
 Group:          Development/Languages/Python
 Vendor:         VMware, Inc.
 Distribution:   Photon
@@ -48,6 +48,9 @@ Requires: python3-attrs
 Requires: python3-PyHamcrest
 Requires: python3-service_identity >= 18.1.0
 Requires: python3-typing-extensions
+# conch, cftp and ckeygen (the conch extra) need bcrypt and cryptography
+Requires: python3-bcrypt
+Requires: python3-cryptography
 
 %description
 Twisted is an event-driven networking engine written in Python and licensed under the open source ​MIT
@@ -92,6 +95,8 @@ rm -rf %{buildroot}
 %{_bindir}/cftp*
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 24.7.0-1.1.2
+- Require python3-bcrypt and python3-cryptography for the conch tools
 * Fri May 22 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 24.7.0-1.1.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 24.7.0-1.1

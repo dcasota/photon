@@ -3,7 +3,7 @@
 Summary:         Multithreaded IO generation tool
 Name:            fio
 Version:         3.33
-Release:         6.1.1%{?dist}
+Release:         6.1.2%{?dist}
 Group:           Applications/System
 Vendor:          VMware, Inc.
 Distribution:    Photon
@@ -22,6 +22,9 @@ BuildRequires:   make
 BuildRequires:   libaio-devel
 Requires:        libaio
 Requires:        zlib
+# fio2gnuplot and fio_jsonplus_clat2csv are Python scripts importing six
+Requires:        python3
+Requires:        python3-six
 Recommends:      %{name}-engine-libaio
 Recommends:      %{name}-engine-http
 
@@ -66,6 +69,9 @@ sh ./configure --disable-optimizations --dynamic-libengines
 
 %install
 %make_install prefix=%{_prefix} mandir=%{_mandir}
+# fiologparser_hist.py imports pandas, which Photon OS does not ship
+rm %{buildroot}%{_bindir}/fiologparser_hist.py \
+   %{buildroot}%{_mandir}/man1/fiologparser_hist.py.1
 
 %files
 %defattr(-,root,root)
@@ -87,6 +93,8 @@ sh ./configure --disable-optimizations --dynamic-libengines
 %{_mandir}/man1/*
 
 %changelog
+* Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 3.33-6.1.2
+- Require python3-six; drop fiologparser_hist.py, which needs pandas
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.33-6.1.1
 - Adjusted to build for subrelease 90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 3.33-6.1
