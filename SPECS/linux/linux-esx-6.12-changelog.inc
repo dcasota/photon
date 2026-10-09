@@ -1,6 +1,6 @@
 %changelog
 * Thu Oct 08 2026 Daniel Casota <dcasota@gmail.com> 6.12.112-2
-- Share canister/.config handling via canister_config.inc
+- Share canister_config.inc; %%ghost the files depmod generates
 * Tue Oct 06 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 6.12.112-1
 - Update to version 6.12.112
 * Wed Sep 30 2026 Srinidhi Rao <srinidhi.rao@broadcom.com> 6.12.111-3
