@@ -1,0 +1,105 @@
+From 33e2ce6a419a3698e4c9943d78c372c78acaeb2e Mon Sep 17 00:00:00 2001
+From: Daniel Casota <dcasota@gmail.com>
+Date: Wed, 7 Oct 2026 13:23:49 +0200
+Subject: [PATCH] sd-dhcp-client: broadcast DHCPDECLINE through a raw socket
+ and format it per RFC 2131
+
+Adaptation for 257.13 of the DECLINE part of upstream commit
+6eaa5ba32231290971823d0ddf73bc712c384bcc ("sd-dhcp-client: several
+fixlets for sending RELEASE or DECLINE", v260)
+https://github.com/systemd/systemd/commit/6eaa5ba32231290971823d0ddf73bc712c384bcc
+plus the on-demand raw socket of dhcp_client_send_raw() from upstream
+commit 16d08897bbe1c6c9357bf1a845dd3efe2a5fd316 ("sd-dhcp-client: open
+socket when necessary and close it when unnecessary", v261)
+https://github.com/systemd/systemd/commit/16d08897bbe1c6c9357bf1a845dd3efe2a5fd316
+Neither cherry-picks onto 257.13 (no client_send_release_or_decline(),
+no dhcp-client-send.c); the PRL condition line is byte-identical to
+6eaa5ba322.
+
+In 257.13 the DECLINE was sent through client->fd, which in the BOUND
+state is a UDP socket bound to the leased address. The declined address is not
+configured on the link (IPv4 ACD rejected it), so the send failed with
+ENETUNREACH and the client was never restarted. Send the DECLINE as a
+broadcast through a raw socket, carry the declined address in the
+Requested IP Address option instead of ciaddr (RFC 2131 section 4.4.4 and
+table 5: DHCPDECLINE is broadcast, ciaddr stays zero), add the Server Identifier
+option, and do not append a Parameter Request List to RELEASE/DECLINE.
+
+The raw socket is opened per DECLINE and closed on return. A failure to
+open it or to send is returned before the restart, as upstream does, and
+networkd logs it as "Failed to send DHCP DECLINE, ignoring".
+---
+ src/libsystemd-network/sd-dhcp-client.c | 39 +++++++++++++++++-------
+ 1 file changed, 28 insertions(+), 11 deletions(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index 7a89966..ab07b9d 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -847,7 +847,7 @@ static int client_message_init(
+            MAY contain the Parameter Request List option. */
+         /* NOTE: in case that there would be an option to do not send
+          * any PRL at all, the size should be checked before sending */
+-        if (!set_isempty(client->req_opts) && type != DHCP_RELEASE) {
++        if (!set_isempty(client->req_opts) && IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST)) {
+                 _cleanup_free_ uint8_t *opts = NULL;
+                 size_t n_opts, i = 0;
+                 void *val;
+@@ -2259,30 +2259,47 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
+ }
+ 
+ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
+-        _cleanup_free_ DHCPPacket *release = NULL;
++        _cleanup_free_ DHCPPacket *decline = NULL;
++        _cleanup_close_ int fd = -EBADF;
+         size_t optoffset, optlen;
+         int r;
+ 
+         if (!sd_dhcp_client_is_running(client) || !client->lease)
+                 return 0; /* do nothing */
+ 
+-        r = client_message_init(client, &release, DHCP_DECLINE, &optlen, &optoffset);
++        r = client_message_init(client, &decline, DHCP_DECLINE, &optlen, &optoffset);
+         if (r < 0)
+                 return r;
+ 
+-        release->dhcp.ciaddr = client->lease->address;
+-        memcpy(&release->dhcp.chaddr, client->hw_addr.bytes, client->hw_addr.length);
++        r = dhcp_option_append(&decline->dhcp, optlen, &optoffset, 0,
++                               SD_DHCP_OPTION_REQUESTED_IP_ADDRESS,
++                               4, &client->lease->address);
++        if (r < 0)
++                return r;
+ 
+-        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
++        r = dhcp_option_append(&decline->dhcp, optlen, &optoffset, 0,
++                               SD_DHCP_OPTION_SERVER_IDENTIFIER,
++                               4, &client->lease->server_address);
++        if (r < 0)
++                return r;
++
++        r = dhcp_option_append(&decline->dhcp, optlen, &optoffset, 0,
+                                SD_DHCP_OPTION_END, 0, NULL);
+         if (r < 0)
+                 return r;
+ 
+-        r = dhcp_network_send_udp_socket(client->fd,
+-                                         client->lease->server_address,
+-                                         client->server_port,
+-                                         &release->dhcp,
+-                                         sizeof(DHCPMessage) + optoffset);
++        fd = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
++                                          &client->hw_addr, &client->bcast_addr,
++                                          client->arp_type, client->port,
++                                          client->socket_priority_set, client->socket_priority);
++        if (fd < 0)
++                return fd;
++
++        dhcp_packet_append_ip_headers(decline, INADDR_ANY, client->port,
++                                      INADDR_BROADCAST, client->server_port,
++                                      sizeof(DHCPPacket) + optoffset, client->ip_service_type);
++
++        r = dhcp_network_send_raw_socket(fd, &client->link, decline, sizeof(DHCPPacket) + optoffset);
+         if (r < 0)
+                 return r;
+ 
