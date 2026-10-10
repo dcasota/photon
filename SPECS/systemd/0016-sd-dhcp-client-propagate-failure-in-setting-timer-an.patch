@@ -1,0 +1,34 @@
+From b831cd00e6777b32b08cc1848b5ff9c6c981f128 Mon Sep 17 00:00:00 2001
+From: Yu Watanabe <watanabe.yu+github@gmail.com>
+Date: Sun, 19 Apr 2026 08:37:53 +0900
+Subject: [PATCH] sd-dhcp-client: propagate failure in setting timer and
+ stop the client
+
+If we fail to setup timer event sources about the lease lifetime or
+T1/T2, then the lease will be never updated, and the user (networkd)
+will not receive any notification about the expire. The situation is
+terrible. Let's stop the client with error code earlier, and notify the
+failure to networkd.
+
+[Adapted to 257.13: the same change in client_enter_bound_now(), whose
+message reads "could not set lease timeouts".]
+
+https://github.com/systemd/systemd/commit/b831cd00e6777b32b08cc1848b5ff9c6c981f128
+(cherry picked from commit b831cd00e6777b32b08cc1848b5ff9c6c981f128)
+---
+ src/libsystemd-network/sd-dhcp-client.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index 5fa30958cf..66374ba8ab 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -1878,7 +1878,7 @@ static int client_enter_bound_now(sd_dhcp_client *client, int notify_event) {
+ 
+         r = client_set_lease_timeouts(client);
+         if (r < 0)
+-                log_dhcp_client_errno(client, r, "could not set lease timeouts: %m");
++                return log_dhcp_client_errno(client, r, "could not set lease timeouts: %m");
+ 
+         r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port, client->ip_service_type);
+         if (r < 0)
