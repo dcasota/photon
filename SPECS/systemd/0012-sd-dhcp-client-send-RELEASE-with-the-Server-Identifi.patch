@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Daniel Casota <dcasota@gmail.com>
+Date: Sat, 10 Oct 2026 07:46:35 +0200
+Subject: [PATCH] sd-dhcp-client: send RELEASE with the Server Identifier
+ option
+
+Adaptation for 257.13 of the RELEASE part of upstream commit
+6eaa5ba32231290971823d0ddf73bc712c384bcc ("sd-dhcp-client: several
+fixlets for sending RELEASE or DECLINE", v260)
+https://github.com/systemd/systemd/commit/6eaa5ba32231290971823d0ddf73bc712c384bcc
+The DECLINE part is in
+0007-sd-dhcp-client-broadcast-DHCPDECLINE-through-a-raw-socket.patch; the
+upstream commit does not cherry-pick, it merges both into
+client_send_release_or_decline(), which uses dhcp_client_send_raw() (v261).
+
+RFC 2131 table 5: a DHCPRELEASE MUST carry the Server Identifier option.
+Without it a server may ignore the release and keep the lease bound until
+it expires. Also drop the redundant copy of chaddr, which
+client_message_init() already sets, and log failures in the sender.
+
+Fixes #39299.
+---
+ src/libsystemd-network/sd-dhcp-client.c | 40 ++++++++++++-------------
+ 1 file changed, 20 insertions(+), 20 deletions(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index ba453f2c48..1a28bbbcc5 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -2242,24 +2242,29 @@ static int client_send_release(sd_dhcp_client *client) {
+ 
+         assert(client);
+ 
+-        if (!client->send_release)
+-                return 0; /* disabled */
+-
+-        if (!client->lease)
+-                return 0; /* there is nothing to be released */
++        if (!sd_dhcp_client_is_running(client) || !client->lease)
++                return 0; /* there is nothing to release */
+ 
+         r = client_message_init(client, &release, DHCP_RELEASE, &optlen, &optoffset);
+         if (r < 0)
+-                return r;
++                return log_dhcp_client_errno(client, r, "Failed to initialize DHCP RELEASE message: %m");
+ 
+-        /* Fill up release IP and MAC */
++        /* See RFC 2131, Table 5. On release, the acquired address must be set in ciaddr. */
+         release->dhcp.ciaddr = client->lease->address;
+-        memcpy(&release->dhcp.chaddr, client->hw_addr.bytes, client->hw_addr.length);
+ 
+-        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
+-                               SD_DHCP_OPTION_END, 0, NULL);
++        /* The server identifier must be set. */
++        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, /* overload= */ 0,
++                               SD_DHCP_OPTION_SERVER_IDENTIFIER,
++                               4, &client->lease->server_address);
+         if (r < 0)
+-                return r;
++                return log_dhcp_client_errno(
++                                client, r,
++                                "Failed to append Server Identifier option to DHCP RELEASE message: %m");
++
++        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, /* overload= */ 0,
++                               SD_DHCP_OPTION_END, /* optlen= */ 0, /* optval= */ NULL);
++        if (r < 0)
++                return log_dhcp_client_errno(client, r, "Failed to finalize DHCP RELEASE message: %m");
+ 
+         r = dhcp_network_send_udp_socket(client->fd,
+                                          client->lease->server_address,
+@@ -2267,10 +2272,10 @@ static int client_send_release(sd_dhcp_client *client) {
+                                          &release->dhcp,
+                                          sizeof(DHCPMessage) + optoffset);
+         if (r < 0)
+-                return r;
++                return log_dhcp_client_errno(client, r, "Failed to send DHCP RELEASE message: %m");
+ 
+         log_dhcp_client(client, "RELEASE");
+-        return 0;
++        return 1; /* sent */
+ }
+ 
+ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
+@@ -2330,20 +2335,15 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
+ }
+ 
+ int sd_dhcp_client_stop(sd_dhcp_client *client) {
+-        int r;
+-
+         if (!client)
+                 return 0;
+ 
+         DHCP_CLIENT_DONT_DESTROY(client);
+ 
+-        r = client_send_release(client);
+-        if (r < 0)
+-                log_dhcp_client_errno(client, r,
+-                                      "Failed to send DHCP release message, ignoring: %m");
++        if (client->send_release)
++                (void) client_send_release(client);
+ 
+         client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
+-
+         return 0;
+ }
+ 
