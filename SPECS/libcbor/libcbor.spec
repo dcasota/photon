@@ -1,7 +1,7 @@
 Summary:        A CBOR parsing C library
 Name:           libcbor
 Version:        0.9.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            http://libcbor.org
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -31,8 +31,12 @@ Requires:       %{name} = %{version}-%{release}
 %autosetup -p1
 
 %build
+# A Debug build compiles at -O0 with DEBUG defined and, with libcbor's
+# SANITIZE option on by default, links ASan and UBSan into the shipped
+# library and into everything that loads it.
 %cmake \
-    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DSANITIZE=OFF \
     -DCMAKE_INSTALL_LIBDIR=%{_libdir}
 
 %cmake_build
@@ -57,6 +61,8 @@ Requires:       %{name} = %{version}-%{release}
 %{_libdir}/pkgconfig/%{name}.pc
 
 %changelog
+* Sat Oct 03 2026 Daniel Casota <dcasota@gmail.com> 0.9.0-4
+- Build the release configuration instead of Debug
 * Wed Dec 11 2024 Mukul Sikka <mukul.sikka@broadcom.com> 0.9.0-3
 - Release bump for SRP compliance
 * Tue Jun 14 2022 Shreenidhi Shedi <sshedi@vmware.com> 0.9.0-2
