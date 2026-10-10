@@ -55,6 +55,15 @@ Patch: 0004-Remove-unused-default-groups-rules-and-tmpfiles.patch
 Patch: 0005-default-conf-modifications.patch
 Patch: 0006-network-drop-pending-requests.patch
 Patch: 0007-sd-dhcp-client-broadcast-DHCPDECLINE-through-a-raw-socket.patch
+Patch: 0008-sd-dhcp-client-add-missing-error-checks.patch
+Patch: 0009-dhcp-fix-user-class-and-vendor-specific-option-assig.patch
+Patch: 0010-sd-dhcp-client-fix-memleak-of-sd_dhcp_client.timeout.patch
+Patch: 0011-network-dhcp4-send-release-message-before-stopping-t.patch
+Patch: 0012-sd-dhcp-client-send-RELEASE-with-the-Server-Identifi.patch
+Patch: 0013-sd-dhcp-client-propagate-errors-in-client_initialize.patch
+Patch: 0014-sd-dhcp-client-notify-SD_DHCP_CLIENT_EVENT_EXPIRED-o.patch
+Patch: 0015-sd-dhcp-client-do-not-trigger-assertion-when-running.patch
+Patch: 0016-sd-dhcp-client-propagate-failure-in-setting-timer-an.patch
 
 # /lib/systemd/system/tmp.mount is owned by this package and is not marked as
 # a config file, so it must be hardened here, at build time. The installer
@@ -711,8 +720,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
-* Wed Oct 07 2026 Daniel Casota <dcasota@gmail.com> 257.13-6
-- Fix groups, STIG variant, subpackage files; networkd pending requests, DHCPDECLINE
+* Sat Oct 10 2026 Daniel Casota <dcasota@gmail.com> 257.13-6
+- Fix groups, STIG variant, subpackage files; backport networkd DHCPv4 fixes
 * Mon Jun 08 2026 Bo Gan <bo.gan@broadcom.com> 257.13-5
 - Migrate from pcre to pcre2
 * Wed Jun 03 2026 Harinadh Dommaraju <Harinadh.Dommaraju@broadcom.com> 257.13-4

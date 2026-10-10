@@ -1,0 +1,74 @@
+From 2dff63a31ce33e4525f68351b47516a69b27334c Mon Sep 17 00:00:00 2001
+From: Yu Watanabe <watanabe.yu+github@gmail.com>
+Date: Sat, 14 Mar 2026 01:33:54 +0900
+Subject: [PATCH] sd-dhcp-client: notify SD_DHCP_CLIENT_EVENT_EXPIRED
+ only when we already have a bound lease
+
+Otherwise, if we emit the notification without a valid bound lease, networkd
+may be confused (of course should not, but for safety).
+
+Also, increment the delay before calling client_start_delayed().
+Otherwise, the first reboot is done instantaneously.
+
+[Adapted to 257.13: client_restart() keeps its place and still calls
+client_initialize() before restarting, since client_start_delayed() of
+257.13 requires a closed socket and a zero xid.]
+
+https://github.com/systemd/systemd/commit/2dff63a31ce33e4525f68351b47516a69b27334c
+(cherry picked from commit 2dff63a31ce33e4525f68351b47516a69b27334c)
+---
+ src/libsystemd-network/sd-dhcp-client.c | 30 +++++++++++++++++++------
+ 1 file changed, 23 insertions(+), 7 deletions(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index 44bfe15c6e..c5a4cbe580 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -1942,24 +1942,40 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
+ }
+ 
+ static int client_restart(sd_dhcp_client *client) {
++        bool rebooting;
+         int r;
++
+         assert(client);
++        DHCP_CLIENT_DONT_DESTROY(client);
+ 
+-        client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
++        /* This is called when we receive a DHCPNAK or could not receive any replies. */
+ 
+-        r = client_initialize(client);
+-        if (r < 0)
+-                return r;
++        /* First, if we have a bound lease, then notify it is expired. */
++        if (IN_SET(client->state, DHCP_STATE_BOUND, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING)) {
++                client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
++
++                if (client->state == DHCP_STATE_STOPPED)
++                        return 0; /* The notify callback stopped the client. */
++        }
+ 
+-        r = client_start_delayed(client);
++        rebooting = client->state == DHCP_STATE_REBOOTING;
++
++        r = client_initialize(client);
+         if (r < 0)
+                 return r;
+ 
+-        log_dhcp_client(client, "REBOOT in %s", FORMAT_TIMESPAN(client->start_delay, USEC_PER_SEC));
++        /* On reboot, DHCPNAK or no reply suggests that the network is changed or the address is already
++         * used by another host. Let's restart the client immediately without any delay to speed up the
++         * reboot process. */
++        if (rebooting)
++                return client_start(client);
+ 
++        /* Otherwise, we should restart the client with a short delay. */
+         client->start_delay = CLAMP(client->start_delay * 2,
+                                     RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
+-        return 0;
++
++        log_dhcp_client(client, "REBOOT in %s", FORMAT_TIMESPAN(client->start_delay, USEC_PER_SEC));
++        return client_start_delayed(client);
+ }
+ 
+ static int client_verify_message_header(sd_dhcp_client *client, DHCPMessage *message, size_t len) {

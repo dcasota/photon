@@ -1,0 +1,49 @@
+From ddded65d41f691afc4d248343d987775655bcfb7 Mon Sep 17 00:00:00 2001
+From: Yu Watanabe <watanabe.yu+github@gmail.com>
+Date: Fri, 13 Mar 2026 05:19:06 +0900
+Subject: [PATCH] sd-dhcp-client: add missing error checks
+
+https://github.com/systemd/systemd/commit/ddded65d41f691afc4d248343d987775655bcfb7
+(cherry picked from commit ddded65d41f691afc4d248343d987775655bcfb7)
+---
+ src/libsystemd-network/sd-dhcp-client.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index ab07b9dc65..7f3df140ad 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -1319,8 +1319,9 @@ error:
+            the client reverts to INIT state and restarts the initialization process */
+         if (client->request_attempt >= client->max_request_attempts) {
+                 log_dhcp_client(client, "Max REQUEST attempts reached. Restarting...");
+-                client_restart(client);
+-                return 0;
++                r = client_restart(client);
++                if (r >= 0)
++                        return 0;
+         }
+         client_stop(client, r);
+ 
+@@ -1431,6 +1432,7 @@ static int client_start(sd_dhcp_client *client) {
+ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userdata) {
+         sd_dhcp_client *client = userdata;
+         DHCP_CLIENT_DONT_DESTROY(client);
++        int r;
+ 
+         log_dhcp_client(client, "EXPIRED");
+ 
+@@ -1439,7 +1441,12 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
+         /* lease was lost, start over if not freed or stopped in callback */
+         if (client->state != DHCP_STATE_STOPPED) {
+                 client_initialize(client);
+-                client_start(client);
++
++                r = client_start(client);
++                if (r < 0) {
++                        client_stop(client, r);
++                        return 0;
++                }
+         }
+ 
+         return 0;
