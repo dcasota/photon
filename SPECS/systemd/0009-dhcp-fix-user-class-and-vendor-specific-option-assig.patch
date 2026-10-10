@@ -1,0 +1,59 @@
+From 55f2fdd508dfe430cc36b9961b09d9eb649c6a83 Mon Sep 17 00:00:00 2001
+From: Yu Watanabe <watanabe.yu+github@gmail.com>
+Date: Sun, 22 Mar 2026 23:39:38 +0900
+Subject: [PATCH] dhcp: fix user class and vendor specific option
+ assignment
+
+The commit 6d7cb9a6b8361d2b327222bc12872a3676358bc3 fixes the assignment
+of the these options when specified through SendOption=. However, it
+breaks when specified through UserClass= or SendVendorOption=.
+
+When UserClass= or SendVendorOption= is specified, the option length is
+calculated from the sd_dhcp_client.user_class or .vendor_options. Hence,
+we can use 0 for the length in that case.
+
+Follow-up for 6d7cb9a6b8361d2b327222bc12872a3676358bc3.
+
+https://github.com/systemd/systemd/commit/55f2fdd508dfe430cc36b9961b09d9eb649c6a83
+(cherry picked from commit 55f2fdd508dfe430cc36b9961b09d9eb649c6a83)
+---
+ src/libsystemd-network/sd-dhcp-client.c | 5 ++---
+ src/libsystemd-network/sd-dhcp-server.c | 2 +-
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index 7f3df140ad..ff5d1e3e6b 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -991,8 +991,7 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
+         if (client->user_class) {
+                 r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                        SD_DHCP_OPTION_USER_CLASS,
+-                                       strv_length(client->user_class),
+-                                       client->user_class);
++                                       /* optlen= */ 0, client->user_class);
+                 if (r < 0)
+                         return r;
+         }
+@@ -1008,7 +1007,7 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
+                 r = dhcp_option_append(
+                                 &packet->dhcp, optlen, optoffset, 0,
+                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
+-                                ordered_hashmap_size(client->vendor_options), client->vendor_options);
++                                /* optlen= */ 0, client->vendor_options);
+                 if (r < 0)
+                         return r;
+         }
+diff --git a/src/libsystemd-network/sd-dhcp-server.c b/src/libsystemd-network/sd-dhcp-server.c
+index 25b4cafaa5..2682f7b057 100644
+--- a/src/libsystemd-network/sd-dhcp-server.c
++++ b/src/libsystemd-network/sd-dhcp-server.c
+@@ -652,7 +652,7 @@ static int server_send_offer_or_ack(
+                 r = dhcp_option_append(
+                                 &packet->dhcp, req->max_optlen, &offset, 0,
+                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
+-                                ordered_set_size(server->vendor_options), server->vendor_options);
++                                /* optlen= */ 0, server->vendor_options);
+                 if (r < 0)
+                         return r;
+         }
