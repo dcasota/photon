@@ -3,7 +3,7 @@
 Summary:        Open Source Security Compliance Solution
 Name:           openscap
 Version:        1.3.6
-Release:        15.1.1%{?dist}
+Release:        15.1.2%{?dist}
 URL:            https://www.open-scap.org
 Group:          System Environment/Libraries
 Vendor:         VMware, Inc.
@@ -73,6 +73,8 @@ Summary:        %{name} python
 Group:          Development/Libraries
 Requires:       %{name} = %{version}-%{release}
 Requires:       python3
+Requires:       python3-requests
+Requires:       docker-py3
 
 %description    python3
 Python bindings.
@@ -103,6 +105,8 @@ Python bindings.
 %{_sysconfdir}/*
 %{_bindir}/*
 %{_mandir}/man8/*
+%exclude %{_bindir}/oscap-docker
+%exclude %{_mandir}/man8/oscap-docker.8*
 %{_datadir}/openscap/*
 %{_libdir}/libopenscap_sce.so.*
 %{_libdir}/libopenscap.so.*
@@ -122,9 +126,13 @@ Python bindings.
 
 %files python3
 %defattr(-,root,root)
+%{_bindir}/oscap-docker
+%{_mandir}/man8/oscap-docker.8*
 %{_libdir}/python%{python3_version}/*
 
 %changelog
+* Sun Oct 11 2026 Daniel Casota <dcasota@gmail.com> 1.3.6-15.1.2
+- Ship oscap-docker in openscap-python3; require docker-py3
 * Sat May 16 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 1.3.6-15.1.1
 - Bump after moving to SPECS/90
 * Wed Mar 18 2026 Prashant S Chauhan <prashant.singh-chauhan@broadcom.com> 1.3.6-15.1
