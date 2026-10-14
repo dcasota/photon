@@ -1,0 +1,81 @@
+From e21937dda25deb1bb4795a61381776404e87c65e Mon Sep 17 00:00:00 2001
+From: Daniel Casota <dcasota@gmail.com>
+Date: Mon, 5 Oct 2026 09:43:22 +0200
+Subject: [PATCH] audit: size the kernel's audit backlog for the STIG rules
+
+PHTN-50-000080 adds audit=1 to the kernel command line, so the kernel
+queues audit records from the first boot on, before auditd runs; with the
+default audit_backlog_limit (64) that queue overflows at boot ("kauditd hold
+queue overflow", audit_lost=1, 2 and 50 on Photon OS 5.0 STIG guests). Add
+audit_backlog_limit=8192 next to audit=1, unless the command line already
+sets one.
+
+Set -b 8192 in the audit-v3.STIG.rules and audit-v4.STIG.rules templates
+too (installed with audit older than 3.0.9-25), the value of audit's own
+10-base-config.rules sample: with -b 640 an rpm transaction of a few
+hundred files overflows the queue under the perm_mod rules and records are
+lost.
+---
+ tasks/photon.yml              | 8 ++++++++
+ templates/audit-v3.STIG.rules | 2 +-
+ templates/audit-v4.STIG.rules | 2 +-
+ vars/main.yml                 | 1 +
+ 4 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/tasks/photon.yml b/tasks/photon.yml
+index 5a62cd6..e5f0d58 100644
+--- a/tasks/photon.yml
++++ b/tasks/photon.yml
+@@ -911,6 +911,14 @@
+       when:
+         - auditdinstalled.stdout != ""
+ 
++    - name: 'PHTN-50-000080 - Add audit_backlog_limit in {{ photon_5_vars_grub_conf_file }}.'
++      ansible.builtin.replace:
++        path: '{{ photon_5_vars_grub_conf_file }}'
++        regexp: '^(\s*linux(?!.* audit_backlog_limit=).*)'
++        replace: '\1 audit_backlog_limit={{ photon_5_vars_audit_backlog_limit }}'
++      when:
++        - auditdinstalled.stdout != ""
++
+ ###################################################################################################################################
+ - name: PHTN-50-000082
+   tags: [PHTN-50-000082]
+diff --git a/templates/audit-v3.STIG.rules b/templates/audit-v3.STIG.rules
+index af1743a..8016004 100644
+--- a/templates/audit-v3.STIG.rules
++++ b/templates/audit-v3.STIG.rules
+@@ -6,7 +6,7 @@
+ 
+ # Increase the buffers to survive stress events.
+ # Make this bigger for busy systems
+--b 640
++-b 8192
+ 
+ # PHTN-50-000003 audit useradd/groupadd commands
+ -w /usr/sbin/useradd -p x -k useradd
+diff --git a/templates/audit-v4.STIG.rules b/templates/audit-v4.STIG.rules
+index 479d8f1..ab8728a 100644
+--- a/templates/audit-v4.STIG.rules
++++ b/templates/audit-v4.STIG.rules
+@@ -6,7 +6,7 @@
+ 
+ # Increase the buffers to survive stress events.
+ # Make this bigger for busy systems
+--b 640
++-b 8192
+ 
+ # PHTN-50-000003 audit useradd/groupadd commands
+ -w /usr/sbin/useradd -p x -k useradd
+diff --git a/vars/main.yml b/vars/main.yml
+index 199c85b..401145a 100644
+--- a/vars/main.yml
++++ b/vars/main.yml
+@@ -8,6 +8,7 @@
+ 
+ # auditd
+ photon_5_vars_auditd_stig_rule_file: '/etc/audit/rules.d/audit.STIG.rules'
++photon_5_vars_audit_backlog_limit: 8192
+ photon_5_vars_auditd_conf_file: '/etc/audit/auditd.conf'
+ 
+ # PAM
