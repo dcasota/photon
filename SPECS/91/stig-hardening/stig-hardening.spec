@@ -25,6 +25,7 @@ Patch1: system-auth-fix.patch
 Patch2: fix-photon.yml-for-latest-audit-and-ansible.patch
 Patch3: fix-stig-playbook-fips-pam.patch
 Patch4: fix-selinux-relabel-first-boot.patch
+Patch5: stig-audit-backlog-limit.patch
 
 Requires: ansible >= 2.20.1
 Requires: ansible-community-general
@@ -61,7 +62,7 @@ popd
 
 %changelog
 * Wed Sep 09 2026 Daniel Casota <dcasota@gmail.com> 2.1-10
-- Fix pam_faillock, FIPS ima_hash/fipsmodule.cnf; add first-boot SELinux relabel
+- Fix pam_faillock, FIPS config, SELinux relabel; audit_backlog_limit 8192
 * Mon Sep 07 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.1-9
 - Use a definite list files for installation
 * Wed Jun 17 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.1-8
