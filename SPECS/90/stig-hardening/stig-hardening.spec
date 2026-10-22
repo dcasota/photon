@@ -24,6 +24,7 @@ Patch0: fix-some-value-checks.patch
 Patch1: system-auth-fix.patch
 Patch2: fix-stig-playbook-fips-pam.patch
 Patch3: fix-selinux-relabel-first-boot.patch
+Patch4: stig-audit-backlog-limit.patch
 
 Requires: ansible >= 2.14.2
 Requires: ansible-community-general
@@ -58,7 +59,7 @@ popd
 
 %changelog
 * Wed Sep 09 2026 Daniel Casota <dcasota@gmail.com> 2.1-5.1.3
-- Backport first-boot SELinux relabel and FIPS PAM fixes
+- Backport SELinux relabel, FIPS PAM fixes; audit_backlog_limit 8192
 * Mon Sep 07 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 2.1-5.1.2
 - Use a definite list files for installation
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.1-5.1.1
