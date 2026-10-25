@@ -1,0 +1,149 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch11003: 1003-FIPS-crypto-drbg-Jitterentropy-RNG-as-the-only-RND.patch (rebased on the 7.x HMAC DRBG)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/drbg.c b/crypto/drbg.c
+index 619775462b28eecc9086cb13557797816f419cd7..2f38c0feb98094272e51f21fbf30fad4301da089 100644
+--- a/crypto/drbg.c
++++ b/crypto/drbg.c
+@@ -262,44 +262,57 @@ static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
+ 			entropylen = DRBG_SEC_STRENGTH;
+ 		BUG_ON(entropylen * 2 > sizeof(entropy_buf));
+ 
+-		/* Get seed from in-kernel /dev/urandom */
+-		get_random_bytes(entropy_buf, entropylen);
+-
+-		if (!drbg->jent) {
+-			pr_devel("DRBG: (re)seeding with %zu bytes of entropy\n",
+-				 entropylen);
+-		} else {
++		if (fips_enabled) {
+ 			/*
+-			 * Get seed from Jitter RNG, failures are
+-			 * fatal only in FIPS mode.
++			 * Photon FIPS: SP800-90B requires the seed to come from
++			 * a compliant entropy source; /dev/urandom is not one.
++			 * In FIPS mode the whole seed (entropy + nonce, twice
++			 * the length) is read from the Jitter RNG, and every
++			 * failure is reported. -EAGAIN is retried a bounded
++			 * number of times.
+ 			 */
+-			ret = crypto_rng_get_bytes(drbg->jent,
+-						   &entropy_buf[entropylen],
+-						   entropylen);
+-			if (fips_enabled && ret) {
+-				pr_devel("DRBG: jent failed with %d\n", ret);
+-
+-				/*
+-				 * Do not treat the transient failure of the
+-				 * Jitter RNG as an error that needs to be
+-				 * reported. The combined number of the
+-				 * maximum reseed threshold times the maximum
+-				 * number of Jitter RNG transient errors is
+-				 * less than the reseed threshold required by
+-				 * SP800-90A allowing us to treat the
+-				 * transient errors as such.
+-				 *
+-				 * However, we mandate that at least the first
+-				 * seeding operation must succeed with the
+-				 * Jitter RNG.
+-				 */
+-				if (!reseed || ret != -EAGAIN)
++			int retries = 3;
++
++			if (!drbg->jent) {
++				pr_err("DRBG: Jitter entropy source does not exist\n");
++				ret = -ENOENT;
++				goto out;
++			}
++			for (;;) {
++				ret = crypto_rng_get_bytes(drbg->jent, entropy_buf,
++							   entropylen * 2);
++				if (!ret)
++					break;
++				pr_err("DRBG: jent failed with %d\n", ret);
++				if (ret != -EAGAIN || retries-- == 0) {
++					pr_err("DRBG: jent %sseed failure, err = %d\n",
++					       reseed ? "re" : "", ret);
+ 					goto out;
++				}
++				pr_err("DRBG: retrying, %d retries left\n", retries);
+ 			}
+-
+ 			entropylen *= 2;
+-			pr_devel("DRBG: (re)seeding with %zu bytes of entropy\n",
++			pr_devel("DRBG: (re)seeding with %zu bytes of jitter entropy\n",
+ 				 entropylen);
++		} else {
++			/* Get seed from in-kernel /dev/urandom */
++			get_random_bytes(entropy_buf, entropylen);
++
++			if (!drbg->jent) {
++				pr_devel("DRBG: (re)seeding with %zu bytes of entropy\n",
++					 entropylen);
++			} else {
++				/* Jitter RNG failures are not fatal outside FIPS mode. */
++				ret = crypto_rng_get_bytes(drbg->jent,
++							   &entropy_buf[entropylen],
++							   entropylen);
++				if (ret)
++					pr_devel("DRBG: jent failed with %d\n", ret);
++				else
++					entropylen *= 2;
++				pr_devel("DRBG: (re)seeding with %zu bytes of entropy\n",
++					 entropylen);
++			}
+ 		}
+ 	}
+ 
+diff --git a/crypto/ecc.c b/crypto/ecc.c
+index 3475dacf8e797d987c26d4e53a7c6c8bfb79e44f..7d6907d4f884e2f06c2533353f9b3bcfef3dd6ad 100644
+--- a/crypto/ecc.c
++++ b/crypto/ecc.c
+@@ -1677,6 +1677,29 @@ int ecc_is_pubkey_valid_full(const struct ecc_curve *curve,
+ }
+ EXPORT_SYMBOL(ecc_is_pubkey_valid_full);
+ 
++/*
++ * Photon FIPS: in FIPS mode the ECDH blinding value comes from the Jitter RNG
++ * (SP800-90B), not from /dev/urandom.
++ */
++static int get_jitter_ent_random_bytes(u64 *buf, unsigned int len)
++{
++	struct crypto_rng *jitter_entropy =
++		crypto_alloc_rng("jitterentropy_rng", 0, 0);
++	int ret;
++
++	if (IS_ERR_OR_NULL(jitter_entropy)) {
++		pr_err("RNG: Failed to allocate Jitter entropy RNG\n");
++		return -ENOENT;
++	}
++	ret = crypto_rng_get_bytes(jitter_entropy, (u8 *)buf, len);
++	crypto_free_rng(jitter_entropy);
++	if (ret) {
++		pr_err("RNG: Failed to read from Jitter entropy RNG\n");
++		return -EAGAIN;
++	}
++	return 0;
++}
++
+ int crypto_ecdh_shared_secret(unsigned int curve_id, unsigned int ndigits,
+ 			      const u64 *private_key, const u64 *public_key,
+ 			      u64 *secret)
+@@ -1694,7 +1717,13 @@ int crypto_ecdh_shared_secret(unsigned int curve_id, unsigned int ndigits,
+ 
+ 	nbytes = ndigits << ECC_DIGITS_TO_BYTES_SHIFT;
+ 
+-	get_random_bytes(rand_z, nbytes);
++	if (fips_enabled) {
++		ret = get_jitter_ent_random_bytes(rand_z, nbytes);
++		if (ret)
++			goto out;
++	} else {
++		get_random_bytes(rand_z, nbytes);
++	}
+ 
+ 	pk = ecc_alloc_point(ndigits);
+ 	if (!pk) {

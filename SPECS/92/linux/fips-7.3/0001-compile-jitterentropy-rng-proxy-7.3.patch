@@ -1,0 +1,21 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10300: 0001-compile-jitterentropy-rng-proxy.patch (clean)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 8bfac485a4c15cef86f3215bedfe96973a3d9b31..70d8db12c61ddc7ea0c2ffdc576ee1edae930722 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -8,8 +8,9 @@ CONTEXT_ANALYSIS := y
+ obj-$(CONFIG_CRYPTO) += crypto.o
+ crypto-y := api.o cipher.o
+ 
+-obj-$(CONFIG_CRYPTO_JITTERENTROPY) += jitterentropy_rng.o photon-jitterentropy-v6.12/
++obj-$(CONFIG_CRYPTO_JITTERENTROPY) += jitterentropy_rng.o jitterentropy_rng_proxy.o photon-jitterentropy-v6.12/
+ jitterentropy_rng-y := photon-jitterentropy-v6.12/jitterentropy_canister_wrapper_asm.o photon-jitterentropy-v6.12/jitterentropy_canister_wrapper.o jitterentropy-kcapi.o
++jitterentropy_rng_proxy-y := jitterentropy_rng_proxy.o
+ 
+ obj-$(CONFIG_CRYPTO_ENGINE) += crypto_engine.o
+ obj-$(CONFIG_CRYPTO_FIPS) += fips.o

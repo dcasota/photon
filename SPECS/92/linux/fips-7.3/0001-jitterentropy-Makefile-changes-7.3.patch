@@ -1,0 +1,32 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10001: 0001-jitterentropy-Makefile-changes.patch (clean)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 8386d55a9755e7675e42adbbde8ca3dcd45ff369..0ae6f01ef7b7b6584d2c9050d16125d99e0410c3 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -8,6 +8,9 @@ CONTEXT_ANALYSIS := y
+ obj-$(CONFIG_CRYPTO) += crypto.o
+ crypto-y := api.o cipher.o
+ 
++obj-$(CONFIG_CRYPTO_JITTERENTROPY) += jitterentropy_rng.o photon-jitterentropy-v6.12/
++jitterentropy_rng-y := photon-jitterentropy-v6.12/jitterentropy_canister_wrapper_asm.o photon-jitterentropy-v6.12/jitterentropy_canister_wrapper.o jitterentropy-kcapi.o
++
+ obj-$(CONFIG_CRYPTO_ENGINE) += crypto_engine.o
+ obj-$(CONFIG_CRYPTO_FIPS) += fips.o
+ 
+@@ -158,11 +161,6 @@ obj-$(CONFIG_CRYPTO_XXHASH) += xxhash_generic.o
+ obj-$(CONFIG_CRYPTO_842) += 842.o
+ obj-$(CONFIG_CRYPTO_RNG2) += rng.o
+ obj-$(CONFIG_CRYPTO_DRBG) += drbg.o
+-obj-$(CONFIG_CRYPTO_JITTERENTROPY) += jitterentropy_rng.o
+-CFLAGS_jitterentropy.o = -O0
+-KASAN_SANITIZE_jitterentropy.o = n
+-UBSAN_SANITIZE_jitterentropy.o = n
+-jitterentropy_rng-y := jitterentropy.o jitterentropy-kcapi.o
+ obj-$(CONFIG_CRYPTO_JITTERENTROPY_TESTINTERFACE) += jitterentropy-testing.o
+ obj-$(CONFIG_CRYPTO_BENCHMARK) += tcrypt.o
+ obj-$(CONFIG_CRYPTO_USER_API) += af_alg.o

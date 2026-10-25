@@ -1,0 +1,134 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10104: 0004-scripts-kallsyms-Extra-kallsyms-parsing.patch (rebased onto 7.x getopt loop)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/scripts/kallsyms.c b/scripts/kallsyms.c
+index 494852ade6d87a97077ad7b641b00ba188655527..89a6681d401dd09fefe3af4c4a05f36204287414 100644
+--- a/scripts/kallsyms.c
++++ b/scripts/kallsyms.c
+@@ -26,6 +26,7 @@
+ #include <string.h>
+ #include <ctype.h>
+ #include <limits.h>
++#include <errno.h>
+ 
+ #include <xalloc.h>
+ 
+@@ -56,6 +57,9 @@ static struct addr_range text_ranges[] = {
+ static struct sym_entry **table;
+ static unsigned int table_size, table_cnt;
+ static int all_symbols;
++static int extra_symbols;
++static char **extra_sym_tbl;
++static size_t extra_sym_tbl_size;
+ static int pc_relative;
+ 
+ static int token_profit[0x10000];
+@@ -67,7 +71,7 @@ static unsigned char best_table_len[256];
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: kallsyms [--all-symbols] in.map > out.S\n");
++	fprintf(stderr, "Usage: kallsyms [--all-symbols] [--extra-symbols=<kallsyms-file>] in.map > out.S\n");
+ 	exit(1);
+ }
+ 
+@@ -193,13 +197,56 @@ static bool string_starts_with(const char *s, const char *prefix)
+ 	return strncmp(s, prefix, strlen(prefix)) == 0;
+ }
+ 
++/* Read the extra-kallsyms file: symbols to keep although outside .text. */
++static void populate_extra_symbol_table(const char *file_name)
++{
++	size_t i = 0;
++	FILE *f;
++	char sym_name_buf[KSYM_NAME_LEN];
++
++	f = fopen(file_name, "r");
++	if (!f) {
++		fprintf(stderr, "Unable to open %s: %s\n", file_name, strerror(errno));
++		exit(1);
++	}
++	while (fscanf(f, "%511s", sym_name_buf) == 1)
++		extra_sym_tbl_size++;
++	if (extra_sym_tbl_size == 0) {
++		fclose(f);
++		return;
++	}
++	extra_sym_tbl = xmalloc(extra_sym_tbl_size * sizeof(char *));
++	rewind(f);
++	while (i < extra_sym_tbl_size && fscanf(f, "%511s", sym_name_buf) == 1)
++		extra_sym_tbl[i++] = xstrdup(sym_name_buf);
++	fclose(f);
++	if (i != extra_sym_tbl_size) {
++		fprintf(stderr, "Symbol file %s changed while reading\n", file_name);
++		exit(1);
++	}
++}
++
++static void free_extra_symbol_table(void)
++{
++	size_t i;
++
++	for (i = 0; i < extra_sym_tbl_size; i++)
++		free(extra_sym_tbl[i]);
++	free(extra_sym_tbl);
++}
++
+ static int symbol_valid(const struct sym_entry *s)
+ {
+ 	const char *name = sym_name(s);
++	size_t i;
+ 
+ 	/* if --all-symbols is not specified, then symbols outside the text
+ 	 * and inittext sections are discarded */
+ 	if (!all_symbols) {
++		for (i = 0; extra_symbols && i < extra_sym_tbl_size; i++)
++			if (strcmp(name, extra_sym_tbl[i]) == 0)
++				return 1;
++
+ 		/*
+ 		 * Symbols starting with __start and __stop are used to denote
+ 		 * section boundaries, and should always be included:
+@@ -692,6 +739,7 @@ int main(int argc, char **argv)
+ 		static const struct option long_options[] = {
+ 			{"all-symbols",     no_argument, &all_symbols,     1},
+ 			{"pc-relative",     no_argument, &pc_relative,     1},
++			{"extra-symbols",   required_argument, NULL,       's'},
+ 			{},
+ 		};
+ 
+@@ -699,6 +747,11 @@ int main(int argc, char **argv)
+ 
+ 		if (c == -1)
+ 			break;
++		if (c == 's') {
++			extra_symbols = 1;
++			populate_extra_symbol_table(optarg);
++			continue;
++		}
+ 		if (c != 0)
+ 			usage();
+ 	}
+@@ -712,5 +765,6 @@ int main(int argc, char **argv)
+ 	optimize_token_table();
+ 	write_src();
+ 
++	free_extra_symbol_table();
+ 	return 0;
+ }
+diff --git a/scripts/link-vmlinux.sh b/scripts/link-vmlinux.sh
+index ab0b8125c8cbc6f742b782222a72a0007d2c9ac2..3b8817c62e40b4ce32151dd2ba1d074a3ae93f37 100755
+--- a/scripts/link-vmlinux.sh
++++ b/scripts/link-vmlinux.sh
+@@ -132,6 +132,8 @@ kallsyms()
+ 	fi
+ 
+ 	info KSYMS "${2}.S"
++	kallsymopt="${kallsymopt} --extra-symbols=crypto/fips_canister-kallsyms"
++
+ 	scripts/kallsyms ${kallsymopt} "${1}" > "${2}.S"
+ 
+ 	info AS "${2}.o"

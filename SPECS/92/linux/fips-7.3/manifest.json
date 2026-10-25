@@ -1,0 +1,370 @@
+{
+  "autopatch": [
+    [
+      10000,
+      10000
+    ],
+    [
+      10001,
+      10004
+    ],
+    [
+      10101,
+      10119
+    ],
+    [
+      10200,
+      10205
+    ],
+    [
+      10300,
+      10301
+    ],
+    [
+      11000,
+      11020
+    ]
+  ],
+  "dropped": {
+    "10003": "superseded upstream",
+    "10109": "superseded upstream",
+    "10112": "superseded upstream",
+    "10113": "superseded upstream",
+    "10114": "superseded upstream",
+    "10115": "superseded upstream",
+    "10116": "superseded upstream",
+    "11002": "merged into 11001 (7.x)",
+    "11008": "no ghash shash in 7.x",
+    "11010": "superseded upstream",
+    "11011": "moved to the common layer (Patch10119)",
+    "11012": "shasum accelerators are lib/crypto members in 7.x",
+    "11013": "merged into 11001 (7.x)"
+  },
+  "flavours": {
+    "linux-esx": {
+      "autopatch": [
+        [
+          10050,
+          10050
+        ]
+      ],
+      "patches": {
+        "10050": {
+          "file": "0001-jitterentropy-Defer-jent_mod_init-in-non-fips-boot.patch",
+          "origin": "unchanged 6.12 file (linux-esx only)"
+        },
+        "10200": {
+          "file": "0001-Compile-GCC-plugins-for-FIPS-canister-7.3-esx.patch",
+          "origin": "linux-esx variant (no RAP context)"
+        },
+        "10204": {
+          "file": "0001-Canister-GCC-Plugins-Implement-type-check-7.3-esx.patch",
+          "origin": "linux-esx variant (no RAP context)"
+        }
+      }
+    }
+  },
+  "patches": {
+    "10001": {
+      "file": "0001-jitterentropy-Makefile-changes-7.3.patch",
+      "origin": "regenerated: the 6.12 file needs fuzz on 7.3-rc4",
+      "replaces": "0001-jitterentropy-Makefile-changes.patch",
+      "subject": "Patch10001: 0001-jitterentropy-Makefile-changes.patch (clean)"
+    },
+    "10002": {
+      "file": "0001-FIPS-crypto-rng-Jitterentropy-RNG-as-the-only-RND-source-7.3.patch",
+      "origin": "regenerated: the 6.12 file needs fuzz on 7.3-rc4",
+      "replaces": "0001-FIPS-crypto-rng-Jitterentropy-RNG-as-the-only-RND-source.patch",
+      "subject": "Patch10002: 0001-FIPS-crypto-rng-Jitterentropy-RNG-as-the-only-RND-source.patch (clean)"
+    },
+    "10004": {
+      "file": "0001-crypto-ecb-Set-ecb-alg-flag-as-Internal-7.3.patch",
+      "origin": "rebased: 7.x registers ecb-aes-aesni directly, no __ecb simd wrapper",
+      "replaces": "0001-crypto-ecb-Set-ecb-alg-flag-as-Internal.patch",
+      "subject": "Patch10004: 0001-crypto-ecb-Set-ecb-alg-flag-as-Internal.patch (rebased: 7.x registers ecb-aes-aesni directly, no __ecb simd wrapper)"
+    },
+    "10101": {
+      "file": "0001-FIPS-canister-binary-usage-7.3.patch",
+      "origin": "rebased for the 7.x crypto layout",
+      "replaces": "0001-FIPS-canister-binary-usage.patch",
+      "subject": "Patch10101: 0001-FIPS-canister-binary-usage.patch (rebased for the 7.x crypto layout)"
+    },
+    "10102": {
+      "file": "0002-algapi.c-honor-fcw_skip_tests-7.3.patch",
+      "origin": "rebased: CRYPTO_SELFTESTS",
+      "replaces": "0002-algapi.c-honor-fcw_skip_tests.patch",
+      "subject": "Patch10102: 0002-algapi.c-honor-fcw_skip_tests.patch (rebased: CRYPTO_SELFTESTS)"
+    },
+    "10103": {
+      "file": "0003-tcrypt-align-to-LKCM.patch",
+      "origin": "unchanged 6.12 file",
+      "subject": "Patch10103: 0003-tcrypt-align-to-LKCM.patch (clean)"
+    },
+    "10104": {
+      "file": "0004-scripts-kallsyms-Extra-kallsyms-parsing-7.3.patch",
+      "origin": "rebased onto 7.x getopt loop",
+      "replaces": "0004-scripts-kallsyms-Extra-kallsyms-parsing.patch",
+      "subject": "Patch10104: 0004-scripts-kallsyms-Extra-kallsyms-parsing.patch (rebased onto 7.x getopt loop)"
+    },
+    "10106": {
+      "file": "0006-crypto-Disable-rsa-pkcs1pad-encrypt-decrypt-in-FIPS--7.3.patch",
+      "origin": "rebased: 7.x pkcs1pad is encryption only",
+      "replaces": "0006-crypto-Disable-rsa-pkcs1pad-encrypt-decrypt-in-FIPS-.patch",
+      "subject": "Patch10106: 0006-crypto-Disable-rsa-pkcs1pad-encrypt-decrypt-in-FIPS-.patch (rebased: 7.x pkcs1pad is encryption only)"
+    },
+    "10107": {
+      "file": "0007-aead-add-internal_iv-field-7.3.patch",
+      "origin": "rebased: crypto_stdrng_get_bytes, no sleeping under spinlock",
+      "replaces": "0007-aead-add-internal_iv-field.patch",
+      "subject": "Patch10107: 0007-aead-add-internal_iv-field.patch (rebased: crypto_stdrng_get_bytes, no sleeping under spinlock)"
+    },
+    "10108": {
+      "file": "0008-FIPS-Mark-structure-field-differences-between-kernel.patch",
+      "origin": "unchanged 6.12 file",
+      "subject": "Patch10108: 0008-FIPS-Mark-structure-field-differences-between-kernel.patch (clean)"
+    },
+    "10110": {
+      "file": "0010-Move-crypto_inc-to-lib-crypto-utils.c-7.3.patch",
+      "origin": "include context",
+      "replaces": "0010-Move-crypto_inc-to-lib-crypto-utils.c.patch",
+      "subject": "Patch10110: 0010-Move-crypto_inc-to-lib-crypto-utils.c.patch (include context)"
+    },
+    "10111": {
+      "file": "0001-crypto-Moving-rfc4543-out-of-canister-boundry-7.3.patch",
+      "origin": "rebased on the 7.x gf128hash GCM",
+      "replaces": "0001-crypto-Moving-rfc4543-out-of-canister-boundry.patch",
+      "subject": "Patch10111: 0001-crypto-Moving-rfc4543-out-of-canister-boundry.patch (rebased on the 7.x gf128hash GCM)"
+    },
+    "10117": {
+      "file": "0001-crypto-track-external-requests-to-jitterentropy_rng-7.3.patch",
+      "origin": "rebased on the 7.x HMAC-SHA512 DRBG",
+      "replaces": "0001-crypto-track-external-requests-to-jitterentropy_rng.patch",
+      "subject": "Patch10117: 0001-crypto-track-external-requests-to-jitterentropy_rng.patch (rebased on the 7.x HMAC-SHA512 DRBG)"
+    },
+    "10118": {
+      "file": "0001-linux-ima-Use-lib-sha1-instead-of-crypto-shash-7.3.patch",
+      "origin": "regenerated: the 6.12 file needs fuzz on 7.3-rc4",
+      "replaces": "0001-linux-ima-Use-lib-sha1-instead-of-crypto-shash.patch",
+      "subject": "Patch10118: 0001-linux-ima-Use-lib-sha1-instead-of-crypto-shash.patch (clean)"
+    },
+    "10119": {
+      "file": "0011-FIPS-7.x-common-layer-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "common (10101 layer, 7.x): wrapper, generated canister exports/initcalls, sha1 FIPS registration, jitterentropy 7.x fixes"
+    },
+    "10200": {
+      "file": "0001-Compile-GCC-plugins-for-FIPS-canister-7.3.patch",
+      "origin": "rebased: 7.x $(src) is absolute",
+      "replaces": "0001-Compile-GCC-plugins-for-FIPS-canister.patch",
+      "subject": "Patch10200: 0001-Compile-GCC-plugins-for-FIPS-canister.patch (rebased: 7.x $(src) is absolute)"
+    },
+    "10201": {
+      "file": "0002-Build-with-FIPS-Canister-GCC-plugins-7.3.patch",
+      "origin": "rebased",
+      "replaces": "0002-Build-with-FIPS-Canister-GCC-plugins.patch",
+      "subject": "Patch10201: 0002-Build-with-FIPS-Canister-GCC-plugins.patch (rebased)"
+    },
+    "10202": {
+      "file": "0003-Introduce-FIPS-canister-plugins.patch",
+      "origin": "unchanged 6.12 file",
+      "subject": "Patch10202: 0003-Introduce-FIPS-canister-plugins.patch (clean)"
+    },
+    "10203": {
+      "file": "0004-FIPS-Canister-Plugins-Add-self-tests.patch",
+      "origin": "unchanged 6.12 file",
+      "subject": "Patch10203: 0004-FIPS-Canister-Plugins-Add-self-tests.patch (clean)"
+    },
+    "10204": {
+      "file": "0001-Canister-GCC-Plugins-Implement-type-check-7.3.patch",
+      "origin": "clean-rule context",
+      "replaces": "0001-Canister-GCC-Plugins-Implement-type-check.patch",
+      "subject": "Patch10204: 0001-Canister-GCC-Plugins-Implement-type-check.patch (clean-rule context)"
+    },
+    "10205": {
+      "file": "0005-FIPS-canister-plugins-7.x-fixes-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "10202/10204 (7.x): match_canister_structs fixes - iterator bound, opaque declarations, shared-node frees, struct equality, cache sizing/publication, bitfields, anonymous-aggregate arrays, .c-local structures; pad list trimmed to the 7.x canister"
+    },
+    "10300": {
+      "file": "0001-compile-jitterentropy-rng-proxy-7.3.patch",
+      "origin": "regenerated: the 6.12 file needs fuzz on 7.3-rc4",
+      "replaces": "0001-compile-jitterentropy-rng-proxy.patch",
+      "subject": "Patch10300: 0001-compile-jitterentropy-rng-proxy.patch (clean)"
+    },
+    "10301": {
+      "file": "0001-change-jitterentropy_rng-driver-name.patch",
+      "origin": "unchanged 6.12 file",
+      "subject": "Patch10301: 0001-change-jitterentropy_rng-driver-name.patch (clean)"
+    },
+    "11000": {
+      "file": "1000-FIPS-canister-creation-7.3.patch",
+      "origin": "rebuilt for 7.x: canister assembly, fcw_ routing, canister-local static keys/calls",
+      "replaces": "1000-FIPS-canister-creation.patch",
+      "subject": "Patch11000: 1000-FIPS-canister-creation.patch (rebuilt for 7.x: canister assembly, fcw_ routing, canister-local static keys/calls)"
+    },
+    "11001": {
+      "file": "1001-aesni-no-static-call-and-canister-ret-int3-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "Patch11001/11002/11013 (7.x): no static_call in aesni glue; canister asm and C use ret;int3 (no return thunk sites)"
+    },
+    "11003": {
+      "file": "1003-FIPS-crypto-drbg-Jitterentropy-RNG-as-the-only-RND-7.3.patch",
+      "origin": "rebased on the 7.x HMAC DRBG",
+      "replaces": "1003-FIPS-crypto-drbg-Jitterentropy-RNG-as-the-only-RND.patch",
+      "subject": "Patch11003: 1003-FIPS-crypto-drbg-Jitterentropy-RNG-as-the-only-RND.patch (rebased on the 7.x HMAC DRBG)"
+    },
+    "11004": {
+      "file": "1004-canister-BUG-WARN-out-of-line-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "canister: BUG/WARN out of line and no printk index in FIPS_CANISTER units (7.x replacement for per-callsite 1004 edits)"
+    },
+    "11005": {
+      "file": "1005-canister-exports-generated-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "Patch11005 (7.x): canister exports generated from the canister object instead of a hand list"
+    },
+    "11006": {
+      "file": "1006-canister-type-isolation-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "Patch11006 (7.x): canister type isolation - no task_struct/lock types in any canister object"
+    },
+    "11007": {
+      "file": "1007-ecc-Add-pairwise-consistency-test-for-every-generate-7.3.patch",
+      "origin": "regenerated: the 6.12 file needs fuzz on 7.3-rc4",
+      "replaces": "1007-ecc-Add-pairwise-consistency-test-for-every-generate.patch",
+      "subject": "Patch11007: 1007-ecc-Add-pairwise-consistency-test-for-every-generate.patch (clean)"
+    },
+    "11009": {
+      "file": "1009-Handle-approved-and-non-approved-services-7.3.patch",
+      "origin": "7.x; KATs mark their IVs internal",
+      "replaces": "1009-Handle-approved-and-non-approved-services.patch",
+      "subject": "Patch11009: 1009-Handle-approved-and-non-approved-services.patch (7.x; KATs mark their IVs internal)"
+    },
+    "11015": {
+      "file": "1015-FIPS-crypto-self-tests-7.3.patch",
+      "origin": "7.x algorithm set, vectors ported, vacuous-pass guard",
+      "replaces": "1015-FIPS-crypto-self-tests.patch",
+      "subject": "Patch11015: 1015-FIPS-crypto-self-tests.patch (7.x algorithm set, vectors ported, vacuous-pass guard)"
+    },
+    "11016": {
+      "file": "1016-linux-canister-Eliminate-codetag-and-other-taggings-.patch",
+      "origin": "unchanged 6.12 file",
+      "subject": "Patch11016: 1016-linux-canister-Eliminate-codetag-and-other-taggings-.patch (clean)"
+    },
+    "11017": {
+      "file": "1017-canister-initcalls-generated-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "canister (7.x): initcalls generated from the canister object; wrapper runs integrity check and self-tests at late_initcall_sync"
+    },
+    "11018": {
+      "file": "1018-FIPS-wrapper-7.x-canister-side-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "FIPS wrapper for 7.x: only what the canister calls; derived in-canister check replaces the 6.12 driver-name lists"
+    },
+    "11019": {
+      "file": "1019-FIPS-7.x-boot-fixes-canister-side-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "7.x FIPS boot fixes: jent sha3-256 by name, cryptomgr and sha3 at arch_initcall, jent finalised-state update, integrity reloc bounds, gen_canister_relocs .bss index; wrapper WARN path"
+    },
+    "11020": {
+      "file": "1020-canister-relocs-in-build-tree-7.3.patch",
+      "origin": "new for 7.x",
+      "replaces": null,
+      "subject": "canister: generate canister_relocs.c in the build tree, not the source tree"
+    }
+  },
+  "sources": {
+    "10001": {
+      "file": "jitterentropy_canister_wrapper.c",
+      "installs": "jitterentropy_canister_wrapper.c",
+      "origin": "unchanged"
+    },
+    "10002": {
+      "file": "jitterentropy_canister_wrapper.h",
+      "installs": "jitterentropy_canister_wrapper.h",
+      "origin": "unchanged"
+    },
+    "10003": {
+      "file": "jitterentropy_canister_wrapper_asm.S",
+      "installs": "jitterentropy_canister_wrapper_asm.S",
+      "origin": "unchanged"
+    },
+    "10101": {
+      "file": "fips_canister_wrapper-7.3.c",
+      "installs": "fips_canister_wrapper.c",
+      "origin": "7.x port",
+      "replaces": "fips_canister_wrapper.c"
+    },
+    "10102": {
+      "file": "fips_canister_wrapper-7.3.h",
+      "installs": "fips_canister_wrapper.h",
+      "origin": "7.x port",
+      "replaces": "fips_canister_wrapper.h"
+    },
+    "10104": {
+      "file": "fips_canister_wrapper_common.h",
+      "installs": "fips_canister_wrapper_common.h",
+      "origin": "unchanged"
+    },
+    "10105": {
+      "file": "fips_canister_wrapper_internal-7.3.h",
+      "installs": "fips_canister_wrapper_internal.h",
+      "origin": "7.x port",
+      "replaces": "fips_canister_wrapper_internal.h"
+    },
+    "10106": {
+      "file": "fips_canister_wrapper_internal-7.3.c",
+      "installs": "fips_canister_wrapper_internal.c",
+      "origin": "7.x port",
+      "replaces": "fips_canister_wrapper_internal.c"
+    },
+    "10300": {
+      "file": "jitterentropy_rng_proxy.c",
+      "installs": "jitterentropy_rng_proxy.c",
+      "origin": "unchanged"
+    },
+    "11000": {
+      "file": "partial_reloc.c",
+      "installs": "partial_reloc.c",
+      "origin": "unchanged"
+    },
+    "11001": {
+      "file": "fips_integrity-7.3.c",
+      "installs": "fips_integrity.c",
+      "origin": "7.x port",
+      "replaces": "fips_integrity.c"
+    },
+    "11002": {
+      "file": "fips_integrity-7.3.h",
+      "installs": "fips_integrity.h",
+      "origin": "7.x port",
+      "replaces": "fips_integrity.h"
+    },
+    "11003": {
+      "file": "update_canister_hmac-7.3.sh",
+      "installs": "update_canister_hmac.sh",
+      "origin": "7.x port",
+      "replaces": "update_canister_hmac.sh"
+    },
+    "11004": {
+      "file": "canister_combine.lds",
+      "installs": "canister_combine.lds",
+      "origin": "unchanged"
+    },
+    "11005": {
+      "file": "gen_canister_relocs-7.3.c",
+      "installs": "gen_canister_relocs.c",
+      "origin": "7.x port",
+      "replaces": "gen_canister_relocs.c"
+    }
+  }
+}

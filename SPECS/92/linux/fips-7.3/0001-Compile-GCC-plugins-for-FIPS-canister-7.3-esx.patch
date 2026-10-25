@@ -1,0 +1,128 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10200: 0001-Compile-GCC-plugins-for-FIPS-canister.patch (rebased: 7.x $(src) is absolute) (linux-esx: no RAP)
+
+linux-esx variant: the linux-esx base carries no RAP plugin (Patch61/63).
+---
+diff --git a/Makefile b/Makefile
+index 751a08643bf85ccfd05060a3f574980f73b3a97f..6c06e0c8f079565cfade70f82fd9c3389f765350 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1176,6 +1176,14 @@ endif
+ # Ensure compilers do not transform certain loops into calls to wcslen()
+ KBUILD_CFLAGS += -fno-builtin-wcslen
+ 
++ifdef CONFIG_GCC_PLUGIN_MATCH_CANISTER_STRUCTS
++KBUILD_CFLAGS  += -Werror=designated-init
++endif
++
++ifdef CONFIG_GCC_PLUGIN_PAD_CANISTER_STRUCTS
++KBUILD_CFLAGS  += -Werror=designated-init
++endif
++
+ CFLAGS_GCOV	:= -fprofile-arcs -ftest-coverage
+ ifdef CONFIG_CC_IS_GCC
+ CFLAGS_GCOV	+= -fno-tree-loop-im
+diff --git a/scripts/Makefile.gcc-plugins b/scripts/Makefile.gcc-plugins
+index b0e1423b09c2133cf43f6f973c98d87e451a6a28..0f9d93c2817ff39ed1c3afcf10e769118b20545a 100644
+--- a/scripts/Makefile.gcc-plugins
++++ b/scripts/Makefile.gcc-plugins
+@@ -8,6 +8,9 @@ ifdef CONFIG_GCC_PLUGIN_LATENT_ENTROPY
+ endif
+ export DISABLE_LATENT_ENTROPY_PLUGIN
+ 
++gcc-plugin-$(CONFIG_GCC_PLUGIN_MATCH_CANISTER_STRUCTS) += match_canister_structs.so
++gcc-plugin-$(CONFIG_GCC_PLUGIN_PAD_CANISTER_STRUCTS) += pad_canister_structs.so
++
+ # All the plugin CFLAGS are collected here in case a build target needs to
+ # filter them out of the KBUILD_CFLAGS.
+ GCC_PLUGINS_CFLAGS := $(strip $(addprefix -fplugin=$(objtree)/scripts/gcc-plugins/, $(gcc-plugin-y)) $(gcc-plugin-cflags-y)) -DGCC_PLUGINS
+diff --git a/scripts/gcc-plugins/Kconfig b/scripts/gcc-plugins/Kconfig
+index 6b34ba19358d84702c36aeb59500189d8f018984..fe194465c3d0b774dd814ea4cafe6de8df631ec3 100644
+--- a/scripts/gcc-plugins/Kconfig
++++ b/scripts/gcc-plugins/Kconfig
+@@ -36,4 +36,25 @@ config GCC_PLUGIN_LATENT_ENTROPY
+ 	   * https://grsecurity.net/
+ 	   * https://pax.grsecurity.net/
+ 
++config GCC_PLUGIN_MATCH_CANISTER_STRUCTS
++	bool "Match kernel structs to FIPS canister structs"
++	depends on !GCC_PLUGIN_PAD_CANISTER_STRUCTS
++	default n
++
++	help
++	  When building the kernel, structures will
++	  either be modified to match the structures used
++	  in the FIPS canister, or if not possible, the
++	  kernel will fail to compile.
++
++config GCC_PLUGIN_PAD_CANISTER_STRUCTS
++	bool "Add 8 bytes of padding to specific structures"
++	default n
++
++	help
++	  When building the kernel, certain structures will
++	  be implicitly padded with 8 extra bytes. The list
++	  of such structures can be found in the plugin
++	  itself.
++
+ endif
+diff --git a/scripts/gcc-plugins/Makefile b/scripts/gcc-plugins/Makefile
+index 05b14aba41efc0380c71f1e81859abbaab657e27..7da8e862f0cc48f6d5e2057c565478d7c329bb36 100644
+--- a/scripts/gcc-plugins/Makefile
++++ b/scripts/gcc-plugins/Makefile
+@@ -26,6 +26,14 @@ always-y += $(GCC_PLUGIN)
+ 
+ GCC_PLUGINS_DIR = $(shell $(CC) -print-file-name=plugin)
+ 
++plugin_cflags	= -Wp,-MMD,$(depfile) $(KBUILD_HOSTCFLAGS) -fPIC \
++		  -include $(srctree)/include/linux/compiler-version.h \
++		  -DPLUGIN_VERSION=$(call stringify,$(KERNELVERSION)) \
++		  -I $(GCC_PLUGINS_DIR)/include -I $(obj) \
++		  -fno-exceptions -fasynchronous-unwind-tables \
++		  -ggdb -Wno-narrowing -Wno-unused-variable \
++		  -Wno-format-diag
++
+ plugin_cxxflags	= -Wp,-MMD,$(depfile) $(KBUILD_HOSTCXXFLAGS) -fPIC \
+ 		  -include $(srctree)/include/linux/compiler-version.h \
+ 		  -DPLUGIN_VERSION=$(call stringify,$(KERNELVERSION)) \
+@@ -36,6 +44,17 @@ plugin_cxxflags	= -Wp,-MMD,$(depfile) $(KBUILD_HOSTCXXFLAGS) -fPIC \
+ 
+ plugin_ldflags	= -shared
+ 
++# 7.x: $(src) is already the absolute source directory.
++fips_canister_common-objs := $(patsubst $(src)/fips_canister_plugins/%.c,fips_canister_plugins/%.o,$(wildcard $(src)/fips_canister_plugins/*.c))
++
++match_canister_structs-cobjs := $(patsubst $(src)/fips_canister_plugins/match_canister_structs/%.c,fips_canister_plugins/match_canister_structs/%.o,$(wildcard $(src)/fips_canister_plugins/match_canister_structs/*.c))
++match_canister_structs-cobjs := $(patsubst %match_canister_structs.o,,$(match_canister_structs-cobjs))
++match_canister_structs-objs := fips_canister_plugins/match_canister_structs/match_canister_structs.o $(match_canister_structs-cobjs) $(fips_canister_common-objs)
++HOSTLDLIBS_match_canister_structs = -ldwarves
++
++pad_canister_structs-objs := $(patsubst $(src)/fips_canister_plugins/pad_canister_structs/%.c,fips_canister_plugins/pad_canister_structs/%.o,$(wildcard $(src)/fips_canister_plugins/pad_canister_structs/*.c))
++pad_canister_structs-objs := $(pad_canister_structs-objs) $(fips_canister_common-objs)
++
+ plugin-single	:= $(foreach m, $(GCC_PLUGIN), $(if $($(m:%.so=%-objs)),,$(m)))
+ plugin-multi	:= $(filter-out $(plugin-single), $(GCC_PLUGIN))
+ plugin-objs	:= $(sort $(foreach m, $(plugin-multi), $($(m:%.so=%-objs))))
+@@ -55,7 +74,7 @@ $(plugin-single): $(obj)/%.so: $(src)/%.c FORCE
+ 
+ quiet_cmd_plugin_ld_so_o = HOSTLD  $@
+       cmd_plugin_ld_so_o = $(HOSTCXX) $(plugin_ldflags) -o $@ \
+-			   $(addprefix $(obj)/, $($(target-stem)-objs))
++			   $(addprefix $(obj)/, $($(target-stem)-objs)) $(HOSTLDLIBS_$(target-stem))
+ 
+ $(plugin-multi): FORCE
+ 	$(call if_changed,plugin_ld_so_o)
+@@ -67,6 +86,13 @@ quiet_cmd_plugin_cxx_o_c = HOSTCXX $@
+ $(plugin-objs): $(obj)/%.o: $(src)/%.c FORCE
+ 	$(call if_changed_dep,plugin_cxx_o_c)
+ 
++quiet_cmd_plugin_cc_o_c = HOSTCC $@
++      cmd_plugin_cc_o_c = $(HOSTCC) $(plugin_cflags) -c -o $@ $<
++
++match_canister_structs-cobjs	:= $(addprefix $(obj)/, $(match_canister_structs-cobjs))
++$(match_canister_structs-cobjs): $(obj)/%.o: $(src)/%.c FORCE
++	$(call if_changed_dep,plugin_cc_o_c)
++
+ $(obj)/../../include/generated/gcc-plugins.h: $(plugin-single) $(plugin-multi) FORCE
+ 	$(call if_changed,touch)
+ always-y += ../../include/generated/gcc-plugins.h

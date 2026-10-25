@@ -1,0 +1,45 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] drm/vmwgfx: declare the premultiplied blend mode on all planes
+
+Linux 7.3 warns for every plane that exposes a pixel format with alpha
+but has no blend mode property:
+
+  vmwgfx 0000:00:0f.0: [drm] [PLANE:38:plane-0] pixel format with alpha
+  exposed but blend mode not setup. Please fix.
+
+The vmwgfx primary and cursor planes offer ARGB formats. Create the
+blend mode property with only DRM_MODE_BLEND_PREMULTI, the blending the
+driver already uses and the DRM default for planes without the
+property, so behaviour does not change.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+--- a/drivers/gpu/drm/vmwgfx/vmwgfx_kms.c	2026-09-20 22:48:15.000000000 +0200
++++ b/drivers/gpu/drm/vmwgfx/vmwgfx_kms.c	2026-09-26 10:08:22.548104723 +0200
+@@ -15,6 +15,7 @@
+ 
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_atomic_helper.h>
++#include <drm/drm_blend.h>
+ #include <drm/drm_damage_helper.h>
+ #include <drm/drm_fourcc.h>
+ #include <drm/drm_rect.h>
+@@ -1185,6 +1186,18 @@
+ 		if (ret) /* Fallback */
+ 			ret = vmw_kms_ldu_init_display(dev_priv);
+ 	}
++	if (!ret) {
++		struct drm_plane *plane;
++
++		/*
++		 * The primary and cursor planes offer formats with alpha. Declare
++		 * the premultiplied blending they already use, so the DRM core
++		 * does not warn that the blend mode is not set up.
++		 */
++		drm_for_each_plane(plane, dev)
++			drm_plane_create_blend_mode_property(plane,
++							     BIT(DRM_MODE_BLEND_PREMULTI));
++	}
+ 	BUILD_BUG_ON(ARRAY_SIZE(display_unit_names) != (vmw_du_max + 1));
+ 	drm_info(&dev_priv->drm, "%s display unit initialized\n",
+ 		 display_unit_names[dev_priv->active_display_unit]);

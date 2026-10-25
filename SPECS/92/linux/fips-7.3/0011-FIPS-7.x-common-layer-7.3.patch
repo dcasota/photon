@@ -1,0 +1,306 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] common (10101 layer, 7.x): wrapper, generated canister exports/initcalls, sha1 FIPS registration, jitterentropy 7.x fixes
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 70d8db12c61ddc7ea0c2ffdc576ee1edae930722..70c40d5465fdd3e3d9e997116efba10932c2d827 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -192,6 +192,30 @@ obj-$(CONFIG_CRYPTO_KRB5) += krb5/
+ obj-$(CONFIG_CRYPTO_FIPS) += fips_canister_wrapper.o fips_canister.o
+ obj-$(CONFIG_CRYPTO_FIPS) += fips_canister_wrapper_internal.o
+ 
++# Exports of the canister, generated from its .discard.fips_canister_exports
++# records (include/linux/export.h) and compiled here, outside the canister.
++obj-$(CONFIG_CRYPTO_FIPS) += fips_canister_exports.o
++quiet_cmd_canister_exports = GEN     $@
++      cmd_canister_exports = OBJCOPY="$(OBJCOPY)" $(CONFIG_SHELL) $(src)/gen_canister_exports.sh $< $@
++$(obj)/fips_canister_exports.h: $(obj)/fips_canister.o $(src)/gen_canister_exports.sh FORCE
++	$(call if_changed,canister_exports)
++targets += fips_canister_exports.h
++clean-files += fips_canister_exports.h
++$(obj)/fips_canister_exports.o: $(obj)/fips_canister_exports.h
++CFLAGS_fips_canister_exports.o += -I$(obj)
++
++# Initcalls of the canister, generated the same way from its
++# .discard.fips_canister_initcalls records (include/linux/init.h).
++obj-$(CONFIG_CRYPTO_FIPS) += fips_canister_initcalls.o
++quiet_cmd_canister_initcalls = GEN     $@
++      cmd_canister_initcalls = OBJCOPY="$(OBJCOPY)" $(CONFIG_SHELL) $(src)/gen_canister_initcalls.sh $< $@
++$(obj)/fips_canister_initcalls.inc: $(obj)/fips_canister.o $(src)/gen_canister_initcalls.sh FORCE
++	$(call if_changed,canister_initcalls)
++targets += fips_canister_initcalls.inc
++clean-files += fips_canister_initcalls.inc
++$(obj)/fips_canister_initcalls.o: $(obj)/fips_canister_initcalls.inc
++CFLAGS_fips_canister_initcalls.o += -I$(obj)
++
+ # Everything the canister links in must be built in, and the self-tests must run.
+ ifdef CONFIG_CRYPTO_FIPS
+ ifneq ($(CONFIG_CRYPTO_FIPS),y)
+diff --git a/crypto/fips_canister_exports.c b/crypto/fips_canister_exports.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..d5b6bece9c6a44219f5460a21357bcb359822b54
+--- /dev/null
++++ b/crypto/fips_canister_exports.c
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Symbols the FIPS canister exports.
++ *
++ * The canister itself exports nothing (see include/linux/export.h); the list
++ * below is generated from the canister object, and the declarations come from
++ * the same headers the canister sources use, so genksyms computes the CRCs
++ * modules are checked against. A symbol whose header is missing here fails
++ * the build instead of being exported with a wrong type.
++ */
++#include <linux/export.h>
++#include <linux/module.h>
++#include <crypto/aes.h>
++#include <crypto/aes-cbc.h>
++#include <crypto/aes-cbc-macs.h>
++#include <crypto/aes-ccm.h>
++#include <crypto/aes-ctr.h>
++#include <crypto/aes-ecb.h>
++#include <crypto/aes-gcm.h>
++#include <crypto/aes-xts.h>
++#include <crypto/gcm.h>
++#include <crypto/gf128hash.h>
++#include <crypto/sha2.h>
++#include <crypto/sha3.h>
++#include <crypto/ecdh.h>
++#include <crypto/ecc_curve.h>
++#include <crypto/internal/ecc.h>
++#include <crypto/internal/geniv.h>
++#include <crypto/internal/rsa.h>
++#include <crypto/internal/cipher.h>
++#include <crypto/xts.h>
++#include "internal.h"
++
++#include "fips_canister_exports.h"
+diff --git a/crypto/fips_canister_initcalls.c b/crypto/fips_canister_initcalls.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..e5549596f5022be752b7bc6ab862262362424b1d
+--- /dev/null
++++ b/crypto/fips_canister_initcalls.c
+@@ -0,0 +1,18 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Initcalls of the FIPS canister, generated from the canister object (see
++ * include/linux/init.h and crypto/gen_canister_initcalls.sh) and run at the
++ * levels the algorithms declared, from outside the measured object.
++ */
++#include <linux/init.h>
++#include <linux/printk.h>
++
++static void __init fips_canister_initcall(const char *name, initcall_t fn)
++{
++	int ret = fn();
++
++	if (ret)
++		pr_err("fips canister: %s returned %d\n", name, ret);
++}
++
++#include "fips_canister_initcalls.inc"
+diff --git a/crypto/gen_canister_exports.sh b/crypto/gen_canister_exports.sh
+new file mode 100755
+index 0000000000000000000000000000000000000000..3f428463c9077df9ebb2fe7d9461670135a7d457
+--- /dev/null
++++ b/crypto/gen_canister_exports.sh
+@@ -0,0 +1,53 @@
++#!/bin/sh
++# SPDX-License-Identifier: GPL-2.0
++#
++# gen_canister_exports.sh <fips_canister.o> <output.h>
++#
++# Inside the FIPS canister EXPORT_SYMBOL*() only records "sym|license|ns" in
++# the .discard.fips_canister_exports section (see include/linux/export.h).
++# Turn those records into EXPORT_SYMBOL*() statements for
++# fips_canister_exports.c, which is compiled outside the canister, so the
++# exports (and their modversions CRCs) come from real declarations there.
++# Fails on a missing section, a malformed record or a conflicting export.
++set -eu
++
++in="$1"
++out="$2"
++: "${OBJCOPY:=objcopy}"
++
++tmp="$(mktemp "${out}.XXXXXX")"
++trap 'rm -f "$tmp" "$tmp.sec"' EXIT
++
++# objcopy succeeds silently when the section is absent: check the file too.
++"$OBJCOPY" --dump-section ".discard.fips_canister_exports=$tmp.sec" "$in" 2>/dev/null || true
++if [ ! -s "$tmp.sec" ]; then
++	echo "gen_canister_exports: $in has no .discard.fips_canister_exports records" >&2
++	exit 1
++fi
++
++awk -F'|' '
++function fail(msg) { print "gen_canister_exports: " msg > "/dev/stderr"; bad = 1; exit 1 }
++NF != 3                          { fail("malformed record: " $0) }
++$1 !~ /^[A-Za-z_][A-Za-z0-9_]*$/ { fail("bad symbol name: " $1) }
++$2 != "" && $2 != "GPL"          { fail("unknown license \"" $2 "\" for " $1) }
++$3 !~ /^[A-Za-z0-9_]*$/          { fail("bad namespace \"" $3 "\" for " $1) }
++{
++	if (($1 in rec) && rec[$1] != $0)
++		fail("conflicting exports of " $1 ": " rec[$1] " and " $0)
++	if ($1 in rec)
++		next
++	rec[$1] = $0
++	gpl = ($2 == "GPL") ? "_GPL" : ""
++	if ($3 == "")
++		printf "EXPORT_SYMBOL%s(%s);\n", gpl, $1
++	else
++		printf "EXPORT_SYMBOL_NS%s(%s, \"%s\");\n", gpl, $1, $3
++}
++' "$tmp.sec" > "$tmp"
++LC_ALL=C sort -o "$tmp" "$tmp"
++
++{
++	echo "/* Generated by crypto/gen_canister_exports.sh from $(basename "$in"). Do not edit. */"
++	cat "$tmp"
++} > "$tmp.sec"
++mv -f "$tmp.sec" "$out"
+diff --git a/crypto/gen_canister_initcalls.sh b/crypto/gen_canister_initcalls.sh
+new file mode 100755
+index 0000000000000000000000000000000000000000..46af957c72dbd2930170dea0d30d8380088314be
+--- /dev/null
++++ b/crypto/gen_canister_initcalls.sh
+@@ -0,0 +1,54 @@
++#!/bin/sh
++# SPDX-License-Identifier: GPL-2.0
++#
++# gen_canister_initcalls.sh <fips_canister.o> <output.c>
++#
++# Inside the FIPS canister every initcall is recorded as "level|trampoline"
++# in .discard.fips_canister_initcalls (see include/linux/init.h). Generate one
++# initcall per level, outside the canister, that runs that level's
++# trampolines in canister link order and reports each failure by name.
++# Fails on a missing section, a malformed record or a duplicate trampoline.
++set -eu
++
++in="$1"
++out="$2"
++: "${OBJCOPY:=objcopy}"
++
++tmp="$(mktemp "${out}.XXXXXX")"
++trap 'rm -f "$tmp" "$tmp.sec"' EXIT
++
++"$OBJCOPY" --dump-section ".discard.fips_canister_initcalls=$tmp.sec" "$in" 2>/dev/null || true
++if [ ! -s "$tmp.sec" ]; then
++	echo "gen_canister_initcalls: $in has no .discard.fips_canister_initcalls records" >&2
++	exit 1
++fi
++
++awk -F'|' -v src="$(basename "$in")" '
++function fail(msg) { print "gen_canister_initcalls: " msg > "/dev/stderr"; bad = 1; exit 1 }
++NF != 2                                 { fail("malformed record: " $0) }
++$1 !~ /^([0-7]s?|early|rootfs)$/        { fail("unknown initcall level \"" $1 "\" for " $2) }
++$2 !~ /^__fcw_initcall_[A-Za-z0-9_]+$/  { fail("bad trampoline name: " $2) }
++{
++	if ($2 in seen)
++		fail("duplicate trampoline " $2)
++	seen[$2] = 1
++	if (!($1 in n)) { n[$1] = 0; levels[++nl] = $1 }
++	calls[$1, ++n[$1]] = $2
++	decl[++nd] = $2
++}
++END {
++	if (bad)
++		exit 1
++	print "/* Generated by crypto/gen_canister_initcalls.sh from " src ". Do not edit. */"
++	for (i = 1; i <= nd; i++)
++		printf "int __init %s(void);\n", decl[i]
++	for (l = 1; l <= nl; l++) {
++		lv = levels[l]
++		printf "\nstatic int __init fips_canister_initcalls_%s(void)\n{\n", lv
++		for (i = 1; i <= n[lv]; i++)
++			printf "\tfips_canister_initcall(\"%s\", %s);\n", calls[lv, i], calls[lv, i]
++		printf "\treturn 0;\n}\n__define_initcall(fips_canister_initcalls_%s, %s);\n", lv, lv
++	}
++}
++' "$tmp.sec" > "$tmp"
++mv -f "$tmp" "$out"
+diff --git a/crypto/jitterentropy-kcapi.c b/crypto/jitterentropy-kcapi.c
+index 21b37c228af323d1e6ff474bd44a1d4202eddf89..7cfc85d976cba0a8d253945e65e11c67a4e05505 100644
+--- a/crypto/jitterentropy-kcapi.c
++++ b/crypto/jitterentropy-kcapi.c
+@@ -49,7 +49,12 @@
+ #include "photon-jitterentropy-v6.12/jitterentropy.h"
+ #include "photon-jitterentropy-v6.12/jitterentropy_canister_wrapper.h"
+ 
+-#define JENT_CONDITIONING_HASH	"sha3-256-generic"
++/*
++ * 7.x has no "sha3-256-generic" driver: SHA-3 is the library-backed
++ * "sha3-256-lib" (in FIPS builds, part of the canister). Ask for the
++ * algorithm, not a 6.x driver name.
++ */
++#define JENT_CONDITIONING_HASH	"sha3-256"
+ 
+ static char mem_access_method[12] = "random";
+ 
+@@ -143,7 +148,14 @@ int jent_hash_time(void *hash_state, __u64 time, u8 *addtl,
+ 	 * Inject the data from the previous loop into the pool. This data is
+ 	 * not considered to contain any entropy, but it stirs the pool a bit.
+ 	 */
+-	ret = crypto_shash_update(desc, intermediary, sizeof(intermediary));
++	/*
++	 * 7.x: crypto_shash_finup() above finalised (and zeroised) the local
++	 * state; updating it again divides by its zeroed block size. On 6.12
++	 * this update touched a stale state and never reached the pool, so
++	 * re-initialise first: same work inside the timed loop, same pool.
++	 */
++	ret = crypto_shash_init(desc) ?:
++	      crypto_shash_update(desc, intermediary, sizeof(intermediary));
+ 	if (ret)
+ 		goto err;
+ 
+diff --git a/crypto/photon-jitterentropy-v6.12/jitterentropy.c b/crypto/photon-jitterentropy-v6.12/jitterentropy.c
+index ddfe1ed9255f6b539b7d0ddd340b6bced5bbdfcd..d3b765bd5a490703996fcf4b5548b7df94e9a25e 100644
+--- a/crypto/photon-jitterentropy-v6.12/jitterentropy.c
++++ b/crypto/photon-jitterentropy-v6.12/jitterentropy.c
+@@ -906,7 +906,10 @@ struct rand_data *jent_entropy_collector_alloc(unsigned int osr,
+ 		entropy_collector->memblocks =
+ 			CONFIG_CRYPTO_JITTERENTROPY_MEMORY_BLOCKS;
+ 		entropy_collector->memaccessloops = JENT_MEMORY_ACCESSLOOPS;
+-		if(jcw_set_memory_uc(entropy_collector->mem,
++		/* Whole pages only: a sub-page pool would give an empty range. */
++		if ((JENT_MEMORY_SIZE >> JENT_PAGE_SHIFT) == 0)
++			jcw_printk("jent: memory pool smaller than a page, left cached\n");
++		else if (jcw_set_memory_uc(entropy_collector->mem,
+ 				JENT_MEMORY_SIZE >> JENT_PAGE_SHIFT))
+ 			jcw_printk("ERR in setting EC mem to UC\n");
+ 	}
+diff --git a/crypto/sha1.c b/crypto/sha1.c
+index 4fbf61cf037096ec1c21c9caa9509b3289dc0ea0..ceff661dd13514a55a0de7d403950db7a2c53a3b 100644
+--- a/crypto/sha1.c
++++ b/crypto/sha1.c
+@@ -11,6 +11,7 @@
+ #include <crypto/sha1.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
++#include <linux/fips.h>
+ 
+ /*
+  * Export and import functions.  crypto_shash wants a particular format that
+@@ -219,14 +220,19 @@ static struct shash_alg algs[] = {
+ 	},
+ };
+ 
++/* Photon FIPS: SHA-1 and HMAC-SHA1 are not offered through the crypto API. */
+ static int __init crypto_sha1_mod_init(void)
+ {
++	if (fips_enabled)
++		return 0;
+ 	return crypto_register_shashes(algs, ARRAY_SIZE(algs));
+ }
+ module_init(crypto_sha1_mod_init);
+ 
+ static void __exit crypto_sha1_mod_exit(void)
+ {
++	if (fips_enabled)
++		return;
+ 	crypto_unregister_shashes(algs, ARRAY_SIZE(algs));
+ }
+ module_exit(crypto_sha1_mod_exit);

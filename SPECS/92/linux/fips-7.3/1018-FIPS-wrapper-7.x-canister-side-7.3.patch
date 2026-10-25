@@ -1,0 +1,26 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] FIPS wrapper for 7.x: only what the canister calls; derived in-canister check replaces the 6.12 driver-name lists
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/testmgr.c b/crypto/testmgr.c
+index 55a28387a6281ddee09d3abb92467d4bca29bd04..2a961c26fe9765e32d3cb094f2ce822d2ac55903 100644
+--- a/crypto/testmgr.c
++++ b/crypto/testmgr.c
+@@ -5649,6 +5649,15 @@ static int alg_find_test(const char *alg)
+  * allowed in FIPS mode and runs real vectors (not alg_test_null), so a
+  * self-test table entry cannot pass vacuously.
+  */
++/* Photon FIPS: testmgr's fips_allowed flag for @alg (false if untested). */
++bool alg_test_fips_allowed(const char *alg);
++bool alg_test_fips_allowed(const char *alg)
++{
++	int i = alg_find_test(alg);
++
++	return i >= 0 && alg_test_descs[i].fips_allowed;
++}
++
+ bool alg_test_is_real_fips_test(const char *alg);
+ bool alg_test_is_real_fips_test(const char *alg)
+ {

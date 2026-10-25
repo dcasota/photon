@@ -1,0 +1,78 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] 7.x FIPS boot fixes: jent sha3-256 by name, cryptomgr and sha3 at arch_initcall, jent finalised-state update, integrity reloc bounds, gen_canister_relocs .bss index; wrapper WARN path
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/arch/x86/include/asm/bug.h b/arch/x86/include/asm/bug.h
+index b8a4fd5a08c61ddb61d035f9ebf709e284da9879..e4ae2e34c6db69bfa060e73edaa4b234b2744fbc 100644
+--- a/arch/x86/include/asm/bug.h
++++ b/arch/x86/include/asm/bug.h
+@@ -127,6 +127,14 @@ do {								\
+  * defined below.
+  */
+ extern void fcw_bug(void);
++/*
++ * x86 does not build warn_slowpath_fmt() (it has __WARN_FLAGS), so canister
++ * WARNs go to the wrapper, which raises a regular WARN() naming this site.
++ */
++extern __printf(4, 5) void fcw_warn_slowpath_fmt(const char *file, const int line,
++						   unsigned int taint, const char *fmt, ...);
++#define __WARN_printf(taint, arg...)					\
++	fcw_warn_slowpath_fmt(__FILE__, __LINE__, taint, arg)
+ #define BUG()							\
+ do {								\
+ 	printk("BUG: failure at %s:%d/%s()!\n",			\
+diff --git a/crypto/algboss.c b/crypto/algboss.c
+index e2070e3c56a785a7d48f39a87548bb7d20d48e37..20f657336d6c079a1bff2fcd10b3e6a004bf5e98 100644
+--- a/crypto/algboss.c
++++ b/crypto/algboss.c
+@@ -248,7 +248,15 @@ static void __exit cryptomgr_exit(void)
+ 	BUG_ON(err);
+ }
+ 
+-module_init(cryptomgr_init);
++/*
++ * Photon FIPS: the crypto manager must be listening before anything looks
++ * up an algorithm during early boot. Before the boot tests finish, such a
++ * lookup starts the algorithm's self-test and waits for it; the Jitter RNG
++ * (subsys_initcall) looks up "sha3-256" and would otherwise wait out the
++ * 60 s larval timeout and fail. 6.12's canister wrapper also started
++ * cryptomgr at arch_initcall.
++ */
++arch_initcall(cryptomgr_init);
+ module_exit(cryptomgr_exit);
+ 
+ MODULE_LICENSE("GPL");
+diff --git a/crypto/crypto_self_test.c b/crypto/crypto_self_test.c
+index d954c7b7b86b12dad47014cf54a45f5b64974ea9..be2e6e9a03a1bb1a79e7a27796ff4e8be1eed624 100644
+--- a/crypto/crypto_self_test.c
++++ b/crypto/crypto_self_test.c
+@@ -92,5 +92,7 @@ int __init crypto_self_test_init(void)
+ 			return err;
+ 		}
+ 	}
++	fcw_printk(KERN_INFO "crypto_self_test: %d FIPS known-answer tests passed\n",
++		   (int)ARRAY_SIZE(alg_self_test_tbl));
+ 	return 0;
+ }
+diff --git a/crypto/sha3.c b/crypto/sha3.c
+index 8f364979ec890111059c7fa14464a7a638e92626..4483799761b3e487d55ffe3e1a0bc86e0595de79 100644
+--- a/crypto/sha3.c
++++ b/crypto/sha3.c
+@@ -145,7 +145,14 @@ static int __init crypto_sha3_mod_init(void)
+ {
+ 	return crypto_register_shashes(algs, ARRAY_SIZE(algs));
+ }
+-module_init(crypto_sha3_mod_init);
++/*
++ * Photon FIPS: the Jitter RNG (subsys_initcall) conditions through a
++ * "sha3-256" shash, so the crypto API SHA-3 must be registered before it
++ * (6.12's canister wrapper called sha3_generic_mod_init() at arch_initcall
++ * for the same reason). The library it uses works before its own
++ * subsys_initcall, which only selects arch code and runs its KAT.
++ */
++arch_initcall(crypto_sha3_mod_init);
+ 
+ static void __exit crypto_sha3_mod_exit(void)
+ {

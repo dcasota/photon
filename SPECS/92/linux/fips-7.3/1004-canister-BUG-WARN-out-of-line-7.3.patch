@@ -1,0 +1,80 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] canister: BUG/WARN out of line and no printk index in FIPS_CANISTER units (7.x replacement for per-callsite 1004 edits)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/arch/x86/include/asm/bug.h b/arch/x86/include/asm/bug.h
+index 23ab0543826952f691d640b1529a0495f38aa86b..b8a4fd5a08c61ddb61d035f9ebf709e284da9879 100644
+--- a/arch/x86/include/asm/bug.h
++++ b/arch/x86/include/asm/bug.h
+@@ -58,7 +58,7 @@ extern void __WARN_trap(struct bug_entry *bug, ...);
+ #define __BUG_ENTRY_FORMAT(format)
+ #endif
+ 
+-#ifdef CONFIG_X86_64
++#if defined(CONFIG_X86_64) && !defined(FIPS_CANISTER)
+ #define HAVE_ARCH_BUG_FORMAT_ARGS
+ #endif
+ 
+@@ -111,12 +111,30 @@ do {									\
+ #endif /* CONFIG_GENERIC_BUG */
+ 
+ #define HAVE_ARCH_BUG
++#ifndef FIPS_CANISTER
+ #define BUG()							\
+ do {								\
+ 	instrumentation_begin();				\
+ 	_BUG_FLAGS("", ASM_UD2, 0, "");				\
+ 	__builtin_unreachable();				\
+ } while (0)
++#else
++/*
++ * FIPS canister: no __bug_table entries inside the measured object. BUG()
++ * reports where it fired and hands over to fcw_bug(), whose own BUG() sits in
++ * the wrapper outside the canister; WARN*() fall through to the out-of-line
++ * warn_slowpath_fmt() of <asm-generic/bug.h> because __WARN_FLAGS is not
++ * defined below.
++ */
++extern void fcw_bug(void);
++#define BUG()							\
++do {								\
++	printk("BUG: failure at %s:%d/%s()!\n",			\
++	       __FILE__, __LINE__, __func__);			\
++	fcw_bug();						\
++	__builtin_unreachable();				\
++} while (0)
++#endif
+ 
+ /*
+  * This instrumentation_begin() is strictly speaking incorrect; but it
+@@ -127,6 +145,7 @@ do {								\
+ 
+ #define ARCH_WARN_REACHABLE	ANNOTATE_REACHABLE(1b)
+ 
++#ifndef FIPS_CANISTER
+ #define __WARN_FLAGS(cond_str, flags)					\
+ do {									\
+ 	auto __flags = BUGFLAG_WARNING|(flags);				\
+@@ -134,6 +153,7 @@ do {									\
+ 	_BUG_FLAGS(cond_str, ASM_UD2, __flags, ARCH_WARN_REACHABLE);	\
+ 	instrumentation_end();						\
+ } while (0)
++#endif /* !FIPS_CANISTER */
+ 
+ #ifdef HAVE_ARCH_BUG_FORMAT_ARGS
+ 
+diff --git a/include/linux/printk.h b/include/linux/printk.h
+index f594c1266bfd411f2238b45374e8a71222f0407c..924ecef0b2ec580499a7b262278cd8b154ea4e88 100644
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -403,7 +403,8 @@ extern int kptr_restrict;
+ 
+ struct module;
+ 
+-#ifdef CONFIG_PRINTK_INDEX
++/* No printk index entries from inside the FIPS canister (measured object). */
++#if defined(CONFIG_PRINTK_INDEX) && !defined(FIPS_CANISTER)
+ struct pi_entry {
+ 	const char *fmt;
+ 	const char *func;

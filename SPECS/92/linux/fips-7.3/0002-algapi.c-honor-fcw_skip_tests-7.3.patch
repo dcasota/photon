@@ -1,0 +1,36 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch10102: 0002-algapi.c-honor-fcw_skip_tests.patch (rebased: CRYPTO_SELFTESTS)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/crypto/algapi.c b/crypto/algapi.c
+index 37de377719aec7c1f3533b874cb9d118ccd4e112..ed4a960813a3aa77975491539ff725560574ddcf 100644
+--- a/crypto/algapi.c
++++ b/crypto/algapi.c
+@@ -19,6 +19,7 @@
+ #include <linux/workqueue.h>
+ 
+ #include "internal.h"
++#include "fips_canister_wrapper.h"
+ 
+ static LIST_HEAD(crypto_template_list);
+ 
+@@ -276,6 +277,7 @@ static struct crypto_larval *crypto_alloc_test_larval(struct crypto_alg *alg)
+ 	struct crypto_larval *larval;
+ 
+ 	if (!IS_ENABLED(CONFIG_CRYPTO_SELFTESTS) ||
++	    fcw_skip_tests() ||
+ 	    (alg->cra_flags & CRYPTO_ALG_INTERNAL))
+ 		return NULL; /* No self-test needed */
+ 
+@@ -1059,6 +1061,9 @@ static void __init crypto_start_tests(void)
+ 	if (!IS_ENABLED(CONFIG_CRYPTO_SELFTESTS))
+ 		return;
+ 
++	if (fcw_skip_tests())
++		return;
++
+ 	set_crypto_boot_test_finished();
+ 
+ 	for (;;) {

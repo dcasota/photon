@@ -1,0 +1,154 @@
+From: Daniel Casota <dcasota@gmail.com>
+Subject: [PATCH] Patch11009: 1009-Handle-approved-and-non-approved-services.patch (7.x; KATs mark their IVs internal)
+
+Linux 7.3-rc4 port of the Photon FIPS canister series.
+See EXPERIMENTAL-7.3-rc4-FIPS.md for the per-patch decisions.
+---
+diff --git a/arch/x86/crypto/aesni-intel_glue.c b/arch/x86/crypto/aesni-intel_glue.c
+index 2f464707d0f2e154df19b6cd6de9b29e31284ee5..73a35041cc86c3dafb2d3a1ef11d4c9390a6e84f 100644
+--- a/arch/x86/crypto/aesni-intel_glue.c
++++ b/arch/x86/crypto/aesni-intel_glue.c
+@@ -20,6 +20,7 @@
+ #include <linux/hardirq.h>
+ #include <linux/types.h>
+ #include <linux/module.h>
++#include <linux/fips.h>
+ #include <linux/err.h>
+ #include <crypto/algapi.h>
+ #include <crypto/aes.h>
+@@ -361,8 +362,10 @@ static int xts_setkey_aesni(struct crypto_skcipher *tfm, const u8 *key,
+ 	int err;
+ 
+ 	err = xts_verify_key(tfm, key, keylen);
+-	if (err)
++	if (err) {
++		pr_err("XTS verify duplicate key test failed\n");
+ 		return err;
++	}
+ 
+ 	keylen /= 2;
+ 
+@@ -1356,6 +1359,16 @@ gcm_crypt(struct aead_request *req, int flags)
+ 		le_ctr[3] = get_unaligned_be32(req->iv + 0);
+ 	}
+ 
++	if (flags & FLAG_ENC) {
++		if (fips_enabled && !aead_request_is_internal_iv(req)) {
++			/* Photon FIPS: AES-GCM encryption needs a module-generated IV. */
++			pr_err_once("alg: (%s) (%s) Encryption with external IV is not approved in FIPS mode\n",
++				    crypto_tfm_alg_driver_name(req->base.tfm),
++				    crypto_tfm_alg_name(req->base.tfm));
++			return -EINVAL;
++		}
++	}
++
+ 	/* Begin walking through the plaintext or ciphertext. */
+ 	if (flags & FLAG_ENC)
+ 		err = skcipher_walk_aead_encrypt(&walk, req, false);
+diff --git a/crypto/gcm.c b/crypto/gcm.c
+index d46437e2a517f32b735620877f4dad17f9635506..b5de59e0f663149f79c756487e758967382ecee2 100644
+--- a/crypto/gcm.c
++++ b/crypto/gcm.c
+@@ -256,6 +256,14 @@ static int crypto_gcm_encrypt(struct aead_request *req)
+ 	struct skcipher_request *skreq = &pctx->skreq;
+ 	u32 flags = aead_request_flags(req);
+ 
++	if (fips_enabled && !aead_request_is_internal_iv(req)) {
++		/* Photon FIPS: AES-GCM encryption needs a module-generated IV. */
++		pr_err_once("alg: (%s) (%s) Encryption with external IV is not approved in FIPS mode\n",
++			    crypto_tfm_alg_driver_name(req->base.tfm),
++			    crypto_tfm_alg_name(req->base.tfm));
++		return -EINVAL;
++	}
++
+ 	crypto_gcm_init_common(req);
+ 	crypto_gcm_init_crypt(req, req->cryptlen);
+ 	skcipher_request_set_callback(skreq, flags, gcm_encrypt_done, req);
+@@ -516,6 +524,8 @@ static struct aead_request *crypto_rfc4106_crypt(struct aead_request *req)
+ 			       req->src == req->dst ? rctx->src : rctx->dst,
+ 			       req->cryptlen, iv);
+ 	aead_request_set_ad(subreq, req->assoclen - 8);
++	/* The IV came from our caller's generator: carry its mark to gcm. */
++	subreq->internal_iv = req->internal_iv;
+ 
+ 	return subreq;
+ }
+@@ -524,6 +534,14 @@ static int crypto_rfc4106_encrypt(struct aead_request *req)
+ {
+ 	int err;
+ 
++	if (fips_enabled && !aead_request_is_internal_iv(req)) {
++		/* Photon FIPS: AES-GCM encryption needs a module-generated IV. */
++		pr_err_once("alg: (%s) (%s) Encryption with external IV is not approved in FIPS mode\n",
++			    crypto_tfm_alg_driver_name(req->base.tfm),
++			    crypto_tfm_alg_name(req->base.tfm));
++		return -EINVAL;
++	}
++
+ 	err = crypto_ipsec_check_assoclen(req->assoclen);
+ 	if (err)
+ 		return err;
+diff --git a/crypto/seqiv.c b/crypto/seqiv.c
+index 678bb4145d783a5a7e81568290be62785af32159..8dcb8c19ec979869c8ec5344f0201825c7626cc6 100644
+--- a/crypto/seqiv.c
++++ b/crypto/seqiv.c
+@@ -90,6 +90,11 @@ static int seqiv_aead_encrypt(struct aead_request *req)
+ 	crypto_xor(info, ctx->salt, ivsize);
+ 	scatterwalk_map_and_copy(info, req->dst, req->assoclen, ivsize, 1);
+ 
++	/* seqiv generated this IV: GCM may encrypt with it in FIPS mode. */
++	err = aead_request_mark_internal_iv(subreq);
++	if (err)
++		return err;
++
+ 	err = crypto_aead_encrypt(subreq);
+ 	if (unlikely(unaligned_info))
+ 		seqiv_aead_encrypt_complete2(req, err);
+diff --git a/crypto/testmgr.c b/crypto/testmgr.c
+index fb8fe6b0b6388989000164a7dd052d45c265d56c..07de7b435b1c80b83be82ec4381c24a172788f96 100644
+--- a/crypto/testmgr.c
++++ b/crypto/testmgr.c
+@@ -2117,6 +2117,15 @@ static int test_aead_vec_cfg(int enc, const struct aead_testvec *vec,
+ 	aead_request_set_crypt(req, tsgls->src.sgl_ptr, tsgls->dst.sgl_ptr,
+ 			       enc ? vec->plen : vec->clen, iv);
+ 	aead_request_set_ad(req, vec->alen);
++	/*
++	 * Photon FIPS: the known-answer tests are run by the module itself, so
++	 * their fixed IVs count as module-generated (GCM refuses external IVs).
++	 */
++	if (enc && fips_enabled) {
++		err = aead_request_mark_internal_iv(req);
++		if (err)
++			return err;
++	}
+ 	if (cfg->nosimd)
+ 		crypto_disable_simd_for_test();
+ 	err = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+@@ -2345,6 +2354,11 @@ static void generate_aead_message(struct rnd_state *rng,
+ 		aead_request_set_callback(req, 0, crypto_req_done, &wait);
+ 		aead_request_set_crypt(req, src, &dst, vec->plen, iv);
+ 		aead_request_set_ad(req, vec->alen);
++		if (fips_enabled) {
++			vec->crypt_error = aead_request_mark_internal_iv(req);
++			if (vec->crypt_error)
++				return;
++		}
+ 		vec->crypt_error = crypto_wait_req(crypto_aead_encrypt(req),
+ 						   &wait);
+ 		/* If encryption failed, we're done. */
+diff --git a/crypto/xts.c b/crypto/xts.c
+index e326e3c2bddafa3df0bd395235b5341589b01a13..2f7e1bca63353477d2b39de6fab65c5076f5308f 100644
+--- a/crypto/xts.c
++++ b/crypto/xts.c
+@@ -49,8 +49,10 @@ static int xts_setkey(struct crypto_skcipher *parent, const u8 *key,
+ 	int err;
+ 
+ 	err = xts_verify_key(parent, key, keylen);
+-	if (err)
++	if (err) {
++		pr_err("XTS verify duplicate key test failed\n");
+ 		return err;
++	}
+ 
+ 	keylen /= 2;
+ 
