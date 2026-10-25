@@ -235,8 +235,8 @@ index f0588604e943156f9713991373071123ad8c3306..f8830fd061c4b777113c082be56a832f
 +			fcw_kernel_fpu_end();
 +			fcw_kernel_fpu_begin();
  		}
- 		assoclen -= orig_len_this_step;
  	}
+ 	if (unlikely(pos))
 @@ -1373,7 +1373,7 @@ gcm_crypt(struct aead_request *req, int flags)
  	 * section and start a new one if there are multiple data segments or if
  	 * rescheduling is needed while processing the associated data.
