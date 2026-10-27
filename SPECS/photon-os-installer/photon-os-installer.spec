@@ -25,6 +25,7 @@ Patch6: 0007-installer-seed-locale.conf-before-package-install.patch
 Patch7: 0008-isoBuilder-put-installer-requestable-packages-on-media.patch
 Patch8: 0009-installer-restrict-sshd-to-FIPS-approved-algorithms.patch
 Patch9: 0011-installer-ISO-installs-follow-the-boot-firmware-and-.patch
+Patch10: 0012-installer-initrd-keep-the-kernel-keymap.patch
 
 BuildRequires: python3-devel
 BuildRequires: python3-pyinstaller
@@ -80,7 +81,7 @@ rm -rf %{buildroot}
 
 %changelog
 * Tue Oct 27 2026 Daniel Casota <dcasota@gmail.com> 2.8-3
-- Fix UI, STIG, locale, media; FIPS sshd; DHCP release; bootmode
+- Fix UI, STIG, locale, media; FIPS sshd; DHCP; bootmode; keymap
 * Fri May 15 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 2.8-2
 - Extended to build for subrelease 91 and above
 * Tue Apr 28 2026 Oliver Kurth <oliver.kurth@broadcom.com> 2.8-1
