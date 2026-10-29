@@ -3,7 +3,7 @@
 Summary:        Open Source Security Compliance Solution
 Name:           openscap
 Version:        1.3.14
-Release:        4%{?dist}
+Release:        5%{?dist}
 URL:            https://www.open-scap.org
 Group:          System Environment/Libraries
 Vendor:         VMware, Inc.
@@ -72,6 +72,8 @@ Summary:        %{name} python
 Group:          Development/Libraries
 Requires:       %{name} = %{version}-%{release}
 Requires:       python3
+Requires:       python3-requests
+Requires:       docker-py3
 
 %description    python3
 Python bindings.
@@ -105,6 +107,8 @@ Python bindings.
 %{_sysconfdir}/*
 %{_bindir}/*
 %{_mandir}/man8/*
+%exclude %{_bindir}/oscap-docker
+%exclude %{_mandir}/man8/oscap-docker.8*
 %{_datadir}/openscap/*
 %{_libdir}/libopenscap_sce.so.*
 %{_libdir}/libopenscap.so.*
@@ -124,9 +128,13 @@ Python bindings.
 
 %files python3 -f %{py_ghost_filelist}
 %defattr(-,root,root)
+%{_bindir}/oscap-docker
+%{_mandir}/man8/oscap-docker.8*
 %{python3_sitelib}
 
 %changelog
+* Tue Oct 27 2026 Daniel Casota <dcasota@gmail.com> 1.3.14-5
+- Ship oscap-docker in openscap-python3; require docker-py3
 * Mon Jun 08 2026 Bo Gan <bo.gan@broadcom.com> 1.3.14-4
 - Migrate from pcre to pcre2
 * Wed Jun 03 2026 Harinadh Dommaraju <Harinadh.Dommaraju@broadcom.com> 1.3.14-3
