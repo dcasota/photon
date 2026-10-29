@@ -3,9 +3,10 @@ Description=Connection poller for PostgreSQL.
 After=syslog.target network.target
 
 [Service]
-Type=forking
-ExecStart=/usr/bin/pgbouncer --quiet --user pgbouncer /etc/pgbouncer.ini
-ExecReload=/bin/kill -USR2 $MAINPID
+Type=notify
+ExecStart=/usr/bin/pgbouncer --quiet /etc/pgbouncer.ini
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
 User=pgbouncer
 Group=pgbouncer
 RuntimeDirectory=pgbouncer
