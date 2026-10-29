@@ -1,0 +1,31 @@
+From: Daniel Casota <dcasota@gmail.com>
+Date: Sat, 3 Oct 2026 03:15:00 +0200
+Subject: [PATCH] aa-exec: terminate the long option array
+
+getopt_long() walks the long option array until it finds an entry whose
+name is NULL. aa_exec.c's long_opts has none, so any long option that is
+not one of the six it knows makes getopt_long() read past the array and
+aa-exec dies with SIGSEGV in process_long_option():
+
+  $ aa-exec --version
+  Segmentation fault (core dumped)
+
+Add the terminating entry.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+ binutils/aa_exec.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/binutils/aa_exec.c
++++ b/binutils/aa_exec.c
+@@ -120,6 +120,7 @@
+ 		{"namespace", required_argument, 0, 'n'},
+ 		{"immediate", no_argument, 0, 'i'},
+ 		{"verbose", no_argument, 0, 'v'},
++		{NULL, 0, 0, 0},
+ 	};
+ 
+ 	while ((opt = getopt_long(argc, argv, "+dhp:n:iv", long_opts, NULL)) != -1) {
+-- 
+2.43.0
