@@ -1,0 +1,120 @@
+From 687e4da1056118504f9c90ef963f845647bc5946 Mon Sep 17 00:00:00 2001
+From: Daniel Casota <dcasota@gmail.com>
+Date: Tue, 27 Oct 2026 21:46:01 +0100
+Subject: [PATCH] generate_initrd: keep the kernel keymap in the installer
+ initrd
+
+clean_up() removes /usr/share/keymaps, and the initrd has no
+/etc/vconsole.conf, so systemd-vconsole-setup falls back to its
+compiled-in default keymap "us", runs loadkeys for it, finds no map
+and fails: every boot of the ISO shows "[FAILED] Failed to start
+Virtual Console Setup".
+
+The initrd now writes /etc/vconsole.conf with KEYMAP=@kernel, which
+vconsole.conf(5) defines as "load no keymap, use the kernel's
+default". The installer's console behaves as before (the kernel's
+built-in US map), without shipping the keymaps.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ photon_installer/generate_initrd.py | 10 +++++
+ tests/test_initrd_vconsole.py       | 59 +++++++++++++++++++++++++++++
+ 2 files changed, 69 insertions(+)
+ create mode 100644 tests/test_initrd_vconsole.py
+
+diff --git a/photon_installer/generate_initrd.py b/photon_installer/generate_initrd.py
+index 53b1a54..ea1eb81 100644
+--- a/photon_installer/generate_initrd.py
++++ b/photon_installer/generate_initrd.py
+@@ -115,6 +115,14 @@ class IsoInitrd:
+         except subprocess.CalledProcessError as err:
+             print(f"Error processing {file}: {err}")
+ 
++    def write_vconsole_conf(self):
++        # clean_up() removes /usr/share/keymaps, so systemd-vconsole-setup must
++        # keep the kernel's keymap instead of loading its compiled-in default.
++        with open(
++            f"{self.initrd_path}/etc/vconsole.conf", "w", encoding="utf-8"
++        ) as vconsole_conf:
++            vconsole_conf.write("KEYMAP=@kernel\n")
++
+     def clean_up(self):
+         exclusions = ["terminfo", "cracklib", "grub", "factory", "dbus-1", "ansible"]
+         dir_to_list = ["usr/share", "usr/sbin"]
+@@ -227,6 +235,8 @@ class IsoInitrd:
+         ) as locale_conf:
+             locale_conf.write("LANG=en_US.UTF-8")
+ 
++        self.write_vconsole_conf()
++
+         with open(
+             f"{self.initrd_path}/etc/hostname", "w", encoding="utf-8"
+         ) as hostname:
+diff --git a/tests/test_initrd_vconsole.py b/tests/test_initrd_vconsole.py
+new file mode 100644
+index 0000000..6de1c65
+--- /dev/null
++++ b/tests/test_initrd_vconsole.py
+@@ -0,0 +1,59 @@
++# /*
++#  * Copyright © 2026 VMware, Inc.
++#  * SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-only
++#  */
++"""Unit tests for the installer initrd's console keymap: clean_up() removes
++/usr/share/keymaps, so vconsole.conf must not name a keymap that loadkeys
++would look for there. Runs on a temporary tree: no root, no tdnf needed."""
++
++import logging
++import os
++import sys
++
++sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "photon_installer"))
++
++from commandutils import CommandUtils  # noqa: E402
++from generate_initrd import IsoInitrd  # noqa: E402
++
++LOGGER = logging.getLogger("test_initrd_vconsole")
++
++
++def initrd(tmp_path):
++    iso_initrd = IsoInitrd.__new__(IsoInitrd)
++    iso_initrd.logger = LOGGER
++    iso_initrd.cmd_util = CommandUtils(LOGGER)
++    iso_initrd.initrd_path = str(tmp_path)
++    for directory in ["etc", "usr/sbin", "usr/share/keymaps/i386/qwerty", "usr/share/terminfo"]:
++        os.makedirs(tmp_path / directory)
++    (tmp_path / "usr/share/keymaps/i386/qwerty/us.map.gz").write_bytes(b"")
++    return iso_initrd
++
++
++def vconsole_settings(tmp_path):
++    settings = {}
++    for line in (tmp_path / "etc/vconsole.conf").read_text(encoding="utf-8").splitlines():
++        if line.strip() and not line.lstrip().startswith("#"):
++            key, value = line.split("=", 1)
++            settings[key.strip()] = value.strip()
++    return settings
++
++
++def test_vconsole_conf_keeps_the_kernel_keymap(tmp_path):
++    initrd(tmp_path).write_vconsole_conf()
++    assert vconsole_settings(tmp_path) == {"KEYMAP": "@kernel"}
++
++
++def test_vconsole_conf_replaces_a_packaged_one(tmp_path):
++    iso_initrd = initrd(tmp_path)
++    (tmp_path / "etc/vconsole.conf").write_text("KEYMAP=de\nFONT=lat9w-16\n", encoding="utf-8")
++    iso_initrd.write_vconsole_conf()
++    assert vconsole_settings(tmp_path) == {"KEYMAP": "@kernel"}
++
++
++def test_clean_up_removes_the_keymaps_vconsole_conf_does_not_need(tmp_path):
++    iso_initrd = initrd(tmp_path)
++    iso_initrd.write_vconsole_conf()
++    iso_initrd.clean_up()
++    assert not (tmp_path / "usr/share/keymaps").exists()
++    assert (tmp_path / "usr/share/terminfo").is_dir()
++    assert vconsole_settings(tmp_path) == {"KEYMAP": "@kernel"}
+-- 
+2.53.0
+
