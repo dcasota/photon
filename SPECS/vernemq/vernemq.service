@@ -22,7 +22,10 @@ WorkingDirectory=/usr/lib/vernemq
 ExecStartPre=/usr/lib/vernemq/bin/vernemq chkconfig
 ExecStart=/usr/lib/vernemq/bin/vernemq start
 ExecStop=/usr/lib/vernemq/bin/vernemq stop
-SuccessExitStatus=69
+# The main process is run_erl (the runner hands its PID to systemd), and
+# run_erl exits with 1 ("Erlang closed the connection") whenever the Erlang
+# VM ends, so 1 is how every "vernemq stop" ends.
+SuccessExitStatus=1 69
 
 [Install]
 WantedBy=multi-user.target
