@@ -1,0 +1,40 @@
+From: Daniel Casota <dcasota@gmail.com>
+Date: Thu, 8 Oct 2026 23:15:00 +0200
+Subject: [PATCH] vgauthImport: use the arguments left after option parsing
+
+main() copies argc/argv, lets g_option_context_parse() consume the options
+from the copy, and then checks the original argc and passes the original
+argv[1] on. The copy and the original share one array, which the parser
+rewrites, so `vmware-alias-import -v` passes a NULL namespace, which
+QueryNamespace() hands to DynBuf_AppendString(), and crashes.
+
+Check and use what the parser left in the copy.
+
+This is the 13.1.0 change rebased onto open-vm-tools 13.0.0, where
+ProcessNamespace() takes no context argument.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+ open-vm-tools/vgauthImport/vgauthImport.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/open-vm-tools/vgauthImport/vgauthImport.c b/open-vm-tools/vgauthImport/vgauthImport.c
+--- a/open-vm-tools/vgauthImport/vgauthImport.c
++++ b/open-vm-tools/vgauthImport/vgauthImport.c
+@@ -564,12 +564,12 @@ main(int argc, char *argv[])
+       goto out;
+    }
+ 
+-   if (argc < 2) {
++   if (argcCopy < 2) {
+       PrintUsage(optCtx);
+       goto out;
+    }
+ 
+-   success = ProcessNamespace(argv[1]) ? 0 : 1;
++   success = ProcessNamespace(argvCopy[1]) ? 0 : 1;
+ 
+ out:
+    g_option_context_free(optCtx);
+-- 
+2.53.0
