@@ -1,0 +1,25 @@
+From: Daniel Casota <dcasota@gmail.com>
+Date: Sat, 3 Oct 2026 04:04:48 +0200
+Subject: [PATCH] lxcfs.service: unmount with fusermount3
+
+lxcfs is built with fuse3, which ships fusermount3 only (fuse3 obsoletes
+fuse, so /bin/fusermount does not exist): point ExecStopPost= at it.
+fuse_main() already unmounts on a clean stop, so -q keeps the fallback
+from logging "failed to unmount ... Invalid argument" every time.
+
+Signed-off-by: Daniel Casota <dcasota@gmail.com>
+---
+ config/init/systemd/lxcfs.service.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/config/init/systemd/lxcfs.service.in
++++ b/config/init/systemd/lxcfs.service.in
+@@ -9,7 +9,7 @@
+ ExecStart=/usr/bin/lxcfs {{LXCFSTARGETDIR}}
+ KillMode=process
+ Restart=on-failure
+-ExecStopPost=-/bin/fusermount -u {{LXCFSTARGETDIR}}
++ExecStopPost=-/usr/bin/fusermount3 -u -q {{LXCFSTARGETDIR}}
+ Delegate=yes
+ ExecReload=/bin/kill -USR1 $MAINPID
+ 
