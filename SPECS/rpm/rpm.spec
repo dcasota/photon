@@ -4,7 +4,7 @@
 Summary:    Package manager
 Name:       rpm
 Version:    6.1.0
-Release:    4%{?dist}
+Release:    5%{?dist}
 URL:        http://rpm.org
 Group:      Applications/System
 Vendor:     VMware, Inc.
@@ -313,6 +313,8 @@ rm -rf %{buildroot}
 %{_bindir}/rpm-setup-autosign
 %{_rpmmacrodir}/*
 %exclude %{_rpmmacrodir}/macros.transaction_unshare
+%exclude %{_rpmmacrodir}/macros.transaction_selinux
+%exclude %{_rpmmacrodir}/macros.transaction_systemd_inhibit
 %{rpmhome}/find-lang.sh
 %{rpmhome}/find-provides
 %{rpmhome}/find-requires
@@ -370,11 +372,13 @@ rm -rf %{buildroot}
 %files plugin-systemd-inhibit
 %defattr(-,root,root)
 %{_libdir}/%{name}-plugins/systemd_inhibit.so
+%{_rpmmacrodir}/macros.transaction_systemd_inhibit
 %{_mandir}/man8/%{name}-plugin-systemd-inhibit.8*
 
 %files plugin-selinux
 %defattr(-,root,root)
 %{_libdir}/%{name}-plugins/selinux.so
+%{_rpmmacrodir}/macros.transaction_selinux
 %{_mandir}/man8/%{name}-plugin-selinux.8.gz
 
 %files plugin-unshare
@@ -384,6 +388,8 @@ rm -rf %{buildroot}
 %{_mandir}/man8/%{name}-plugin-unshare.8*
 
 %changelog
+* Sat Oct 31 2026 Daniel Casota <dcasota@gmail.com> 6.1.0-5
+- Ship plugin activation macros in their subpackages
 * Fri Oct 30 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 6.1.0-4
 - Move unshare plugin to a separate rpm-plugin-unshare subpackage
 - Fixes build failures in unprivileged containers where unshare(2) is not permitted
