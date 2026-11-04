@@ -1,6 +1,6 @@
 %changelog
 * Wed Nov 04 2026 Daniel Casota <dcasota@gmail.com> 6.12.115-2
-- Share canister/.config handling via canister_config.inc
+- Share canister_config.inc; %%ghost the files depmod generates
 * Tue Nov 03 2026 Gerrit Photon <svc.photon-ci@broadcom.com> 6.12.115-1
 - Update to version 6.12.115
 * Tue Nov 03 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 6.12.114-2
