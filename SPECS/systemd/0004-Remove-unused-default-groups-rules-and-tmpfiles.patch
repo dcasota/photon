@@ -1,39 +1,37 @@
-From f9537b22e0d8d482055692bce75feb277d332950 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Nitesh <kunitesh@vmware.com>
 Date: Thu, 6 Jun 2024 11:47:07 +0530
-Subject: [PATCH 4/4] Remove unused default groups, rules and tmpfiles
+Subject: [PATCH 4/5] Remove unused default groups, rules and tmpfiles
 
 Some of these groups and users are also created by filesystem
 ---
- rules.d/50-udev-default.rules.in            | 11 ---------
- sysusers.d/basic.conf.in                    | 26 ---------------------
- sysusers.d/systemd-journal.conf.in          |  2 --
+ rules.d/50-udev-default.rules.in            | 12 ----------
+ sysusers.d/basic.conf.in                    | 26 +--------------------
  sysusers.d/systemd-network.conf.in          |  2 --
  sysusers.d/systemd-remote.conf              |  2 --
  sysusers.d/systemd-resolve.conf.in          |  2 --
  sysusers.d/systemd-timesync.conf.in         |  2 --
  tmpfiles.d/static-nodes-permissions.conf.in |  3 ---
- 8 files changed, 50 deletions(-)
+ 7 files changed, 1 insertion(+), 48 deletions(-)
 
 diff --git a/rules.d/50-udev-default.rules.in b/rules.d/50-udev-default.rules.in
-index 8fa518cd8f..23f43d0409 100644
+index 22b38f5..b316d40 100644
 --- a/rules.d/50-udev-default.rules.in
 +++ b/rules.d/50-udev-default.rules.in
-@@ -53,13 +53,8 @@ SUBSYSTEM=="dvb", GROUP="video"
+@@ -58,12 +58,6 @@ SUBSYSTEM=="dvb", GROUP="video"
  SUBSYSTEM=="media", GROUP="video"
  SUBSYSTEM=="cec", GROUP="video"
  
 -SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
 -SUBSYSTEM=="kfd", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
- SUBSYSTEM=="accel", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
- 
+-SUBSYSTEM=="accel", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
+-
 -SUBSYSTEM=="misc", KERNEL=="sgx_enclave", GROUP="sgx", MODE="0660"
 -SUBSYSTEM=="misc", KERNEL=="sgx_vepc", GROUP="sgx", MODE="0660"
--
+ 
  # When using static_node= with non-default permissions, also update
  # tmpfiles.d/static-nodes-permissions.conf.in to keep permissions synchronized.
- 
-@@ -108,15 +103,9 @@ KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
+@@ -113,15 +107,9 @@ KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
  KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
  
  # The static_node is required on s390x and ppc (they are using MODULE_ALIAS)
@@ -50,10 +48,10 @@ index 8fa518cd8f..23f43d0409 100644
  
  LABEL="default_end"
 diff --git a/sysusers.d/basic.conf.in b/sysusers.d/basic.conf.in
-index 992af346ca..c66181be00 100644
+index cf200fb..32f8a1e 100644
 --- a/sysusers.d/basic.conf.in
 +++ b/sysusers.d/basic.conf.in
-@@ -5,37 +5,11 @@
+@@ -5,39 +5,15 @@
  #  the Free Software Foundation; either version 2.1 of the License, or
  #  (at your option) any later version.
  
@@ -63,13 +61,15 @@ index 992af346ca..c66181be00 100644
 -
  # The nobody user/group for NFS file systems
  g {{NOBODY_GROUP_NAME}} 65534       -            -
--u! {{NOBODY_USER_NAME }} 65534:65534 "Kernel Overflow User"     -
+-u! {{NOBODY_USER_NAME}} 65534:65534 "Kernel Overflow User"     -
 -
 -# Administrator group: can *see* more than normal users
 -g adm     {{ADM_GID    }}     -            -
--
--# Administrator group: can *do* more than normal users
+ 
+-# Administrator groups: can *do* more than normal users
 -g wheel   {{WHEEL_GID  }}     -            -
++# Administrator group: can *do* more than normal users
+ g empower {{EMPOWER_GID}}     -            -
  
  # Access to shared database of users on the system
  g utmp    {{UTMP_GID   }}     -            -
@@ -77,6 +77,7 @@ index 992af346ca..c66181be00 100644
  # Physical and virtual hardware access groups
 -g audio   {{AUDIO_GID  }}     -            -
 -g cdrom   {{CDROM_GID  }}     -            -
+ g clock   {{CLOCK_GID  }}     -            -
 -g dialout {{DIALOUT_GID}}     -            -
 -g disk    {{DISK_GID   }}     -            -
 -g input   {{INPUT_GID  }}     -            -
@@ -91,18 +92,8 @@ index 992af346ca..c66181be00 100644
 -
 -# Default group for normal users
 -g users   {{USERS_GID  }}     -            -
-diff --git a/sysusers.d/systemd-journal.conf.in b/sysusers.d/systemd-journal.conf.in
-index 61768b234e..5873bfab30 100644
---- a/sysusers.d/systemd-journal.conf.in
-+++ b/sysusers.d/systemd-journal.conf.in
-@@ -4,5 +4,3 @@
- #  under the terms of the GNU Lesser General Public License as published by
- #  the Free Software Foundation; either version 2.1 of the License, or
- #  (at your option) any later version.
--
--g systemd-journal {{SYSTEMD_JOURNAL_GID}} -
 diff --git a/sysusers.d/systemd-network.conf.in b/sysusers.d/systemd-network.conf.in
-index fc04827efd..5873bfab30 100644
+index fc04827..5873bfa 100644
 --- a/sysusers.d/systemd-network.conf.in
 +++ b/sysusers.d/systemd-network.conf.in
 @@ -4,5 +4,3 @@
@@ -112,7 +103,7 @@ index fc04827efd..5873bfab30 100644
 -
 -u! systemd-network {{SYSTEMD_NETWORK_UID}} "systemd Network Management"
 diff --git a/sysusers.d/systemd-remote.conf b/sysusers.d/systemd-remote.conf
-index 796850c9e6..5873bfab30 100644
+index 796850c..5873bfa 100644
 --- a/sysusers.d/systemd-remote.conf
 +++ b/sysusers.d/systemd-remote.conf
 @@ -4,5 +4,3 @@
@@ -122,7 +113,7 @@ index 796850c9e6..5873bfab30 100644
 -
 -u! systemd-journal-remote  - "systemd Journal Remote"
 diff --git a/sysusers.d/systemd-resolve.conf.in b/sysusers.d/systemd-resolve.conf.in
-index e385070c45..5873bfab30 100644
+index e385070..5873bfa 100644
 --- a/sysusers.d/systemd-resolve.conf.in
 +++ b/sysusers.d/systemd-resolve.conf.in
 @@ -4,5 +4,3 @@
@@ -132,7 +123,7 @@ index e385070c45..5873bfab30 100644
 -
 -u! systemd-resolve {{SYSTEMD_RESOLVE_UID}} "systemd Resolver"
 diff --git a/sysusers.d/systemd-timesync.conf.in b/sysusers.d/systemd-timesync.conf.in
-index 7b9fb3d8d9..5873bfab30 100644
+index 7b9fb3d..5873bfa 100644
 --- a/sysusers.d/systemd-timesync.conf.in
 +++ b/sysusers.d/systemd-timesync.conf.in
 @@ -4,5 +4,3 @@
@@ -142,7 +133,7 @@ index 7b9fb3d8d9..5873bfab30 100644
 -
 -u! systemd-timesync {{SYSTEMD_TIMESYNC_UID}} "systemd Time Synchronization"
 diff --git a/tmpfiles.d/static-nodes-permissions.conf.in b/tmpfiles.d/static-nodes-permissions.conf.in
-index df1fe2e3d5..d85c44c175 100644
+index df1fe2e..d85c44c 100644
 --- a/tmpfiles.d/static-nodes-permissions.conf.in
 +++ b/tmpfiles.d/static-nodes-permissions.conf.in
 @@ -15,6 +15,3 @@ z /dev/loop-control 0660 - disk  -
@@ -152,6 +143,3 @@ index df1fe2e3d5..d85c44c175 100644
 -z /dev/kvm          {{DEV_KVM_MODE}} - kvm -
 -z /dev/vhost-net    {{DEV_KVM_MODE}} - kvm -
 -z /dev/vhost-vsock  {{DEV_KVM_MODE}} - kvm -
--- 
-2.52.0
-

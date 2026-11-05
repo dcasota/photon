@@ -1,7 +1,7 @@
-From 883b636e942148e8a6200dc661c7faa974216923 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Dweep Advani <dweep.advani@broadcom.com>
 Date: Mon, 20 May 2024 04:43:32 +0000
-Subject: [PATCH 3/4] systemd: do not use -ftrivial-auto-var-init=zero
+Subject: [PATCH 3/5] systemd: do not use -ftrivial-auto-var-init=zero
 
 The -ftrivial-auto-var-init=zero was causing automatic variables to be
 initialized to zero, which had huge performance impact on systemd
@@ -13,11 +13,11 @@ Ref: https://github.com/systemd/systemd/pull/23297
  1 file changed, 7 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index 103febfd70..f5b1850750 100644
+index a4dfc11..9c236bc 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -469,13 +469,6 @@ if cc.get_id() == 'clang'
-         ]
+@@ -504,13 +504,6 @@ if get_option('b_sanitize') == 'none'
+         possible_link_flags += '-Wl,--warn-common'
  endif
  
 -if get_option('mode') == 'release'
@@ -30,6 +30,3 @@ index 103febfd70..f5b1850750 100644
  possible_cc_flags = [
          '-fno-strict-aliasing',
          '-fstrict-flex-arrays=1',
--- 
-2.52.0
-

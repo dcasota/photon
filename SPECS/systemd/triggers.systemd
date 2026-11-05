@@ -5,7 +5,7 @@
 #
 #  Copyright 2018 Neal Gompa
 
-# Adapted from systemd src/rpm/triggers.systemd.sh.in (v257 branch) for Photon.
+# Adapted from systemd src/rpm/triggers.systemd.sh.in (v262 branch) for Photon.
 #
 # Minimum rpm version supported: 4.14.0
 
@@ -75,6 +75,4 @@ fi
 %transfiletriggerin -P 1000600 udev -- /usr/lib/udev/rules.d/
 # This script will automatically update udev with new rules if files
 # have been installed or updated in /usr/lib/udev/rules.d.
-if test -e /run/udev/control; then
-  udevadm control --reload || :
-fi
+%{_systemd_util_dir}/systemd-update-helper mark-reload-system-units systemd-udevd.service || :

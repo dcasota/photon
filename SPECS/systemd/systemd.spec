@@ -1,13 +1,18 @@
 %global build_if %{photon_subrelease} >= 91
 
-%define STIG_HARDEN 0
+# Default off, but overridable from pkg_build_options.json / rpmbuild -D.
+# A plain define of STIG_HARDEN here would win over -D and make every
+# conditional below permanently unreachable, and therefore untested.
+%{!?STIG_HARDEN: %global STIG_HARDEN 0}
 
-%global udev_services %{name}-udevd.service %{name}-udev-settle.service %{name}-udev-trigger.service %{name}-udevd-control.socket %{name}-udevd-kernel.socket %{name}-timesyncd.service
+%global udev_services %{name}-udevd.service %{name}-udev-settle.service %{name}-udev-trigger.service %{name}-udevd-varlink.socket %{name}-udevd-kernel.socket %{name}-timesyncd.service
+%global journal_remote_units %{name}-journal-gatewayd.service %{name}-journal-gatewayd.socket %{name}-journal-remote.service %{name}-journal-remote.socket %{name}-journal-upload.service
+%global journal_remote_services %{name}-journal-gatewayd.service %{name}-journal-remote.service %{name}-journal-upload.service
 
 Name:           systemd
 URL:            http://www.freedesktop.org/wiki/Software/systemd
-Version:        257.13
-Release:        6%{?dist}
+Version:        262.2
+Release:        1%{?dist}
 Summary:        System and Service Manager
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -41,14 +46,21 @@ Source14:       sysusers.generate-pre.sh
 Source15: license.txt
 %include %{SOURCE15}
 
-Patch0: 0001-enoX-uses-instance-number-for-vmware-hv.patch
-Patch1: 0002-Fetch-dns-servers-from-environment.patch
-Patch2: 0003-systemd-do-not-use-ftrivial-auto-var-init-zero.patch
-Patch3: 0004-Remove-unused-default-groups-rules-and-tmpfiles.patch
-Patch4: 0005-default-conf-modifications.patch
+Patch: 0001-enoX-uses-instance-number-for-vmware-hv.patch
+Patch: 0002-Fetch-dns-servers-from-environment.patch
+Patch: 0003-systemd-do-not-use-ftrivial-auto-var-init-zero.patch
+Patch: 0004-Remove-unused-default-groups-rules-and-tmpfiles.patch
+Patch: 0005-default-conf-modifications.patch
 
+# /lib/systemd/system/tmp.mount is owned by this package and is not marked as
+# a config file, so it must be hardened here, at build time. The installer
+# deliberately skips
+# the equivalent ansible control PHTN-50-000245 (stigenable.py) because editing
+# a package-owned unit at install time shows up as permanent rpm -V drift and
+# is reverted by the next systemd upgrade. Do not "fix" that skip; this is the
+# owning side of that split.
 %if 0%{?STIG_HARDEN}
-Patch4: harden-tmpfs-mount-options.patch
+Patch: harden-tmpfs-mount-options.patch
 %endif
 
 Conflicts: dracut < 109
@@ -269,15 +281,16 @@ CONFIGURE_OPTS=(
        -Dsplit-bin=true
        -Db_lto=true
        -Db_ndebug=false
-       -Dsysvinit-path=%{_sysconfdir}/rc.d/init.d
-       -Drc-local=%{_sysconfdir}/rc.d/rc.local
        -Dfallback-hostname=photon
        -Doomd=false
        -Dhomed=disabled
+       -Dimds=disabled
+       -Dsysinstall=false
        -Dversion-tag=v%{version}-%{release}
        -Dsystemd-network-uid=76
        -Dsystemd-resolve-uid=77
        -Dsystemd-timesync-uid=78
+       -Dsystemd-journal-gid=23
        -Dsysupdate=disabled
        -Dbpf-framework=disabled
        -Dpwquality=disabled
@@ -288,8 +301,6 @@ CONFIGURE_OPTS=(
        -Dlibcryptsetup=disabled
        -Dlibcryptsetup-plugins=disabled
        -Dlibidn2=disabled
-       -Dlibidn=disabled
-       -Dlibiptc=disabled
        -Dqrencode=disabled
        -Dp11kit=disabled
        -Dlibfido2=disabled
@@ -375,6 +386,15 @@ udevadm hwdb --update &>/dev/null || :
 %postun udev
 %systemd_postun_with_restart %{name}-udevd.service
 
+%post journal-remote
+%systemd_post %journal_remote_units
+
+%preun journal-remote
+%systemd_preun %journal_remote_units
+
+%posttrans journal-remote
+%systemd_posttrans_with_restart %journal_remote_services
+
 %include %{SOURCE7}
 
 %files
@@ -388,7 +408,6 @@ udevadm hwdb --update &>/dev/null || :
 %dir %{_sysconfdir}/binfmt.d
 %{_sysconfdir}/X11/xinit/xinitrc.d/50-%{name}-user.sh
 %{_sysconfdir}/xdg/%{name}
-%{_sysconfdir}/rc.d/init.d/README
 %config(noreplace) %{_sysconfdir}/sysctl.d/50-security-hardening.conf
 %config(noreplace) %{_sysconfdir}/%{name}/sleep.conf
 %config(noreplace) %{_sysconfdir}/%{name}/system.conf
@@ -410,13 +429,17 @@ udevadm hwdb --update &>/dev/null || :
 %{_sbindir}/init
 %{_sbindir}/poweroff
 %{_sbindir}/reboot
-%{_sbindir}/runlevel
 %{_sbindir}/shutdown
-%{_sbindir}/telinit
 %{_sbindir}/resolvconf
 %{_sbindir}/mount.ddi
+%{_sbindir}/mount.mstack
+%{_sbindir}/mount.storage
 %{_bindir}/importctl
 %{_bindir}/run0
+%{_bindir}/storagectl
+%{_bindir}/%{name}-mstack
+%{_bindir}/%{name}-mute-console
+%{_bindir}/%{name}-pty-forward
 %{_bindir}/%{name}-confext
 %{_bindir}/%{name}-vmspawn
 %{_bindir}/%{name}-vpick
@@ -476,6 +499,10 @@ udevadm hwdb --update &>/dev/null || :
 %{_tmpfilesdir}/var.conf
 %{_tmpfilesdir}/x11.conf
 %{_tmpfilesdir}/credstore.conf
+%{_tmpfilesdir}/20-%{name}-varlink.conf
+%{_tmpfilesdir}/root.conf
+%dir %{_datadir}/user-tmpfiles.d
+%{_datadir}/user-tmpfiles.d/20-%{name}-varlink.conf
 %{_tmpfilesdir}/README
 %{_environmentdir}/99-environment.conf
 %exclude %{_datadir}/locale
@@ -490,10 +517,27 @@ udevadm hwdb --update &>/dev/null || :
 %{_systemd_util_dir}/resolv.conf
 %{_systemd_util_dir}/%{name}*
 %{_systemd_util_dir}/user*
-%{_systemd_util_dir}/import-pubring.gpg
+%{_systemd_util_dir}/import-pubring.pgp
 %{_systemd_util_dir}/profile.d/70-systemd-shell-extra.sh
 %{_unitdir}/*
+# systemd-nspawn and systemd-journal-remote live in their subpackages; the
+# globs above would otherwise ship their files in this package too.
+%exclude %{_unitdir}/%{name}-nspawn@.service
+%exclude %{_unitdir}/%{name}-journal-gatewayd.service
+%exclude %{_unitdir}/%{name}-journal-gatewayd.socket
+%exclude %{_unitdir}/%{name}-journal-remote.service
+%exclude %{_unitdir}/%{name}-journal-remote.socket
+%exclude %{_unitdir}/%{name}-journal-upload.service
+%exclude %{_systemd_util_dir}/%{name}-journal-gatewayd
+%exclude %{_systemd_util_dir}/%{name}-journal-remote
+%exclude %{_systemd_util_dir}/%{name}-journal-upload
 %{_presetdir}/*
+%dir %{_systemd_util_dir}/initrd-preset
+%{_systemd_util_dir}/initrd-preset/*
+%dir %{_systemd_util_dir}/oci-registry
+%{_systemd_util_dir}/oci-registry/*
+%dir %{_systemd_util_dir}/profile.d
+%{_systemd_util_dir}/profile.d/80-%{name}-osc-context.sh
 %{_systemdgeneratordir}/*
 %{_datadir}/bash-completion/*
 %{_datadir}/factory/*
@@ -562,7 +606,7 @@ udevadm hwdb --update &>/dev/null || :
 %{_unitdir}/initrd-udevadm-cleanup-db.service
 %{_unitdir}/kmod-static-nodes.service
 %{_unitdir}/sleep.target
-%{_unitdir}/sockets.target.wants/%{name}-udevd-control.socket
+%{_unitdir}/sockets.target.wants/%{name}-udevd-varlink.socket
 %{_unitdir}/sockets.target.wants/%{name}-udevd-kernel.socket
 %{_unitdir}/suspend-then-hibernate.target
 %{_unitdir}/suspend.target
@@ -590,6 +634,7 @@ udevadm hwdb --update &>/dev/null || :
 %{_unitdir}/%{name}-tmpfiles-setup-dev.service
 %{_unitdir}/%{name}-udev-settle.service
 %{_unitdir}/%{name}-udevd-control.socket
+%{_unitdir}/%{name}-udevd-varlink.socket
 %{_unitdir}/%{name}-udevd-kernel.socket
 %{_unitdir}/%{name}-udevd.service
 %{_unitdir}/%{name}-vconsole-setup.service
@@ -646,19 +691,11 @@ udevadm hwdb --update &>/dev/null || :
 %defattr(-,root,root)
 %{_bindir}/%{name}-nspawn
 %{_bindir}/machinectl
-# Below two files are packaged with systemd main package
-# And without it etc/systemd/system won't get created by systemd
-#%%{_systemd_util_dir}/%%{name}-machined
-#%%{_unitdir}/%%{name}-machined.service
+# systemd-machined and what it needs (its D-Bus name and policy, machine.slice
+# and the /var/lib/machines mount) are packaged with the systemd main package:
+# without it etc/systemd/system won't get created by systemd.
 %{_unitdir}/%{name}-nspawn@.service
-%{_unitdir}/dbus-org.freedesktop.machine1.service
-%{_unitdir}/var-lib-machines.mount
-%{_unitdir}/machine.slice
-%{_unitdir}/machines.target.wants
 %{_tmpfilesdir}/%{name}-nspawn.conf
-%{_datadir}/dbus-1/system.d/org.freedesktop.machine1.conf
-%{_datadir}/dbus-1/system-services/org.freedesktop.machine1.service
-%{_datadir}/polkit-1/actions/org.freedesktop.machine1.policy
 
 %files journal-remote
 %defattr(-,root,root)
@@ -684,6 +721,8 @@ udevadm hwdb --update &>/dev/null || :
 %files lang -f ../%{name}.lang
 
 %changelog
+* Thu Nov 05 2026 Daniel Casota <dcasota@gmail.com> 262.2-1
+- Update to systemd 262.2
 * Sat Oct 31 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 257.13-6
 - Add RPM file triggers so units marked by %%systemd_postun_with_restart
   are actually restarted at transaction end
