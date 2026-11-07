@@ -1,6 +1,7 @@
 sources:
-- archive: libfastjson-1.2304.0.tar.gz
-  archive_sha512sum: a43dc809c0fc073f8bddaebdf91c996ccfc6275d7dcc312762e8dfb366dc121c7698c316b71bd5b43f2f7e9b3c326c90cfa927ce415824a7d32dd5e6667048ab
+- archive: libfastjson-1.2609.0.tar.gz
+  archive_sha512sum: c6057ab53e7168456c0e568855e66ef4f295b1f454da97447575ceb5cb5acf51b9c2665e81666c8c6e6041d9ad6cf4ccc69c6960b874c6aaac48076eb350d76d
+  url: https://github.com/rsyslog/libfastjson/releases/download/v1.2609.0/libfastjson-1.2609.0.tar.gz
   skip_validation: true
   spdx:
     package:
