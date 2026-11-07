@@ -1,6 +1,6 @@
 Summary:    A fast json library for C
 Name:       libfastjson
-Version:    1.2304.0
+Version:    1.2609.0
 Release:    1%{?dist}
 URL:        https://github.com/rsyslog/libfastjson
 Group:      System Environment/Base
@@ -30,7 +30,7 @@ developing applications that use libfastjson.
 %autosetup -p1
 
 %build
-sh autogen.sh
+autoreconf -fi
 %configure --enable-shared --disable-static
 make %{?_smp_mflags}
 
@@ -54,6 +54,8 @@ make check %{?_smp_mflags}
 %{_libdir}/pkgconfig/libfastjson.pc
 
 %changelog
+* Sat Nov 07 2026 Daniel Casota <dcasota@gmail.com> 1.2609.0-1
+- Update to 1.2609.0, links libm for modf
 * Mon Apr 28 2025 Tapas Kundu <tapas.kundu@broadcom.com> 1.2304.0-1
 - update to 1.2304.0
 * Wed Dec 11 2024 Mukul Sikka <mukul.sikka@broadcom.com> 0.99.9-2
