@@ -3,7 +3,7 @@
 Summary:        FIPS Libraries for openssl
 Name:           openssl-fips-provider
 Version:        3.5.4
-Release:        4%{?dist}
+Release:        5%{?dist}
 URL:            http://www.openssl.org
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
@@ -17,6 +17,10 @@ Source2: provider_base.cnf
 
 Source3: license.txt
 %include %{SOURCE3}
+
+Source4: fips-jitterentropy-resolved.conf
+
+BuildRequires: systemd-rpm-macros
 
 Requires: bash
 Requires: glibc
@@ -62,6 +66,7 @@ make install_fips DESTDIR=%{buildroot} %{?_smp_mflags}
 
 install -p -m 644 -D %{SOURCE1} %{buildroot}%{_sysconfdir}/ssl/$(basename %{SOURCE1})
 install -p -m 644 -D %{SOURCE2} %{buildroot}%{_sysconfdir}/ssl/$(basename %{SOURCE2})
+install -p -m 644 -D %{SOURCE4} %{buildroot}%{_unitdir}/systemd-resolved.service.d/50-fips-jitterentropy.conf
 
 %post
 OPENSSL_CONF=/dev/null openssl fipsinstall -out %{_sysconfdir}/ssl/fipsmodule.cnf -module %{_libdir}/ossl-modules/fips.so
@@ -79,6 +84,17 @@ if [ "$1" = 0 ]; then
   sed -i '/^.include \/etc\/ssl\/provider_base.cnf/s/^/#/g' %{_sysconfdir}/ssl/distro.cnf
   # Always enable provider_default
   sed -i '/^#.include \/etc\/ssl\/provider_default.cnf/s/^#//g' %{_sysconfdir}/ssl/distro.cnf
+  if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload || :
+    systemctl try-restart systemd-resolved.service || :
+  fi
+fi
+
+%posttrans
+# systemd-resolved reads the drop-in, and OpenSSL its FIPS configuration, at start
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload || :
+  systemctl try-restart systemd-resolved.service || :
 fi
 
 %clean
@@ -90,8 +106,12 @@ rm -rf %{buildroot}/*
 %{_sysconfdir}/ssl/provider_fips.cnf
 %{_sysconfdir}/ssl/provider_base.cnf
 %exclude %{_sysconfdir}/ssl/fipsmodule.cnf
+%dir %{_unitdir}/systemd-resolved.service.d
+%{_unitdir}/systemd-resolved.service.d/50-fips-jitterentropy.conf
 
 %changelog
+* Sun Nov 08 2026 Daniel Casota <dcasota@gmail.com> 3.5.4-5
+- Let systemd-resolved reach jitterentropy through AF_ALG
 * Tue Oct 27 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.5.4-4
 - Build for sr-92 and above
 * Mon Oct 26 2026 Srinidhi Rao <srinidhi.rao@broadcom.com> 3.5.4-3
