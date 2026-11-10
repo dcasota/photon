@@ -41,6 +41,15 @@ Patch3: 0004-Remove-unused-default-groups-rules-and-tmpfiles.patch
 Patch4: 0005-default-conf-modifications.patch
 Patch5: 0006-network-drop-pending-requests.patch
 Patch6: 0007-sd-dhcp-client-broadcast-DHCPDECLINE-through-a-raw-socket.patch
+Patch7: 0008-sd-dhcp-client-add-missing-error-checks.patch
+Patch8: 0009-dhcp-fix-user-class-and-vendor-specific-option-assig.patch
+Patch9: 0010-sd-dhcp-client-fix-memleak-of-sd_dhcp_client.timeout.patch
+Patch10: 0011-network-dhcp4-send-release-message-before-stopping-t.patch
+Patch11: 0012-sd-dhcp-client-send-RELEASE-with-the-Server-Identifi.patch
+Patch12: 0013-sd-dhcp-client-propagate-errors-in-client_initialize.patch
+Patch13: 0014-sd-dhcp-client-notify-SD_DHCP_CLIENT_EVENT_EXPIRED-o.patch
+Patch14: 0015-sd-dhcp-client-do-not-trigger-assertion-when-running.patch
+Patch15: 0016-sd-dhcp-client-propagate-failure-in-setting-timer-an.patch
 
 Conflicts: dracut < 109
 
@@ -689,7 +698,7 @@ udevadm hwdb --update &>/dev/null || :
 
 %changelog
 * Tue Nov 10 2026 Daniel Casota <dcasota@gmail.com> 257.13-6.2
-- Fix render/systemd-journal groups; ship subpackage files once
+- Fix groups, subpackage files; backport networkd DHCPv4 fixes
 * Thu Nov 05 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 257.13-6.1
 - Sub branch for sr-91 and sr-92
 * Sat Oct 31 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 257.13-6

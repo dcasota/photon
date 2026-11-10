@@ -1,0 +1,192 @@
+From 68c70042365df8cf0dc9e8c3a7eada4fac375103 Mon Sep 17 00:00:00 2001
+From: Yu Watanabe <watanabe.yu+github@gmail.com>
+Date: Tue, 20 Jan 2026 18:04:33 +0900
+Subject: [PATCH] network/dhcp4: send release message before stopping the
+ client
+
+Otherwise, the socket is already closed and sending release will be
+anyway skipped.
+
+With this patch, release message is sent before stopping the client.
+```
+Jan 20 18:29:41 systemd[1]: Stopping systemd-networkd.service - Network Management...
+Jan 20 18:29:41 systemd-networkd[3821255]: wlp59s0: DHCPv4 client: RELEASE
+Jan 20 18:29:41 systemd-networkd[3821255]: wlp59s0: DHCPv4 client: STOPPED
+Jan 20 18:29:41 systemd-networkd[3821255]: wlp59s0: DHCP lease lost
+```
+
+Fixes #39299.
+
+[Adapted to 257.13: no BOOTP support (v258), so the bootp field, setter and
+the BOOTP branch of link_should_drop_dhcp4_config() are left out.]
+
+https://github.com/systemd/systemd/commit/68c70042365df8cf0dc9e8c3a7eada4fac375103
+(cherry picked from commit 68c70042365df8cf0dc9e8c3a7eada4fac375103)
+---
+ src/libsystemd-network/sd-dhcp-client.c | 34 ++++++++++++++++++-------
+ src/network/networkd-dhcp4.c            | 28 ++++++++++++--------
+ src/systemd/sd-dhcp-client.h            |  2 +-
+ 3 files changed, 44 insertions(+), 20 deletions(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index c24da6643b..ba453f2c48 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -105,6 +105,7 @@ struct sd_dhcp_client {
+         int socket_priority;
+         bool socket_priority_set;
+         bool ipv6_acquired;
++        bool send_release;
+ };
+ 
+ static const uint8_t default_req_opts[] = {
+@@ -656,6 +657,14 @@ int sd_dhcp_client_set_fallback_lease_lifetime(sd_dhcp_client *client, uint64_t
+         return 0;
+ }
+ 
++int sd_dhcp_client_set_send_release(sd_dhcp_client *client, int enable) {
++        assert_return(client, -EINVAL);
++
++        client->send_release = enable;
++
++        return 0;
++}
++
+ static void client_set_state(sd_dhcp_client *client, DHCPState state) {
+         assert(client);
+ 
+@@ -2226,13 +2235,18 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
+         return r;
+ }
+ 
+-int sd_dhcp_client_send_release(sd_dhcp_client *client) {
++static int client_send_release(sd_dhcp_client *client) {
+         _cleanup_free_ DHCPPacket *release = NULL;
+         size_t optoffset, optlen;
+         int r;
+ 
+-        if (!sd_dhcp_client_is_running(client) || !client->lease)
+-                return 0; /* do nothing */
++        assert(client);
++
++        if (!client->send_release)
++                return 0; /* disabled */
++
++        if (!client->lease)
++                return 0; /* there is nothing to be released */
+ 
+         r = client_message_init(client, &release, DHCP_RELEASE, &optlen, &optoffset);
+         if (r < 0)
+@@ -2256,12 +2270,7 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
+                 return r;
+ 
+         log_dhcp_client(client, "RELEASE");
+-
+-        /* This function is mostly called when stopping daemon. Hence, do not call client_stop() or
+-         * client_restart(). Otherwise, the notification callback will be called again and we may easily
+-         * enter an infinite loop. */
+-        client_initialize(client);
+-        return 1; /* sent and stopped. */
++        return 0;
+ }
+ 
+ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
+@@ -2321,11 +2330,18 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
+ }
+ 
+ int sd_dhcp_client_stop(sd_dhcp_client *client) {
++        int r;
++
+         if (!client)
+                 return 0;
+ 
+         DHCP_CLIENT_DONT_DESTROY(client);
+ 
++        r = client_send_release(client);
++        if (r < 0)
++                log_dhcp_client_errno(client, r,
++                                      "Failed to send DHCP release message, ignoring: %m");
++
+         client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
+ 
+         return 0;
+diff --git a/src/network/networkd-dhcp4.c b/src/network/networkd-dhcp4.c
+index bb74d51579..5dc153718e 100644
+--- a/src/network/networkd-dhcp4.c
++++ b/src/network/networkd-dhcp4.c
+@@ -1186,14 +1186,6 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
+                         }
+ 
+                         if (link->dhcp_lease) {
+-                                if (link->network->dhcp_send_release) {
+-                                        r = sd_dhcp_client_send_release(client);
+-                                        if (r < 0)
+-                                                log_link_full_errno(link,
+-                                                                    ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING,
+-                                                                    r, "Failed to send DHCP RELEASE, ignoring: %m");
+-                                }
+-
+                                 r = dhcp4_lease_lost(link);
+                                 if (r < 0) {
+                                         link_enter_failed(link);
+@@ -1481,6 +1473,11 @@ static int dhcp4_configure(Link *link) {
+         if (r < 0)
+                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
+ 
++        r = sd_dhcp_client_set_send_release(link->dhcp_client, link->network->dhcp_send_release);
++        if (r < 0)
++                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s sending release message on stop: %m",
++                                            enable_disable(link->network->dhcp_send_release));
++
+         r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
+         if (r < 0)
+                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach event to DHCPv4 client: %m");
+@@ -1843,6 +1840,17 @@ int link_request_dhcp4_client(Link *link) {
+         return 0;
+ }
+ 
++static bool link_should_drop_dhcp4_config(Link *link, Network *network) {
++        assert(link);
++        assert(link->network);
++
++        if (!link_dhcp4_enabled(link))
++                 /* DHCP client is now disabled. */
++                return true;
++
++        return false;
++}
++
+ int link_drop_dhcp4_config(Link *link, Network *network) {
+         int ret = 0;
+ 
+@@ -1852,8 +1860,8 @@ int link_drop_dhcp4_config(Link *link, Network *network) {
+         if (link->network == network)
+                 return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
+ 
+-        if (!link_dhcp4_enabled(link)) {
+-                /* DHCP client is disabled. Stop the client if it is running and drop the lease. */
++        if (link_should_drop_dhcp4_config(link, network)) {
++                /* Stop the client if it is running and drop the lease. */
+                 ret = sd_dhcp_client_stop(link->dhcp_client);
+ 
+                 /* Also explicitly drop DHCPv4 address and routes. Why? This is for the case when the DHCPv4
+diff --git a/src/systemd/sd-dhcp-client.h b/src/systemd/sd-dhcp-client.h
+index 1483afa220..6656a4659a 100644
+--- a/src/systemd/sd-dhcp-client.h
++++ b/src/systemd/sd-dhcp-client.h
+@@ -147,6 +147,7 @@ int sd_dhcp_client_set_socket_priority(
+ int sd_dhcp_client_set_fallback_lease_lifetime(
+                 sd_dhcp_client *client,
+                 uint64_t fallback_lease_lifetime);
++int sd_dhcp_client_set_send_release(sd_dhcp_client *client, int enable);
+ 
+ int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
+ int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
+@@ -154,7 +155,6 @@ int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
+ int sd_dhcp_client_is_running(sd_dhcp_client *client);
+ int sd_dhcp_client_stop(sd_dhcp_client *client);
+ int sd_dhcp_client_start(sd_dhcp_client *client);
+-int sd_dhcp_client_send_release(sd_dhcp_client *client);
+ int sd_dhcp_client_send_decline(sd_dhcp_client *client);
+ int sd_dhcp_client_send_renew(sd_dhcp_client *client);
+ int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have);
