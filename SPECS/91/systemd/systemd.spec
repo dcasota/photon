@@ -39,6 +39,8 @@ Patch1: 0002-Fetch-dns-servers-from-environment.patch
 Patch2: 0003-systemd-do-not-use-ftrivial-auto-var-init-zero.patch
 Patch3: 0004-Remove-unused-default-groups-rules-and-tmpfiles.patch
 Patch4: 0005-default-conf-modifications.patch
+Patch5: 0006-network-drop-pending-requests.patch
+Patch6: 0007-sd-dhcp-client-broadcast-DHCPDECLINE-through-a-raw-socket.patch
 
 Conflicts: dracut < 109
 
