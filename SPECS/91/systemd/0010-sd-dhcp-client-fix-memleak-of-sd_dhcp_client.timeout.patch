@@ -1,0 +1,34 @@
+From 366e1d264a6d1c2aa96d85bf6dd80be2bbd65f72 Mon Sep 17 00:00:00 2001
+From: Yu Watanabe <watanabe.yu+github@gmail.com>
+Date: Fri, 10 Apr 2026 13:05:48 +0900
+Subject: [PATCH] sd-dhcp-client: fix memleak of
+ sd_dhcp_client.timeout_ipv6_only_mode
+
+This also drops unnecessary zero assignments.
+
+https://github.com/systemd/systemd/commit/366e1d264a6d1c2aa96d85bf6dd80be2bbd65f72
+(cherry picked from commit 366e1d264a6d1c2aa96d85bf6dd80be2bbd65f72)
+---
+ src/libsystemd-network/sd-dhcp-client.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index ff5d1e3e6b..c24da6643b 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -2406,10 +2406,11 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
+ 
+         client_initialize(client);
+ 
+-        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
+-        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
+-        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
+-        client->timeout_expire = sd_event_source_unref(client->timeout_expire);
++        sd_event_source_unref(client->timeout_resend);
++        sd_event_source_unref(client->timeout_t1);
++        sd_event_source_unref(client->timeout_t2);
++        sd_event_source_unref(client->timeout_expire);
++        sd_event_source_unref(client->timeout_ipv6_only_mode);
+ 
+         sd_dhcp_client_detach_event(client);
+ 

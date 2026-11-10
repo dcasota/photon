@@ -1,0 +1,263 @@
+From 2727a7fad4c2bc4c41b3c34dcabfd9bada049009 Mon Sep 17 00:00:00 2001
+From: Yu Watanabe <watanabe.yu+github@gmail.com>
+Date: Wed, 23 Sep 2026 10:21:10 +0000
+Subject: [PATCH] network: drop pending requests (#43741)
+
+Backport of systemd/systemd#43741 onto v257.13, squashed from the merge
+commit 2727a7fad4c2bc4c41b3c34dcabfd9bada049009
+https://github.com/systemd/systemd/pull/43741
+https://github.com/systemd/systemd/commit/2727a7fad4c2bc4c41b3c34dcabfd9bada049009
+and its four commits:
+
+4be31a9c35015f1564f10821708ca1973c9f8ac3 (Yu Watanabe)
+  network: add a configuration-source filter to link_drop_requests()
+  https://github.com/systemd/systemd/commit/4be31a9c35015f1564f10821708ca1973c9f8ac3
+c5bf6bac23046c061c07164fe1bd016068728129 (Yu Watanabe)
+  network: disable IPv4ACD when the address request is cancelled
+  https://github.com/systemd/systemd/commit/c5bf6bac23046c061c07164fe1bd016068728129
+830b60ae1fcd435b162b1fa7552609dd425fb6b7 (Yu Watanabe)
+  network: drop pending requests when a DHCP lease is lost or a client
+  is stopped
+  https://github.com/systemd/systemd/commit/830b60ae1fcd435b162b1fa7552609dd425fb6b7
+2aed6d9ad7226dad88a2386533ba63f6fc408c7f (Heran Yang <heran55@126.com>)
+  network: find pending address in IPv4 ACD callback
+  https://github.com/systemd/systemd/commit/2aed6d9ad7226dad88a2386533ba63f6fc408c7f
+
+Fixes systemd/systemd#39460: with IPv4 ACD enabled the DHCPv4 address
+stays in the request queue until ACD succeeds, on_acd() looked it up
+with address_get(), which only searches link->addresses, so a conflict
+returned early and dhcp4_address_on_conflict() never sent DHCPDECLINE.
+
+Upstream has it on main only (after v262); no v257-stable release
+carries it. Every added and removed line is byte-identical to upstream.
+Three hunks differ from upstream in context lines only: networkd-link.h
+(v257.13 has no link_ipv6ll_lost() above the new declaration),
+link_enter_unmanaged() and ndisc_flush() (v257.13 spells the argument
+comments "/* may_keep_dynamic = */" and "/* router = */").
+---
+diff -urN --no-dereference '--exclude=*.rej' '--exclude=*.orig' '--exclude=test' pristine/src/network/networkd-address.c systemd-257.13/src/network/networkd-address.c
+--- a/src/network/networkd-address.c	2026-10-07 13:13:22.398047099 +0200
++++ b/src/network/networkd-address.c	2026-10-07 13:13:22.578049953 +0200
+@@ -1278,6 +1278,9 @@
+         if (waiting || (address->link && address_exists(address)))
+                 return address_remove(address, link);
+ 
++        /* Otherwise, the address should be already gone or not configured yet. */
++        ipv4acd_detach(link, address);
++
+         return 0;
+ }
+ 
+diff -urN --no-dereference '--exclude=*.rej' '--exclude=*.orig' '--exclude=test' pristine/src/network/networkd-dhcp4.c systemd-257.13/src/network/networkd-dhcp4.c
+--- a/src/network/networkd-dhcp4.c	2026-10-07 13:13:22.398047099 +0200
++++ b/src/network/networkd-dhcp4.c	2026-10-07 13:13:22.578049953 +0200
+@@ -264,6 +264,10 @@
+                 RET_GATHER(ret, address_remove_and_cancel(address, link));
+         }
+ 
++        if (!only_marked)
++                /* Also drop pending requests when the lease is lost or the client is stopped. */
++                RET_GATHER(ret, link_drop_requests(link, NETWORK_CONFIG_SOURCE_DHCP4));
++
+         return ret;
+ }
+ 
+diff -urN --no-dereference '--exclude=*.rej' '--exclude=*.orig' '--exclude=test' pristine/src/network/networkd-dhcp6.c systemd-257.13/src/network/networkd-dhcp6.c
+--- a/src/network/networkd-dhcp6.c	2026-10-07 13:13:22.398047099 +0200
++++ b/src/network/networkd-dhcp6.c	2026-10-07 13:13:22.578049953 +0200
+@@ -75,6 +75,10 @@
+                 RET_GATHER(ret, address_remove_and_cancel(address, link));
+         }
+ 
++        if (!only_marked)
++                /* Also drop pending requests when the lease is lost or the client is stopped. */
++                RET_GATHER(ret, link_drop_requests(link, NETWORK_CONFIG_SOURCE_DHCP6));
++
+         return ret;
+ }
+ 
+diff -urN --no-dereference '--exclude=*.rej' '--exclude=*.orig' '--exclude=test' pristine/src/network/networkd-dhcp-prefix-delegation.c systemd-257.13/src/network/networkd-dhcp-prefix-delegation.c
+--- a/src/network/networkd-dhcp-prefix-delegation.c	2026-10-07 13:13:22.398047099 +0200
++++ b/src/network/networkd-dhcp-prefix-delegation.c	2026-10-07 13:13:22.578049953 +0200
+@@ -202,6 +202,10 @@
+                 }
+         }
+ 
++        if (!only_marked)
++                /* Also drop pending requests when the lease is lost or the client is stopped. */
++                RET_GATHER(ret, link_drop_requests(link, NETWORK_CONFIG_SOURCE_DHCP_PD));
++
+         return ret;
+ }
+ 
+diff -urN --no-dereference '--exclude=*.rej' '--exclude=*.orig' '--exclude=test' pristine/src/network/networkd-ipv4acd.c systemd-257.13/src/network/networkd-ipv4acd.c
+--- a/src/network/networkd-ipv4acd.c	2026-10-07 13:13:22.398047099 +0200
++++ b/src/network/networkd-ipv4acd.c	2026-10-07 13:13:22.578049953 +0200
+@@ -138,7 +138,7 @@
+         void *val, *key;
+         HASHMAP_FOREACH_KEY(val, key, link->ipv4acd_by_address)
+                 if (val == acd) {
+-                        (void) address_get(link, key, &address);
++                        (void) address_get_harder(link, key, &address);
+                         break;
+                 }
+ 
+diff -urN --no-dereference '--exclude=*.rej' '--exclude=*.orig' '--exclude=test' pristine/src/network/networkd-link.c systemd-257.13/src/network/networkd-link.c
+--- a/src/network/networkd-link.c	2026-10-07 13:13:22.398047099 +0200
++++ b/src/network/networkd-link.c	2026-10-07 13:15:06.319699015 +0200
+@@ -1006,13 +1006,17 @@
+         link_unref(set_remove(master->slaves, link));
+ }
+ 
+-static int link_drop_requests(Link *link) {
++int link_drop_requests(Link *link, NetworkConfigSource source) {
+         Request *req;
+         int ret = 0;
+ 
+         assert(link);
+         assert(link->manager);
+ 
++        /* If the interface is already removed, then per-source request removal is not necessary. */
++        if (source >= 0 && link->state == LINK_STATE_LINGER)
++                return 0;
++
+         ORDERED_SET_FOREACH(req, link->manager->request_queue) {
+                 if (req->link != link)
+                         continue;
+@@ -1020,39 +1024,58 @@
+                 /* If the request is already called, but its reply is not received, then we need to
+                  * drop the configuration (e.g. address) here. Note, if the configuration is known,
+                  * it will be handled later by link_drop_unmanaged_addresses() or so. */
+-                if (req->waiting_reply && link->state != LINK_STATE_LINGER)
+-                        switch (req->type) {
+-                        case REQUEST_TYPE_ADDRESS: {
+-                                Address *address = ASSERT_PTR(req->userdata);
++                bool remove = req->waiting_reply && link->state != LINK_STATE_LINGER;
++
++                switch (req->type) {
++                case REQUEST_TYPE_ADDRESS: {
++                        Address *address = ASSERT_PTR(req->userdata);
++
++                        if (source >= 0 && address->source != source)
++                                continue;
+ 
+-                                if (address_get(link, address, NULL) < 0)
++                        if (address_get(link, address, /* ret= */ NULL) < 0) {
++                                if (remove)
+                                         RET_GATHER(ret, address_remove(address, link));
+-                                break;
++                                else
++                                        ipv4acd_detach(link, address);
+                         }
+-                        case REQUEST_TYPE_NEIGHBOR: {
+-                                Neighbor *neighbor = ASSERT_PTR(req->userdata);
++                        break;
++                }
++                case REQUEST_TYPE_NEIGHBOR: {
++                        Neighbor *neighbor = ASSERT_PTR(req->userdata);
+ 
+-                                if (neighbor_get(link, neighbor, NULL) < 0)
+-                                        RET_GATHER(ret, neighbor_remove(neighbor, link));
+-                                break;
+-                        }
+-                        case REQUEST_TYPE_NEXTHOP: {
+-                                NextHop *nexthop = ASSERT_PTR(req->userdata);
++                        if (source >= 0 && neighbor->source != source)
++                                continue;
+ 
+-                                if (nexthop_get_by_id(link->manager, nexthop->id, NULL) < 0)
+-                                        RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
+-                                break;
+-                        }
+-                        case REQUEST_TYPE_ROUTE: {
+-                                Route *route = ASSERT_PTR(req->userdata);
++                        if (remove && neighbor_get(link, neighbor, /* ret= */ NULL) < 0)
++                                RET_GATHER(ret, neighbor_remove(neighbor, link));
++                        break;
++                }
++                case REQUEST_TYPE_NEXTHOP: {
++                        NextHop *nexthop = ASSERT_PTR(req->userdata);
+ 
+-                                if (route_get(link->manager, route, NULL) < 0)
+-                                        RET_GATHER(ret, route_remove(route, link->manager));
+-                                break;
+-                        }
+-                        default:
+-                                ;
+-                        }
++                        if (source >= 0 && nexthop->source != source)
++                                continue;
++
++                        if (remove && nexthop_get_by_id(link->manager, nexthop->id, /* ret= */ NULL) < 0)
++                                RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
++                        break;
++                }
++                case REQUEST_TYPE_ROUTE: {
++                        Route *route = ASSERT_PTR(req->userdata);
++
++                        if (source >= 0 && route->source != source)
++                                continue;
++
++                        if (remove && route_get(link->manager, route, /* ret= */ NULL) < 0)
++                                RET_GATHER(ret, route_remove(route, link->manager));
++                        break;
++                }
++                default:
++                        /* If a source is specified, then ignore all other kinds of requests. */
++                        if (source >= 0)
++                                continue;
++                }
+ 
+                 request_detach(req);
+         }
+@@ -1071,7 +1094,7 @@
+         /* Drop all references from other links and manager. Note that async netlink calls may have
+          * references to the link, and they will be dropped when we receive replies. */
+ 
+-        (void) link_drop_requests(link);
++        (void) link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
+ 
+         link_free_bound_to_list(link);
+         link_free_bound_by_list(link);
+@@ -1351,7 +1374,7 @@
+                       "Unmanaging interface.");
+ 
+         (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
+-        (void) link_drop_requests(link);
++        (void) link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
+         (void) link_drop_static_config(link);
+ 
+         /* The bound_to map depends on .network file, hence it needs to be freed. But, do not free the
+@@ -1436,7 +1459,7 @@
+                               isempty(joined) ? "" : ")");
+ 
+         /* Dropping configurations based on the old .network file. */
+-        r = link_drop_requests(link);
++        r = link_drop_requests(link, _NETWORK_CONFIG_SOURCE_INVALID);
+         if (r < 0)
+                 return r;
+ 
+diff -urN --no-dereference '--exclude=*.rej' '--exclude=*.orig' '--exclude=test' pristine/src/network/networkd-link.h systemd-257.13/src/network/networkd-link.h
+--- a/src/network/networkd-link.h	2026-10-07 13:13:22.398047099 +0200
++++ b/src/network/networkd-link.h	2026-10-07 13:14:21.278983544 +0200
+@@ -258,6 +258,7 @@
+ int link_ipv6ll_gained(Link *link);
+ bool link_has_ipv6_connectivity(Link *link);
+ 
++int link_drop_requests(Link *link, NetworkConfigSource source);
+ int link_stop_engines(Link *link, bool may_keep_dynamic);
+ 
+ const char* link_state_to_string(LinkState s) _const_;
+diff -urN --no-dereference '--exclude=*.rej' '--exclude=*.orig' '--exclude=test' pristine/src/network/networkd-ndisc.c systemd-257.13/src/network/networkd-ndisc.c
+--- a/src/network/networkd-ndisc.c	2026-10-07 13:13:22.398047099 +0200
++++ b/src/network/networkd-ndisc.c	2026-10-07 13:14:21.378985131 +0200
+@@ -3127,6 +3127,9 @@
+ void ndisc_flush(Link *link) {
+         assert(link);
+ 
++        /* First, drop pending requests. */
++        (void) link_drop_requests(link, NETWORK_CONFIG_SOURCE_NDISC);
++
+         /* Remove all addresses, routes, RDNSS, DNSSL, DNR, and Captive Portal entries, without exception. */
+         (void) ndisc_drop_outdated(link, /* router = */ NULL, /* timestamp_usec = */ USEC_INFINITY);
+         (void) ndisc_drop_redirect(link, /* router = */ NULL);
