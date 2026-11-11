@@ -23,6 +23,7 @@ Source1: license.txt
 %include %{SOURCE1}
 
 Patch0: fix-selinux-relabel-first-boot.patch
+Patch1: stig-audit-backlog-limit.patch
 
 Requires: ansible >= 2.20.1
 Requires: ansible-community-general
@@ -60,7 +61,7 @@ popd
 
 %changelog
 * Tue Nov 10 2026 Daniel Casota <dcasota@gmail.com> 3.4-3
-- Add first-boot SELinux relabel
+- Add first-boot SELinux relabel; audit_backlog_limit 8192
 * Wed Nov 04 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 3.4-2
 - extend release to 91
 * Fri Oct 09 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 3.4-1
