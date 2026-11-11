@@ -6,7 +6,7 @@
 Summary:        Usermode tools for VMware virts
 Name:           open-vm-tools
 Version:        13.1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 URL:            https://github.com/vmware/open-vm-tools
 Group:          Applications/System
 Vendor:         VMware, Inc.
@@ -31,6 +31,7 @@ Patch2: gosc-change-order-of-args-to-cloud-init-in-Ph4-and-above.patch
 %if 0%{?photon_subrelease} >= 91
 Patch3: ovt-Fix-build-for-newer-glibc.patch
 %endif
+Patch4: vgauthImport-use-the-arguments-left-after-option-parsing.patch
 
 BuildRequires: glib-devel
 BuildRequires: libxml2-devel
@@ -270,6 +271,8 @@ rm -rf %{buildroot}/*
 %{_bindir}/vmtoolsd
 
 %changelog
+* Tue Nov 10 2026 Daniel Casota <dcasota@gmail.com> 13.1.0-4
+- vmware-alias-import: use the arguments left after option parsing
 * Wed Nov 04 2026 Vamsi Krishna Brahmajosyula <vamsi-krishna.brahmajosyula@broadcom.com> 13.1.0-3
 - extend release to 91
 * Wed Sep 02 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 13.1.0-2
