@@ -1,6 +1,6 @@
 %changelog
 * Mon Nov 09 2026 Daniel Casota <dcasota@gmail.com> 6.12.115-4
-- Share canister/.config handling via canister_config.inc
+- Share canister_config.inc; %%ghost the files depmod generates
 * Mon Nov 09 2026 Shreenidhi Shedi <shreenidhi.shedi@broadcom.com> 6.12.115-3
 - Build for sr-91 and above
 * Mon Nov 09 2026 Ajay Kaher <ajay.kaher@broadcom.com> 6.12.115-2
